@@ -2,85 +2,74 @@ extends CharacterBody3D
 
 var game: Node
 var player: CharacterBody3D
-var hp := 65.0
-var attack_cd := 0.0
-var stun := 0.0
-var dead := false
-var move_speed := 2.7
-var body_parts: Array[MeshInstance3D] = []
+var hp: float = 80.0
+var attack_cd: float = 0.0
+var stun: float = 0.0
+var dead: bool = false
+var move_speed: float = 2.8
+var visual_root: Node3D
+var bob_time: float = 0.0
 
-func _ready():
-	var cs := CollisionShape3D.new()
-	var cap := CapsuleShape3D.new()
-	cap.radius = 0.42
-	cap.height = 1.8
+func _ready() -> void:
+	var cs: CollisionShape3D = CollisionShape3D.new()
+	var cap: CapsuleShape3D = CapsuleShape3D.new()
+	cap.radius = 0.40
+	cap.height = 1.82
 	cs.shape = cap
-	cs.position.y = 0.9
+	cs.position.y = 0.92
 	add_child(cs)
-	_build_teacher()
+	_build_visual()
 
-func _build_teacher():
-	var cloth := _mat(Color(0.12,0.16,0.22),0.72)
-	var shirt := _mat(Color(0.78,0.80,0.77),0.88)
-	var skin := _mat(Color(0.52,0.34,0.24),0.8)
-	var tie := _mat(Color(0.35,0.03,0.05),0.6)
-	_part(Vector3(0,1.15,0),Vector3(0.72,0.92,0.38),cloth)
-	_part(Vector3(0,1.73,0),Vector3(0.38,0.38,0.38),skin)
-	_part(Vector3(0,1.35,-0.205),Vector3(0.34,0.42,0.05),shirt)
-	_part(Vector3(0,1.36,-0.235),Vector3(0.07,0.32,0.035),tie)
-	for sx in [-0.48,0.48]:
-		_part(Vector3(sx,1.18,0),Vector3(0.18,0.78,0.20),cloth)
-	for sx in [-0.22,0.22]:
-		_part(Vector3(sx,0.55,0),Vector3(0.22,0.85,0.24),cloth)
-
-func _mat(c: Color, rough: float) -> StandardMaterial3D:
-	var m:=StandardMaterial3D.new()
-	m.albedo_color=c
-	m.roughness=rough
-	return m
-
-func _part(pos:Vector3,size:Vector3,mat:Material):
-	var mi:=MeshInstance3D.new()
-	var b:=BoxMesh.new()
-	b.size=size
-	mi.mesh=b
-	mi.material_override=mat
-	mi.position=pos
-	add_child(mi)
-	body_parts.append(mi)
-
-func _physics_process(delta):
-	if dead or not player:
-		return
-	attack_cd=max(0.0,attack_cd-delta)
-	stun=max(0.0,stun-delta)
-	var to_p:=player.global_position-global_position
-	to_p.y=0
-	if stun<=0.0 and to_p.length()>1.25:
-		velocity=to_p.normalized()*move_speed
-		look_at(global_position+Vector3(to_p.x,0,to_p.z),Vector3.UP)
+func _build_visual() -> void:
+	visual_root = Node3D.new()
+	visual_root.position = Vector3(0, 0.02, 0)
+	add_child(visual_root)
+	var packed: PackedScene = load("res://assets/school_teacher.glb")
+	if packed != null:
+		var inst: Node = packed.instantiate()
+		visual_root.add_child(inst)
+		if inst is Node3D:
+			(inst as Node3D).scale = Vector3(1.0, 1.0, 1.0)
+			(inst as Node3D).rotation.y = PI
 	else:
-		velocity.x=move_toward(velocity.x,0.0,delta*10.0)
-		velocity.z=move_toward(velocity.z,0.0,delta*10.0)
-	velocity.y=-1.0
+		var fallback: MeshInstance3D = MeshInstance3D.new()
+		var box: BoxMesh = BoxMesh.new()
+		box.size = Vector3(0.7, 1.8, 0.45)
+		fallback.mesh = box
+		visual_root.add_child(fallback)
+
+func _physics_process(delta: float) -> void:
+	if dead or player == null:
+		return
+	attack_cd = max(0.0, attack_cd - delta)
+	stun = max(0.0, stun - delta)
+	bob_time += delta * (3.2 if stun <= 0.0 else 6.0)
+	visual_root.position.y = 0.02 + sin(bob_time) * 0.03
+	var to_player: Vector3 = player.global_position - global_position
+	to_player.y = 0.0
+	if stun <= 0.0 and to_player.length() > 1.35:
+		velocity = to_player.normalized() * move_speed
+		look_at(global_position + Vector3(to_player.x, 0.0, to_player.z), Vector3.UP)
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, delta * 10.0)
+		velocity.z = move_toward(velocity.z, 0.0, delta * 10.0)
+	velocity.y = -1.0
 	move_and_slide()
-	if to_p.length()<1.45 and attack_cd<=0.0 and stun<=0.0:
-		attack_cd=1.0
-		player.take_damage(8.0)
+	if to_player.length() < 1.45 and attack_cd <= 0.0 and stun <= 0.0:
+		attack_cd = 1.0
+		if player != null:
+			player.take_damage(8.0)
 
-func take_hit(damage:float, impulse:Vector3):
-	if dead:return
-	hp-=damage
-	stun=0.25
-	velocity=impulse
-	for p in body_parts:
-		p.scale=Vector3(1.05,0.94,1.05)
-	var tw:=create_tween()
-	tw.tween_method(_reset_scale,0.0,1.0,0.12)
-	if hp<=0.0:
-		dead=true
-		if game: game.teacher_ko(self)
-
-func _reset_scale(t:float):
-	for p in body_parts:
-		p.scale=Vector3.ONE
+func take_hit(damage: float, impulse: Vector3) -> void:
+	if dead:
+		return
+	hp -= damage
+	stun = 0.24
+	velocity = impulse
+	visual_root.scale = Vector3(1.06, 0.95, 1.06)
+	var tw: Tween = create_tween()
+	tw.tween_property(visual_root, "scale", Vector3.ONE, 0.14)
+	if hp <= 0.0:
+		dead = true
+		if game != null:
+			game.teacher_ko(self)
