@@ -1,11 +1,11 @@
-name: Zorix Godot Headless Android APK
+name: Zorix Godot Headless Android APK v0.3
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-      - zorix-upgrade
+      - zorix-v03
 
 jobs:
   build:
@@ -15,18 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Restore upgrade project
+      - name: Restore v0.3 project snapshot
         shell: bash
         run: |
-          cat upgrade/chunk00.b64 upgrade/chunk01.b64 upgrade/chunk02.b64 upgrade/chunk03.b64 upgrade/chunk04.b64 > upgrade.b64
+          cat v03/chunk00.b64 v03/chunk01.b64 v03/chunk02.b64 v03/chunk03.b64 v03/chunk04.b64 v03/chunk05.b64 v03/chunk06.b64 > upgrade.b64
           base64 -d upgrade.b64 > upgrade.zip
-          echo "ee37bdeb35cae1866de035395d386aac704de76ffc916346df90781bb0a8bc45  upgrade.zip" | sha256sum -c -
+          echo "054a7037bebddd6a4be9e697f495c5577756bc7b4c075681d2fb3226a74f65ea  upgrade.zip" | sha256sum -c -
           mkdir app
           unzip -q upgrade.zip -d app
           test -s app/scripts/game.gd
+          test -s app/scripts/player.gd
           test -s app/ui/icon.svg
 
-      - name: Generate GLB and audio assets
+      - name: Generate higher-detail GLB and audio assets
         shell: bash
         run: |
           python -m pip install --disable-pip-version-check trimesh numpy cairosvg
@@ -44,6 +45,11 @@ jobs:
           test -s app/assets/hospital_bed.glb
           test -s app/assets/security_door.glb
           test -s app/assets/hall_module.glb
+          test -s app/assets/wheelchair.glb
+          test -s app/assets/iv_stand.glb
+          test -s app/assets/reception_desk.glb
+          test -s app/assets/medicine_cabinet.glb
+          test -s app/audio/ambience.wav
           test -s app/audio/footsteps.wav
           test -s app/audio/breathing.wav
           test -s app/audio/chase.wav
@@ -102,7 +108,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export landscape APK with Godot headless
+      - name: Export v0.3 landscape APK with Godot headless
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -110,12 +116,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/escape-black-pine-zorix.apk
-          test -s app/build/escape-black-pine-zorix.apk
+          godot --headless --path app --export-debug Android build/escape-black-pine-zorix-v03.apk
+          test -s app/build/escape-black-pine-zorix-v03.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: escape-black-pine-zorix-apk
-          path: app/build/escape-black-pine-zorix.apk
+          name: escape-black-pine-zorix-v03-apk
+          path: app/build/escape-black-pine-zorix-v03.apk
           if-no-files-found: error
