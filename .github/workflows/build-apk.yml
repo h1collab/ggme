@@ -23,6 +23,7 @@ jobs:
           echo "7fd9187029f38ccd790f73e5bc2a055cd0023c5cc7fb0220b3bd3530c7db70bf  source.zip" | sha256sum -c -
           mkdir src
           unzip -q source.zip -d src
+          sed -i 's/compileSdk 37/compileSdk 36/' src/app/build.gradle
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -36,7 +37,7 @@ jobs:
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path "*/bin/sdkmanager" | sort -V | tail -n 1)"
           echo "Using $SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-37" "build-tools;36.0.0" "ndk;30.0.16248370" "cmake;3.22.1"
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;30.0.16248370" "cmake;3.22.1"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
