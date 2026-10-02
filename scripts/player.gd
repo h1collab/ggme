@@ -112,7 +112,7 @@ func _unhandled_input(event):
 				look_touch = -1
 	elif event is InputEventScreenDrag:
 		if event.index == move_touch:
-			var d := (event.position - move_origin) / 90.0
+			var d: Vector2 = (event.position - move_origin) / 90.0
 			move_vector = Vector2(clampf(d.x, -1, 1), clampf(d.y, -1, 1))
 		elif event.index == look_touch:
 			_look(event.relative * 0.0042)
