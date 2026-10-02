@@ -24,7 +24,7 @@ func _build_visual() -> void:
 	visual_root = Node3D.new()
 	visual_root.position = Vector3(0, 0.02, 0)
 	add_child(visual_root)
-	var packed: PackedScene = load("res://assets/school_teacher.glb")
+	var packed: PackedScene = load("res://assets/teacher_sketchfab_rebuild.glb")
 	if packed != null:
 		var inst: Node = packed.instantiate()
 		visual_root.add_child(inst)
