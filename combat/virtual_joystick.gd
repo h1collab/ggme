@@ -1,39 +1,42 @@
 extends Control
 
-var value := Vector2.ZERO
-var pointer := -1
-var center := Vector2.ZERO
-var radius := 78.0
+var value: Vector2 = Vector2.ZERO
+var pointer_id: int = -1
+var drag_center: Vector2 = Vector2.ZERO
+var radius: float = 78.0
 
-func _ready():
+func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
-	custom_minimum_size = Vector2(190,190)
+	custom_minimum_size = Vector2(190, 190)
 	queue_redraw()
 
-func _gui_input(event):
+func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
-		if event.pressed and pointer == -1:
-			pointer = event.index
-			center = event.position
-			_update_value(event.position)
-		elif not event.pressed and event.index == pointer:
-			pointer = -1
+		var touch: InputEventScreenTouch = event
+		if touch.pressed and pointer_id == -1:
+			pointer_id = touch.index
+			drag_center = touch.position
+			_update_value(touch.position)
+		elif not touch.pressed and touch.index == pointer_id:
+			pointer_id = -1
 			value = Vector2.ZERO
 			queue_redraw()
-	elif event is InputEventScreenDrag and event.index == pointer:
-		_update_value(event.position)
+	elif event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event
+		if drag.index == pointer_id:
+			_update_value(drag.position)
 
-func _update_value(pos: Vector2):
-	var d := pos - center
-	if d.length() > radius:
-		d = d.normalized() * radius
-	value = d / radius
+func _update_value(pos: Vector2) -> void:
+	var offset: Vector2 = pos - drag_center
+	if offset.length() > radius:
+		offset = offset.normalized() * radius
+	value = offset / radius
 	queue_redraw()
 
-func _draw():
-	var c := size * 0.5
-	draw_circle(c, 76.0, Color(0.08,0.10,0.14,0.48))
-	draw_circle(c, 70.0, Color(0.2,0.28,0.38,0.22), false, 4.0)
-	var knob := c + value * 48.0
-	draw_circle(knob, 28.0, Color(0.78,0.84,0.92,0.78))
-	draw_circle(knob, 24.0, Color(0.34,0.45,0.60,0.55))
+func _draw() -> void:
+	var center: Vector2 = size * 0.5
+	draw_circle(center, 76.0, Color(0.07, 0.10, 0.15, 0.46))
+	draw_circle(center, 70.0, Color(0.26, 0.34, 0.44, 0.22), false, 4.0)
+	var knob: Vector2 = center + value * 48.0
+	draw_circle(knob, 29.0, Color(0.82, 0.87, 0.93, 0.78))
+	draw_circle(knob, 23.0, Color(0.33, 0.46, 0.63, 0.54))
