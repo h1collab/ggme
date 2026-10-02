@@ -55,16 +55,18 @@ jobs:
       - name: Headless import and project validation
         run: |
           godot --headless --path . --import
-          godot --headless --path . --editor --quit
+          godot --headless --path . --script scripts/player.gd --check-only
+godot --headless --path . --script scripts/stalker.gd --check-only
+godot --headless --path . --script scripts/game.gd --check-only
 
       - name: Create debug keystore
         run: |
           mkdir -p "$HOME/.android"
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$HOME/.android/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
       - name: Export APK in headless mode
         env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ env.HOME }}/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
