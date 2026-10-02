@@ -1,10 +1,10 @@
-name: Zorix School Brawl Android APK
+name: Zorix School Brawl Final APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - school-brawl
+      - school-brawl-final
       - main
 
 jobs:
@@ -43,6 +43,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check trimesh numpy cairosvg
           python app/tools/generate_assets.py
+          python tools/generate_school_brawl_assets.py app/assets
           python - <<'PY'
           import cairosvg
           cairosvg.svg2png(url="app/ui/icon.svg", write_to="app/ui/icon.png", output_width=512, output_height=512)
@@ -51,6 +52,8 @@ jobs:
           sed -i 's#config/icon="res://ui/icon.svg"#config/icon="res://ui/icon.png"#' app/project.godot
           sed -i 's#res://ui/icon.svg#res://ui/icon.png#g' app/export_presets.cfg
           test -s app/ui/icon.png
+          test -s app/assets/school_teacher.glb
+          test -s app/assets/school_desk.glb
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -114,12 +117,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/school-brawl-zorix.apk
-          test -s app/build/school-brawl-zorix.apk
+          godot --headless --path app --export-debug Android build/school-brawl-zorix-final.apk
+          test -s app/build/school-brawl-zorix-final.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: school-brawl-zorix-apk
-          path: app/build/school-brawl-zorix.apk
+          name: school-brawl-zorix-final-apk
+          path: app/build/school-brawl-zorix-final.apk
           if-no-files-found: error
