@@ -29,8 +29,16 @@ jobs:
       - name: Generate GLB and audio assets
         shell: bash
         run: |
-          python -m pip install --disable-pip-version-check trimesh numpy
+          python -m pip install --disable-pip-version-check trimesh numpy cairosvg
           python app/tools/generate_assets.py
+          python - <<'PY'
+          import cairosvg
+          cairosvg.svg2png(url="app/ui/icon.svg", write_to="app/ui/icon.png", output_width=512, output_height=512)
+          PY
+          sed -i 's#boot_splash/image="res://ui/icon.svg"#boot_splash/image="res://ui/icon.png"#' app/project.godot
+          sed -i 's#config/icon="res://ui/icon.svg"#config/icon="res://ui/icon.png"#' app/project.godot
+          sed -i 's#res://ui/icon.svg#res://ui/icon.png#g' app/export_presets.cfg
+          test -s app/ui/icon.png
           test -s app/assets/night_warden.glb
           test -s app/assets/locker_bank.glb
           test -s app/assets/hospital_bed.glb
@@ -102,7 +110,7 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android app/build/escape-black-pine-zorix.apk
+          godot --headless --path app --export-debug Android build/escape-black-pine-zorix.apk
           test -s app/build/escape-black-pine-zorix.apk
 
       - name: Upload APK
