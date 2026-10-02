@@ -1,19 +1,44 @@
-name: Godot Headless Android APK
+name: Zorix Godot Headless Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+      - zorix-upgrade
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      GODOT_VERSION: 4.7.2
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore upgrade project
+        shell: bash
+        run: |
+          cat upgrade/chunk00.b64 upgrade/chunk01.b64 upgrade/chunk02.b64 upgrade/chunk03.b64 upgrade/chunk04.b64 > upgrade.b64
+          base64 -d upgrade.b64 > upgrade.zip
+          echo "ee37bdeb35cae1866de035395d386aac704de76ffc916346df90781bb0a8bc45  upgrade.zip" | sha256sum -c -
+          mkdir app
+          unzip -q upgrade.zip -d app
+          test -s app/scripts/game.gd
+          test -s app/ui/icon.svg
+
+      - name: Generate GLB and audio assets
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check trimesh numpy
+          python app/tools/generate_assets.py
+          test -s app/assets/night_warden.glb
+          test -s app/assets/locker_bank.glb
+          test -s app/assets/hospital_bed.glb
+          test -s app/assets/security_door.glb
+          test -s app/assets/hall_module.glb
+          test -s app/audio/footsteps.wav
+          test -s app/audio/breathing.wav
+          test -s app/audio/chase.wav
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -27,11 +52,13 @@ jobs:
           packages: platform-tools
 
       - name: Install Android packages
+        shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "build-tools;35.0.1" "platforms;android-35" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;28.1.13356709"
 
-      - name: Install Godot 4.7.2 + export templates
+      - name: Install Godot 4.7.2
+        shell: bash
         run: |
           curl -L -o godot.zip "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
           unzip -q godot.zip
@@ -43,6 +70,7 @@ jobs:
           cp -r /tmp/godot-templates/templates/* "$HOME/.local/share/godot/export_templates/4.7.2.stable/"
 
       - name: Configure Godot Android paths
+        shell: bash
         run: |
           mkdir -p "$HOME/.config/godot"
           cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<SETTINGS
@@ -52,31 +80,34 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           SETTINGS
 
-      - name: Headless import and project validation
+      - name: Headless import and GDScript validation
+        shell: bash
         run: |
-          godot --headless --path . --import
-          godot --headless --path . --script scripts/player.gd --check-only
-          godot --headless --path . --script scripts/stalker.gd --check-only
-          godot --headless --path . --script scripts/game.gd --check-only
+          godot --headless --path app --import
+          godot --headless --path app --script scripts/virtual_joystick.gd --check-only
+          godot --headless --path app --script scripts/player.gd --check-only
+          godot --headless --path app --script scripts/stalker.gd --check-only
+          godot --headless --path app --script scripts/game.gd --check-only
 
       - name: Create debug keystore
+        shell: bash
         run: |
-          mkdir -p "$HOME/.android"
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export APK in headless mode
+      - name: Export landscape APK with Godot headless
+        shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
-          mkdir -p build
-          godot --headless --path . --export-debug Android build/escape-black-pine.apk
-          test -s build/escape-black-pine.apk
+          mkdir -p app/build
+          godot --headless --path app --export-debug Android app/build/escape-black-pine-zorix.apk
+          test -s app/build/escape-black-pine-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: escape-black-pine-apk
-          path: build/escape-black-pine.apk
+          name: escape-black-pine-zorix-apk
+          path: app/build/escape-black-pine-zorix.apk
           if-no-files-found: error
