@@ -24,6 +24,7 @@ jobs:
           mkdir src
           unzip -q source.zip -d src
           sed -i 's/compileSdk 37/compileSdk 36/' src/app/build.gradle
+          sed -i 's/AWINDOW_FLAG_FULLSCREEN | AWINDOW_FLAG_KEEP_SCREEN_ON/0x00000400 | 0x00000080/' src/app/src/main/cpp/main.cpp
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
