@@ -270,6 +270,15 @@ func _build_ui() -> void:
 	info.modulate = Color(0.80,0.84,0.90)
 	main_menu.add_child(info)
 
+	var credits := Label.new()
+	credits.position = Vector2(55,555)
+	credits.size = Vector2(650,45)
+	credits.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	credits.add_theme_font_size_override("font_size",13)
+	credits.modulate = Color(0.58,0.64,0.72)
+	credits.text = "3D reference credits: MandatoryR · T I A N · alehklimchuk.design · Kasugamon · freenomad"
+	main_menu.add_child(credits)
+
 	settings_panel = _build_settings_panel()
 	layer.add_child(settings_panel)
 	settings_panel.visible = false
