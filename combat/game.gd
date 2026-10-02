@@ -65,57 +65,82 @@ func _static_box(pos: Vector3, size3: Vector3, material: Material) -> void:
 	var body := StaticBody3D.new()
 	body.position = pos
 	add_child(body)
-	_mesh_box(body, Vector3.ZERO, size3, material)
 	var cs := CollisionShape3D.new()
 	var sh := BoxShape3D.new()
 	sh.size = size3
 	cs.shape = sh
 	body.add_child(cs)
 
+func _spawn_asset(path: String, pos: Vector3, rot_y: float = 0.0, scale3: Vector3 = Vector3.ONE) -> Node3D:
+	var packed: PackedScene = load(path)
+	if packed == null:
+		return null
+	var inst: Node = packed.instantiate()
+	if inst is Node3D:
+		var n := inst as Node3D
+		n.position = pos
+		n.rotation.y = rot_y
+		n.scale = scale3
+		add_child(n)
+		return n
+	return null
+
 func _build_world() -> void:
 	var world := WorldEnvironment.new()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.06,0.10,0.14)
+	env.background_color = Color(0.055,0.085,0.12)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.55,0.61,0.72)
-	env.ambient_light_energy = 0.62
+	env.ambient_light_color = Color(0.52,0.60,0.72)
+	env.ambient_light_energy = 0.58
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	world.environment = env
 	add_child(world)
 
-	var floor_mat := _mat(Color(0.56,0.54,0.50),0.95)
-	var wall_mat := _mat(Color(0.83,0.85,0.82),0.92)
-	var dark_mat := _mat(Color(0.18,0.22,0.26),0.70)
-	var board_mat := _mat(Color(0.07,0.18,0.12),0.9)
+	# Visual architecture is a reconstructed GLB rather than runtime box geometry.
+	_spawn_asset("res://assets/classroom_shell_sketchfab_rebuild.glb", Vector3.ZERO)
 
-	_static_box(Vector3(0,-0.25,0),Vector3(34,0.5,26),floor_mat)
-	_static_box(Vector3(0,3.28,0),Vector3(34,0.22,26),_mat(Color(0.95,0.96,0.97),1.0))
-	_static_box(Vector3(-17,1.6,0),Vector3(0.45,3.2,26),wall_mat)
-	_static_box(Vector3(17,1.6,0),Vector3(0.45,3.2,26),wall_mat)
-	_static_box(Vector3(0,1.6,-13),Vector3(34,3.2,0.45),wall_mat)
-	_static_box(Vector3(0,1.6,13),Vector3(34,3.2,0.45),wall_mat)
+	# Invisible collision shell.
+	_static_box(Vector3(0,-0.25,0),Vector3(34,0.5,26),_mat(Color.WHITE))
+	_static_box(Vector3(-17,1.6,0),Vector3(0.45,3.2,26),_mat(Color.WHITE))
+	_static_box(Vector3(17,1.6,0),Vector3(0.45,3.2,26),_mat(Color.WHITE))
+	_static_box(Vector3(0,1.6,-13),Vector3(34,3.2,0.45),_mat(Color.WHITE))
+	_static_box(Vector3(0,1.6,13),Vector3(34,3.2,0.45),_mat(Color.WHITE))
 
-	for x in [-11.0,0.0,11.0]:
-		_static_box(Vector3(x,1.6,0),Vector3(0.22,3.2,26),dark_mat)
-	for z in [-7.8,7.8]:
-		_static_box(Vector3(0,1.6,z),Vector3(34,3.2,0.22),dark_mat)
-
-	for x in [-13,-9,-5,-1,3,7,11]:
-		var l := OmniLight3D.new()
-		l.position = Vector3(x,2.7,0)
-		l.omni_range = 8.5
-		l.light_energy = 1.55
-		l.light_color = Color(0.96,0.98,1.0)
-		add_child(l)
-
+	# High-detail classroom furniture.
 	for row in [-4.5,0.2,4.9]:
 		for col in [-9.0,-3.0,3.0,9.0]:
 			_spawn_desk(Vector3(col,0,row),PI)
 	for x in [-8.5,-2.8,2.8,8.5]:
-		_spawn_desk(Vector3(x,0,-10.2),0.0)
+		_spawn_desk(Vector3(x,0,-10.0),0.0)
 
-	_mesh_box(self,Vector3(0,1.95,-12.55),Vector3(10.5,1.8,0.10),board_mat)
+	_spawn_asset("res://assets/teacher_desk_sketchfab_rebuild.glb",Vector3(0,0,-10.8),0.0)
+	_spawn_asset("res://assets/blackboard_sketchfab_rebuild.glb",Vector3(0,0,-12.45),0.0,Vector3(1.6,1.0,1.0))
+	_spawn_asset("res://assets/lockers_sketchfab_rebuild.glb",Vector3(-15.7,0,-7.5),PI/2.0)
+	_spawn_asset("res://assets/lockers_sketchfab_rebuild.glb",Vector3(-15.7,0,-4.9),PI/2.0)
+	_spawn_asset("res://assets/classroom_cabinet_sketchfab_rebuild.glb",Vector3(14.8,0,-8.7),-PI/2.0)
+	_spawn_asset("res://assets/trash_can_sketchfab_rebuild.glb",Vector3(14.4,0,-6.8))
+	_spawn_asset("res://assets/wall_clock_sketchfab_rebuild.glb",Vector3(5.0,2.35,-12.45))
+	_spawn_asset("res://assets/school_backpack_sketchfab_rebuild.glb",Vector3(-7.7,0.0,1.0),0.35,Vector3(0.85,0.85,0.85))
+	_spawn_asset("res://assets/school_backpack_sketchfab_rebuild.glb",Vector3(4.0,0.0,5.7),-0.6,Vector3(0.8,0.8,0.8))
+	_spawn_asset("res://assets/book_stack_sketchfab_rebuild.glb",Vector3(-2.6,0.78,-10.2),0.2)
+	_spawn_asset("res://assets/book_stack_sketchfab_rebuild.glb",Vector3(8.6,0.78,-10.1),-0.15)
+
+	# Doors and windows.
+	_spawn_asset("res://assets/classroom_door_sketchfab_rebuild.glb",Vector3(14.6,0,-12.45),0.0)
+	_spawn_asset("res://assets/classroom_door_sketchfab_rebuild.glb",Vector3(-14.6,0,12.45),PI)
+	for x in [-12,-8,-4,0,4,8,12]:
+		_spawn_asset("res://assets/school_window_sketchfab_rebuild.glb",Vector3(x,1.0,12.42),PI)
+
+	# Light fixtures are modeled GLBs; OmniLight3D supplies actual illumination.
+	for x in [-13,-9,-5,-1,3,7,11]:
+		_spawn_asset("res://assets/fluorescent_light_sketchfab_rebuild.glb",Vector3(x,3.05,0))
+		var l := OmniLight3D.new()
+		l.position = Vector3(x,2.72,0)
+		l.omni_range = 8.5
+		l.light_energy = 1.55
+		l.light_color = Color(0.96,0.98,1.0)
+		add_child(l)
 
 func _spawn_desk(pos: Vector3, rot_y: float) -> void:
 	var body := StaticBody3D.new()
@@ -128,7 +153,7 @@ func _spawn_desk(pos: Vector3, rot_y: float) -> void:
 	cs.shape = sh
 	cs.position = Vector3(0,0.55,0)
 	body.add_child(cs)
-	var packed: PackedScene = load("res://assets/school_desk.glb")
+	var packed: PackedScene = load("res://assets/student_desk_sketchfab_rebuild.glb")
 	if packed != null:
 		var inst := packed.instantiate()
 		body.add_child(inst)
