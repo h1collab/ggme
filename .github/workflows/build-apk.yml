@@ -1,10 +1,10 @@
-name: Zorix School Brawl Final APK
+name: Zorix School Brawl Sketchfab Rebuild APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - school-brawl-final
+      - school-brawl-sketchfab
       - main
 
 jobs:
@@ -38,12 +38,14 @@ jobs:
           test -s app/scripts/player.gd
           test -s app/scripts/stalker.gd
 
-      - name: Generate assets and Android icon
+      - name: Generate reconstructed Sketchfab-reference GLB assets and Android icon
         shell: bash
         run: |
           python -m pip install --disable-pip-version-check trimesh numpy cairosvg
           python app/tools/generate_assets.py
-          python tools/generate_school_brawl_assets.py app/assets
+          base64 -d tools/generate_sketchfab_rebuild.py.gz.b64 | gzip -d > /tmp/generate_sketchfab_rebuild.py
+          python /tmp/generate_sketchfab_rebuild.py app/assets
+          python tools/generate_school_shell.py app/assets
           python - <<'PY'
           import cairosvg
           cairosvg.svg2png(url="app/ui/icon.svg", write_to="app/ui/icon.png", output_width=512, output_height=512)
@@ -52,8 +54,9 @@ jobs:
           sed -i 's#config/icon="res://ui/icon.svg"#config/icon="res://ui/icon.png"#' app/project.godot
           sed -i 's#res://ui/icon.svg#res://ui/icon.png#g' app/export_presets.cfg
           test -s app/ui/icon.png
-          test -s app/assets/school_teacher.glb
-          test -s app/assets/school_desk.glb
+          for f in             teacher_sketchfab_rebuild.glb             student_desk_sketchfab_rebuild.glb             teacher_desk_sketchfab_rebuild.glb             lockers_sketchfab_rebuild.glb             blackboard_sketchfab_rebuild.glb             classroom_door_sketchfab_rebuild.glb             school_window_sketchfab_rebuild.glb             fluorescent_light_sketchfab_rebuild.glb             school_backpack_sketchfab_rebuild.glb             book_stack_sketchfab_rebuild.glb             trash_can_sketchfab_rebuild.glb             classroom_cabinet_sketchfab_rebuild.glb             wall_clock_sketchfab_rebuild.glb             classroom_shell_sketchfab_rebuild.glb; do
+            test -s "app/assets/$f"
+          done
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -117,12 +120,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/school-brawl-zorix-final.apk
-          test -s app/build/school-brawl-zorix-final.apk
+          godot --headless --path app --export-debug Android build/school-brawl-zorix-sketchfab.apk
+          test -s app/build/school-brawl-zorix-sketchfab.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: school-brawl-zorix-final-apk
-          path: app/build/school-brawl-zorix-final.apk
+          name: school-brawl-zorix-sketchfab-apk
+          path: app/build/school-brawl-zorix-sketchfab.apk
           if-no-files-found: error
