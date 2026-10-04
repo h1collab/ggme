@@ -1,10 +1,10 @@
-name: Build Faceless 2 v2 Gunfight APK
+name: Build Faceless 2 v3 Hands APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - faceless-2-v2
+      - faceless-2-v3-hands
       - main
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
           sed -i 's/School Brawl/Faceless 2/g' app/project.godot
           sed -i 's/Escape Black Pine/Faceless 2/g' app/export_presets.cfg
           sed -i 's/School Brawl/Faceless 2/g' app/export_presets.cfg
-          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v2-zorix.apk/g' app/export_presets.cfg
+          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v3-zorix.apk/g' app/export_presets.cfg
           test -s app/scripts/game.gd
           test -s app/main.tscn
 
@@ -60,7 +60,11 @@ jobs:
             blackwood_soldier.glb \
             ammo_box.glb \
             medkit.glb \
-            street_lamp.glb; do
+            street_lamp.glb \
+            fp_right_hand.glb \
+            fp_left_hand.glb \
+            pistol_mag.glb \
+            rifle_mag.glb; do
             test -s "app/assets/$f"
           done
           test -s app/audio/blackwood_ambience.wav
@@ -131,12 +135,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless-2-v2-zorix.apk
-          test -s app/build/faceless-2-v2-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless-2-v3-zorix.apk
+          test -s app/build/faceless-2-v3-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v2-zorix-apk
-          path: app/build/faceless-2-v2-zorix.apk
+          name: faceless-2-v3-zorix-apk
+          path: app/build/faceless-2-v3-zorix.apk
           if-no-files-found: error
