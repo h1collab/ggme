@@ -2,10 +2,12 @@ extends Node3D
 
 const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/faceless.gd")
+const SoldierScript = preload("res://scripts/soldier.gd")
 const JoystickScript = preload("res://scripts/virtual_joystick.gd")
 
 var player: CharacterBody3D
 var enemy: CharacterBody3D
+var soldiers: Array[CharacterBody3D] = []
 var joystick: Control
 var hud: Label
 var objective_label: Label
@@ -16,26 +18,32 @@ var main_menu: Control
 var mode_panel: Control
 var settings_panel: Control
 var archive_panel: Control
+var crosshair: Label
+var environment: Environment
 var game_started := false
 var selected_mode := "STORY"
 var relays: Array[Node3D] = []
 var relay_active: Array[bool] = []
 var evidence_nodes: Array[Node3D] = []
 var evidence_collected := 0
+var pickups: Array[Node3D] = []
 var terminal: Node3D
 var extraction_gate: Node3D
+var rifle_pickup: Node3D
 var camera_terminal_open := false
 var ambience_player: AudioStreamPlayer
 var static_player: AudioStreamPlayer
 var current_zone := "BLACKWOOD CHECKPOINT"
+var chapter := 1
+var story_flags := {}
 var settings := {
-	"quality": 2,
-	"fps": 60,
-	"fov": 74.0,
-	"sensitivity": 1.0,
-	"brightness": 1.0,
-	"volume": 0.85,
-	"language": 0
+	"quality":2,
+	"fps":60,
+	"fov":76.0,
+	"sensitivity":1.0,
+	"brightness":1.35,
+	"night_visibility":1.0,
+	"volume":0.85
 }
 
 func _ready() -> void:
@@ -52,6 +60,7 @@ func _process(_delta: float) -> void:
 		return
 	_update_nearby_prompt()
 	_update_zone()
+	_update_story()
 
 func get_look_sensitivity() -> float:
 	return float(settings["sensitivity"])
@@ -95,22 +104,30 @@ func _spawn_asset(path: String, pos: Vector3, rot_y := 0.0, scale3 := Vector3.ON
 
 func _build_world() -> void:
 	var world := WorldEnvironment.new()
-	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.015,0.025,0.035)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.16,0.22,0.28)
-	env.ambient_light_energy = 0.28
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.fog_enabled = true
-	env.fog_light_color = Color(0.10,0.14,0.16)
-	env.fog_density = 0.022
-	env.fog_height = 0.0
-	env.fog_height_density = 0.19
-	world.environment = env
+	environment = Environment.new()
+	environment.background_mode = Environment.BG_COLOR
+	environment.background_color = Color(0.07,0.10,0.14)
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color(0.42,0.50,0.62)
+	environment.ambient_light_energy = 0.72
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.adjustment_enabled = true
+	environment.adjustment_brightness = 1.35
+	environment.fog_enabled = true
+	environment.fog_light_color = Color(0.18,0.23,0.28)
+	environment.fog_density = 0.008
+	environment.fog_height = 0.0
+	environment.fog_height_density = 0.08
+	world.environment = environment
 	add_child(world)
 
-	# Invisible terrain collision + visible GLB road/forest set.
+	var moon := DirectionalLight3D.new()
+	moon.rotation_degrees = Vector3(-46,-22,0)
+	moon.light_color = Color(0.52,0.63,0.82)
+	moon.light_energy = 1.15
+	moon.shadow_enabled = true
+	add_child(moon)
+
 	_static_box(Vector3(0,-0.35,-40),Vector3(18,0.7,130),_mat(Color(0.06,0.06,0.065)))
 	_spawn_asset("res://assets/blackwood_road.glb",Vector3(0,0,-40))
 	_spawn_asset("res://assets/checkpoint_gate.glb",Vector3(0,0,8))
@@ -127,40 +144,48 @@ func _build_world() -> void:
 	var relay_positions := [Vector3(5.8,0,-12),Vector3(-6.2,0,-51),Vector3(5.5,0,-82)]
 	for i in range(3):
 		var r := _spawn_asset("res://assets/power_relay.glb",relay_positions[i],0.0)
-		if r != null:
+		if r:
 			r.set_meta("relay_index",i)
 			relays.append(r)
 
 	var evidence_positions := [Vector3(-4.8,0.65,-28),Vector3(5.7,0.65,-63),Vector3(-5.8,0.65,-88)]
 	for i in range(3):
 		var e := _spawn_asset("res://assets/evidence_case.glb",evidence_positions[i],0.2*float(i))
-		if e != null:
+		if e:
 			e.set_meta("evidence_index",i)
 			evidence_nodes.append(e)
 
 	terminal = _spawn_asset("res://assets/security_terminal.glb",Vector3(-6.2,0,-19),0.3)
 	extraction_gate = _spawn_asset("res://assets/extraction_gate.glb",Vector3(0,0,-103),0.0)
+	rifle_pickup = _spawn_asset("res://assets/rifle.glb",Vector3(-6.4,1.0,-67.8),0.4,Vector3(1.3,1.3,1.3))
 
-	for z in [3,-22,-46,-72,-95]:
+	for p in [Vector3(5.3,0,-24),Vector3(-5.5,0,-58),Vector3(4.5,0,-86)]:
+		var a := _spawn_asset("res://assets/ammo_box.glb",p)
+		if a: a.set_meta("pickup","ammo"); pickups.append(a)
+	for p in [Vector3(-4.0,0,-34),Vector3(5.2,0,-76)]:
+		var m := _spawn_asset("res://assets/medkit.glb",p)
+		if m: m.set_meta("pickup","medkit"); pickups.append(m)
+
+	for z in [3,-14,-28,-44,-60,-76,-92]:
+		_spawn_asset("res://assets/street_lamp.glb",Vector3(3.6,0,float(z)))
 		var light := OmniLight3D.new()
-		light.position = Vector3(0,3.4,float(z))
-		light.omni_range = 11.0
-		light.light_energy = 0.65
-		light.light_color = Color(0.55,0.72,0.78)
+		light.position = Vector3(4.1,3.45,float(z))
+		light.omni_range = 16.0
+		light.light_energy = 2.2
+		light.light_color = Color(0.72,0.84,0.95)
 		add_child(light)
 
 func _build_audio() -> void:
 	ambience_player = AudioStreamPlayer.new()
 	ambience_player.stream = load("res://audio/blackwood_ambience.wav")
-	ambience_player.volume_db = -9.0
+	ambience_player.volume_db = -7.0
 	ambience_player.finished.connect(func():
-		if game_started:
-			ambience_player.play()
+		if game_started: ambience_player.play()
 	)
 	add_child(ambience_player)
 	static_player = AudioStreamPlayer.new()
 	static_player.stream = load("res://audio/signal_static.wav")
-	static_player.volume_db = -5.0
+	static_player.volume_db = -4.0
 	add_child(static_player)
 
 func _build_ui() -> void:
@@ -176,32 +201,39 @@ func _build_ui() -> void:
 
 	hud = Label.new()
 	hud.position = Vector2(24,18)
-	hud.size = Vector2(1200,42)
-	hud.add_theme_font_size_override("font_size",21)
+	hud.size = Vector2(1380,42)
+	hud.add_theme_font_size_override("font_size",20)
 	layer.add_child(hud)
 
 	objective_label = Label.new()
 	objective_label.position = Vector2(24,54)
-	objective_label.size = Vector2(1180,60)
+	objective_label.size = Vector2(1250,66)
 	objective_label.add_theme_font_size_override("font_size",17)
 	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_label.modulate = Color(0.68,0.82,0.86)
+	objective_label.modulate = Color(0.75,0.88,0.92)
 	layer.add_child(objective_label)
 
 	prompt_label = Label.new()
-	prompt_label.position = Vector2(470,690)
-	prompt_label.size = Vector2(660,50)
+	prompt_label.position = Vector2(420,690)
+	prompt_label.size = Vector2(760,50)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt_label.add_theme_font_size_override("font_size",20)
-	prompt_label.modulate = Color(0.86,0.92,0.94)
 	layer.add_child(prompt_label)
 
 	notice = Label.new()
-	notice.position = Vector2(350,120)
-	notice.size = Vector2(900,68)
+	notice.position = Vector2(300,115)
+	notice.size = Vector2(1000,75)
 	notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	notice.add_theme_font_size_override("font_size",32)
 	layer.add_child(notice)
+
+	crosshair = Label.new()
+	crosshair.text = "+"
+	crosshair.position = Vector2(790,430)
+	crosshair.size = Vector2(30,30)
+	crosshair.add_theme_font_size_override("font_size",28)
+	crosshair.modulate = Color(0.9,0.94,0.95,0.86)
+	layer.add_child(crosshair)
 
 	joystick = Control.new()
 	joystick.set_script(JoystickScript)
@@ -209,29 +241,24 @@ func _build_ui() -> void:
 	joystick.size = Vector2(190,190)
 	layer.add_child(joystick)
 
-	var interact := _action_button("INTERACT",Vector2(1330,690),Vector2(190,70))
+	var interact := _action_button("INTERACT",Vector2(1360,690),Vector2(180,66))
 	interact.pressed.connect(_interact)
 	layer.add_child(interact)
-
-	var flashlight_btn := _action_button("LIGHT",Vector2(1370,610),Vector2(150,62))
-	flashlight_btn.pressed.connect(func():
-		if player: player.toggle_flashlight()
-	)
+	var fire := _action_button("FIRE",Vector2(1380,610),Vector2(160,66))
+	fire.pressed.connect(func(): if player: player.fire_weapon())
+	layer.add_child(fire)
+	var reload := _action_button("RELOAD",Vector2(1210,610),Vector2(150,58))
+	reload.pressed.connect(func(): if player: player.reload_weapon())
+	layer.add_child(reload)
+	var flashlight_btn := _action_button("LIGHT",Vector2(1220,680),Vector2(125,58))
+	flashlight_btn.pressed.connect(func(): if player: player.toggle_flashlight())
 	layer.add_child(flashlight_btn)
-
-	var crouch_btn := _action_button("CROUCH",Vector2(1195,755),Vector2(160,62))
-	crouch_btn.pressed.connect(func():
-		if player: player.toggle_crouch()
-	)
+	var crouch_btn := _action_button("CROUCH",Vector2(1210,750),Vector2(140,58))
+	crouch_btn.pressed.connect(func(): if player: player.toggle_crouch())
 	layer.add_child(crouch_btn)
-
-	var run_btn := _action_button("RUN",Vector2(1195,675),Vector2(120,62))
-	run_btn.button_down.connect(func():
-		if player: player.set_running(true)
-	)
-	run_btn.button_up.connect(func():
-		if player: player.set_running(false)
-	)
+	var run_btn := _action_button("RUN",Vector2(1055,730),Vector2(120,58))
+	run_btn.button_down.connect(func(): if player: player.set_running(true))
+	run_btn.button_up.connect(func(): if player: player.set_running(false))
 	layer.add_child(run_btn)
 
 	main_menu = _build_main_menu()
@@ -247,418 +274,324 @@ func _build_ui() -> void:
 	archive_panel.visible = false
 
 func _build_main_menu() -> Control:
-	var root := ColorRect.new()
-	root.position = Vector2(180,110)
-	root.size = Vector2(1240,690)
-	root.color = Color(0.005,0.01,0.015,0.96)
-
+	var root := _panel(Vector2(170,90),Vector2(1260,720),Color(0.005,0.01,0.015,0.96))
 	var title := Label.new()
 	title.text = "FACELESS 2"
-	title.position = Vector2(80,44)
-	title.size = Vector2(500,74)
+	title.position = Vector2(80,40)
+	title.size = Vector2(520,74)
 	title.add_theme_font_size_override("font_size",58)
-	title.modulate = Color(0.82,0.07,0.08)
+	title.modulate = Color(0.86,0.07,0.08)
 	root.add_child(title)
-
 	var subtitle := Label.new()
-	subtitle.text = "THE CAMERAS REMEMBER WHAT YOU FORGOT"
-	subtitle.position = Vector2(85,114)
-	subtitle.size = Vector2(680,34)
-	subtitle.add_theme_font_size_override("font_size",18)
-	subtitle.modulate = Color(0.34,0.68,0.72)
+	subtitle.text = "BLACKWOOD // ARMED RESPONSE"
+	subtitle.position = Vector2(85,110)
+	subtitle.add_theme_font_size_override("font_size",20)
+	subtitle.modulate = Color(0.38,0.72,0.76)
 	root.add_child(subtitle)
-
 	var by := Label.new()
 	by.text = "made by zorix"
-	by.position = Vector2(85,154)
-	by.size = Vector2(460,30)
-	by.modulate = Color(0.64,0.64,0.68)
+	by.position = Vector2(85,150)
+	by.modulate = Color(0.65,0.65,0.70)
 	root.add_child(by)
 
-	var continue_btn := _menu_button("CONTINUE",Vector2(90,240),Vector2(390,54))
-	continue_btn.pressed.connect(_continue_game)
-	root.add_child(continue_btn)
-	var new_btn := _menu_button("NEW GAME",Vector2(90,306),Vector2(390,54))
-	new_btn.pressed.connect(func():
-		root.visible = false
-		mode_panel.visible = true
-	)
-	root.add_child(new_btn)
-	var mode_btn := _menu_button("GAME MODES",Vector2(90,372),Vector2(390,54))
-	mode_btn.pressed.connect(func():
-		root.visible = false
-		mode_panel.visible = true
-	)
-	root.add_child(mode_btn)
-	var settings_btn := _menu_button("SETTINGS",Vector2(90,438),Vector2(390,54))
-	settings_btn.pressed.connect(func():
-		root.visible = false
-		settings_panel.visible = true
-	)
-	root.add_child(settings_btn)
-	var archive_btn := _menu_button("ARCHIVE",Vector2(90,504),Vector2(390,54))
-	archive_btn.pressed.connect(func():
-		root.visible = false
-		archive_panel.visible = true
-	)
-	root.add_child(archive_btn)
+	var labels := ["CONTINUE","NEW GAME","GAME MODES","SETTINGS","ARCHIVE"]
+	for i in range(labels.size()):
+		var b := _menu_button(labels[i],Vector2(90,230+i*66),Vector2(390,54))
+		if i == 0: b.pressed.connect(_continue_game)
+		elif i == 1:
+			b.pressed.connect(func(): root.visible=false; mode_panel.visible=true)
+		elif i == 2:
+			b.pressed.connect(func(): root.visible=false; mode_panel.visible=true)
+		elif i == 3:
+			b.pressed.connect(func(): root.visible=false; settings_panel.visible=true)
+		else:
+			b.pressed.connect(func(): root.visible=false; archive_panel.visible=true)
+		root.add_child(b)
 
-	var side := ColorRect.new()
-	side.position = Vector2(610,170)
-	side.size = Vector2(540,400)
-	side.color = Color(0.02,0.06,0.07,0.72)
-	root.add_child(side)
-	var side_text := Label.new()
-	side_text.position = Vector2(28,26)
-	side_text.size = Vector2(485,340)
-	side_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	side_text.add_theme_font_size_override("font_size",20)
-	side_text.text = "CASE ZRX-BW/0217\n\nBLACKWOOD REOPENED\n\nThree power relays have come back online by themselves. Every camera shows the same figure — always one frame behind you.\n\nRecover the three relay logs, collect evidence, use the surveillance terminal, and reach the dead-zone gate before the feed learns your route."
-	side.add_child(side_text)
+	var panel := ColorRect.new()
+	panel.position = Vector2(610,160)
+	panel.size = Vector2(560,430)
+	panel.color = Color(0.02,0.06,0.07,0.74)
+	root.add_child(panel)
+	var lore := Label.new()
+	lore.position = Vector2(28,24)
+	lore.size = Vector2(510,380)
+	lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lore.add_theme_font_size_override("font_size",19)
+	lore.text = "CASE ZRX-BW/0217 // RESPONSE PHASE\n\nBlackwood's cameras are no longer the only threat. An unauthorized security unit has sealed the road and is shooting anyone approaching the relays.\n\nYou begin with a pistol. Reach the ranger cabin to recover a rifle. Restore three relays, survive the armed patrols, collect evidence, and reach the dead-zone gate. The Faceless entity cannot be trusted to stay dead."
+	panel.add_child(lore)
 	return root
 
 func _build_mode_panel() -> Control:
-	var p := _panel(Vector2(430,150),Vector2(740,590),Color(0.005,0.01,0.015,0.97))
+	var p := _panel(Vector2(430,150),Vector2(740,590),Color(0.005,0.01,0.015,0.98))
 	var title := Label.new()
 	title.text = "CHOOSE YOUR NIGHT"
-	title.position = Vector2(50,34)
+	title.position = Vector2(50,32)
 	title.size = Vector2(640,50)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size",34)
 	p.add_child(title)
-	var modes := [
-		["STORY","Five-zone narrative campaign."],
-		["RUSH","Short route, faster enemy."],
-		["NIGHTMARE","Extreme aggression and scarce battery."],
-		["ENDLESS","Increasing relay cycles."],
-		["EXPLORATION","No active hunter."],
-		["BLACKOUT","Low battery and unstable lighting."]
-	]
+	var modes := [["STORY","Campaign with gunfights and story beats."],["RUSH","Faster route and tougher patrols."],["NIGHTMARE","Stronger enemies, lower battery."],["ENDLESS","Relays reset after extraction."],["EXPLORATION","No Faceless hunter."],["BLACKOUT","Lower visibility and scarce power."]]
 	for i in range(modes.size()):
-		var b := _menu_button(modes[i][0]+" — "+modes[i][1],Vector2(95,110+i*62),Vector2(550,50))
+		var b := _menu_button(modes[i][0]+" — "+modes[i][1],Vector2(80,105+i*62),Vector2(580,50))
 		var mode_name: String = modes[i][0]
-		b.pressed.connect(func():
-			selected_mode = mode_name
-			_start_new_game()
-		)
+		b.pressed.connect(func(): selected_mode=mode_name; _start_new_game())
 		p.add_child(b)
 	var back := _menu_button("BACK",Vector2(220,500),Vector2(300,48))
-	back.pressed.connect(func():
-		p.visible = false
-		main_menu.visible = true
-	)
+	back.pressed.connect(func(): p.visible=false; main_menu.visible=true)
 	p.add_child(back)
 	return p
 
 func _build_settings_panel() -> Control:
-	var p := _panel(Vector2(455,145),Vector2(690,600),Color(0.005,0.01,0.015,0.97))
+	var p := _panel(Vector2(455,120),Vector2(700,650),Color(0.005,0.01,0.015,0.98))
 	var title := Label.new()
 	title.text = "SETTINGS"
-	title.position = Vector2(42,30)
+	title.position = Vector2(42,28)
 	title.add_theme_font_size_override("font_size",36)
 	p.add_child(title)
 
 	var quality := OptionButton.new()
-	quality.position = Vector2(320,100)
-	quality.size = Vector2(290,48)
+	quality.position = Vector2(330,95)
+	quality.size = Vector2(290,46)
 	for t in ["PERFORMANCE","BALANCED","HIGH","ULTRA"]: quality.add_item(t)
 	quality.select(settings["quality"])
-	quality.item_selected.connect(func(i):
-		settings["quality"] = i
-		_apply_settings()
-	)
-	p.add_child(_setting_label("QUALITY",Vector2(52,112)))
-	p.add_child(quality)
+	quality.item_selected.connect(func(i): settings["quality"]=i; _apply_settings())
+	p.add_child(_setting_label("QUALITY",Vector2(52,107))); p.add_child(quality)
 
 	var fps := OptionButton.new()
-	fps.position = Vector2(320,165)
-	fps.size = Vector2(290,48)
+	fps.position = Vector2(330,155); fps.size=Vector2(290,46)
 	for t in ["30 FPS","60 FPS","120 FPS"]: fps.add_item(t)
 	fps.select(1)
-	fps.item_selected.connect(func(i):
-		settings["fps"] = [30,60,120][i]
-		_apply_settings()
-	)
-	p.add_child(_setting_label("FPS LIMIT",Vector2(52,177)))
-	p.add_child(fps)
+	fps.item_selected.connect(func(i): settings["fps"]=[30,60,120][i]; _apply_settings())
+	p.add_child(_setting_label("FPS LIMIT",Vector2(52,167))); p.add_child(fps)
+
+	var bright := HSlider.new()
+	bright.position=Vector2(330,220); bright.size=Vector2(290,40)
+	bright.min_value=0.8; bright.max_value=2.2; bright.step=0.05; bright.value=settings["brightness"]
+	bright.value_changed.connect(func(v): settings["brightness"]=v; _apply_settings())
+	p.add_child(_setting_label("BRIGHTNESS",Vector2(52,232))); p.add_child(bright)
+
+	var night := HSlider.new()
+	night.position=Vector2(330,280); night.size=Vector2(290,40)
+	night.min_value=0.5; night.max_value=1.8; night.step=0.05; night.value=settings["night_visibility"]
+	night.value_changed.connect(func(v): settings["night_visibility"]=v; _apply_settings())
+	p.add_child(_setting_label("NIGHT VISIBILITY",Vector2(52,292))); p.add_child(night)
 
 	var fov := HSlider.new()
-	fov.position = Vector2(320,230)
-	fov.size = Vector2(290,42)
-	fov.min_value = 60
-	fov.max_value = 95
-	fov.value = settings["fov"]
-	fov.value_changed.connect(func(v):
-		settings["fov"] = v
-		if player and player.camera: player.camera.fov = v
-	)
-	p.add_child(_setting_label("FIELD OF VIEW",Vector2(52,242)))
-	p.add_child(fov)
+	fov.position=Vector2(330,340); fov.size=Vector2(290,40)
+	fov.min_value=60; fov.max_value=95; fov.value=settings["fov"]
+	fov.value_changed.connect(func(v): settings["fov"]=v; if player and player.camera: player.camera.fov=v)
+	p.add_child(_setting_label("FIELD OF VIEW",Vector2(52,352))); p.add_child(fov)
 
 	var sens := HSlider.new()
-	sens.position = Vector2(320,295)
-	sens.size = Vector2(290,42)
-	sens.min_value = 0.5
-	sens.max_value = 2.0
-	sens.step = 0.05
-	sens.value = settings["sensitivity"]
-	sens.value_changed.connect(func(v): settings["sensitivity"] = v)
-	p.add_child(_setting_label("LOOK SENSITIVITY",Vector2(52,307)))
-	p.add_child(sens)
+	sens.position=Vector2(330,400); sens.size=Vector2(290,40)
+	sens.min_value=.5; sens.max_value=2.0; sens.step=.05; sens.value=settings["sensitivity"]
+	sens.value_changed.connect(func(v): settings["sensitivity"]=v)
+	p.add_child(_setting_label("LOOK SENSITIVITY",Vector2(52,412))); p.add_child(sens)
 
-	var volume := HSlider.new()
-	volume.position = Vector2(320,360)
-	volume.size = Vector2(290,42)
-	volume.min_value = 0.0
-	volume.max_value = 1.0
-	volume.step = 0.05
-	volume.value = settings["volume"]
-	volume.value_changed.connect(func(v):
-		settings["volume"] = v
-		AudioServer.set_bus_volume_db(0,linear_to_db(max(v,0.001)))
-	)
-	p.add_child(_setting_label("MASTER VOLUME",Vector2(52,372)))
-	p.add_child(volume)
-
-	var back := _menu_button("BACK",Vector2(195,490),Vector2(300,54))
-	back.pressed.connect(func():
-		p.visible = false
-		main_menu.visible = true
-	)
+	var back := _menu_button("BACK",Vector2(200,535),Vector2(300,52))
+	back.pressed.connect(func(): p.visible=false; main_menu.visible=true)
 	p.add_child(back)
 	return p
 
 func _build_archive_panel() -> Control:
 	var p := _panel(Vector2(340,140),Vector2(920,610),Color(0.005,0.01,0.015,0.98))
 	var title := Label.new()
-	title.text = "BLACKWOOD INCIDENT // ARCHIVE 0217"
-	title.position = Vector2(45,38)
-	title.size = Vector2(830,52)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size",31)
+	title.text = "BLACKWOOD INCIDENT // PHASE TWO"
+	title.position=Vector2(45,36); title.size=Vector2(830,52); title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; title.add_theme_font_size_override("font_size",31)
 	p.add_child(title)
 	var body := Label.new()
-	body.position = Vector2(70,115)
-	body.size = Vector2(780,350)
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size",19)
-	body.text = "1998 — A road patrol vanished after reporting a faceless pedestrian walking at an impossible constant distance.\n\n2026 — Blackwood's abandoned surveillance network powered itself back on. Five camera stations are transmitting again. The entity appears in every feed, but never at the same time.\n\nYour assignment: reactivate three relays, recover evidence and reach the dead-zone gate. If the terminal begins showing your current location before you arrive there, leave immediately."
+	body.position=Vector2(70,110); body.size=Vector2(780,360); body.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; body.add_theme_font_size_override("font_size",19)
+	body.text="CHAPTER I — REOPENING\nRestore the checkpoint relay.\n\nCHAPTER II — ARMED RESPONSE\nBlackwood Security has orders to stop you. Recover ammunition and clear the tower route.\n\nCHAPTER III — THE CABIN\nFind the rifle inside the ranger sector.\n\nCHAPTER IV — DEAD SIGNAL\nRestore the final relay while the Faceless entity closes in.\n\nCHAPTER V — EXTRACTION\nReach the dead-zone gate with the archive evidence."
 	p.add_child(body)
 	var back := _menu_button("BACK",Vector2(310,500),Vector2(300,52))
-	back.pressed.connect(func():
-		p.visible = false
-		main_menu.visible = true
-	)
+	back.pressed.connect(func(): p.visible=false; main_menu.visible=true)
 	p.add_child(back)
 	return p
 
-func _setting_label(t: String, pos: Vector2) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.position = pos
-	l.add_theme_font_size_override("font_size",18)
-	return l
-
-func _panel(pos: Vector2, size2: Vector2, color: Color) -> ColorRect:
-	var p := ColorRect.new()
-	p.position = pos
-	p.size = size2
-	p.color = color
-	return p
-
-func _menu_button(text_value: String, pos: Vector2, size2: Vector2) -> Button:
-	var b := Button.new()
-	b.text = text_value
-	b.position = pos
-	b.size = size2
-	b.add_theme_font_size_override("font_size",19)
-	return b
-
-func _action_button(text_value: String, pos: Vector2, size2: Vector2) -> Button:
-	var b := Button.new()
-	b.text = text_value
-	b.position = pos
-	b.size = size2
-	b.add_theme_font_size_override("font_size",18)
-	return b
+func _setting_label(t:String,pos:Vector2)->Label:
+	var l:=Label.new(); l.text=t; l.position=pos; l.add_theme_font_size_override("font_size",18); return l
+func _panel(pos:Vector2,size2:Vector2,color:Color)->ColorRect:
+	var p:=ColorRect.new(); p.position=pos; p.size=size2; p.color=color; return p
+func _menu_button(t:String,pos:Vector2,size2:Vector2)->Button:
+	var b:=Button.new(); b.text=t; b.position=pos; b.size=size2; b.add_theme_font_size_override("font_size",19); return b
+func _action_button(t:String,pos:Vector2,size2:Vector2)->Button:
+	var b:=Button.new(); b.text=t; b.position=pos; b.size=size2; b.add_theme_font_size_override("font_size",18); return b
 
 func _apply_settings() -> void:
-	Engine.max_fps = int(settings["fps"])
-	var q := int(settings["quality"])
-	get_viewport().scaling_3d_scale = [0.66,0.82,1.0,1.12][q]
-	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED,Viewport.MSAA_2X,Viewport.MSAA_4X,Viewport.MSAA_4X][q]
+	Engine.max_fps=int(settings["fps"])
+	var q:=int(settings["quality"])
+	get_viewport().scaling_3d_scale=[0.66,0.82,1.0,1.12][q]
+	get_viewport().msaa_3d=[Viewport.MSAA_DISABLED,Viewport.MSAA_2X,Viewport.MSAA_4X,Viewport.MSAA_4X][q]
+	if environment:
+		environment.adjustment_brightness=float(settings["brightness"])
+		environment.ambient_light_energy=0.72*float(settings["night_visibility"])
+		environment.fog_density=0.008/max(float(settings["night_visibility"]),0.5)
 
 func _start_new_game() -> void:
-	mode_panel.visible = false
-	main_menu.visible = false
-	get_tree().paused = false
-	game_started = true
-	for i in range(relay_active.size()): relay_active[i] = false
-	evidence_collected = 0
-	_spawn_player_and_enemy(false)
+	mode_panel.visible=false; main_menu.visible=false; get_tree().paused=false; game_started=true
+	chapter=1; story_flags={}
+	for i in range(relay_active.size()): relay_active[i]=false
+	evidence_collected=0
+	_spawn_player_and_enemies(false)
 	_update_objective()
-	_show_notice("NIGHT 1 // BLACKWOOD REOPENED")
+	_show_notice("CHAPTER I // BLACKWOOD REOPENED")
 	if ambience_player: ambience_player.play()
 
 func _continue_game() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load("user://faceless2_save.cfg") != OK:
-		_show_notice("NO CHECKPOINT DATA")
-		return
-	selected_mode = str(cfg.get_value("save","mode","STORY"))
-	main_menu.visible = false
-	get_tree().paused = false
-	game_started = true
-	for i in range(relay_active.size()):
-		relay_active[i] = bool(cfg.get_value("save","relay_"+str(i),false))
-	evidence_collected = int(cfg.get_value("save","evidence",0))
-	_spawn_player_and_enemy(true)
+	var cfg:=ConfigFile.new()
+	if cfg.load("user://faceless2_save.cfg")!=OK:
+		_show_notice("NO CHECKPOINT DATA"); return
+	selected_mode=str(cfg.get_value("save","mode","STORY"))
+	chapter=int(cfg.get_value("save","chapter",1))
+	main_menu.visible=false; get_tree().paused=false; game_started=true
+	for i in range(relay_active.size()): relay_active[i]=bool(cfg.get_value("save","relay_"+str(i),false))
+	evidence_collected=int(cfg.get_value("save","evidence",0))
+	_spawn_player_and_enemies(true)
 	_update_objective()
 	_show_notice("CHECKPOINT RESTORED")
 	if ambience_player: ambience_player.play()
 
-func _spawn_player_and_enemy(from_save: bool) -> void:
-	if player == null:
-		player = CharacterBody3D.new()
-		player.set_script(PlayerScript)
-		player.game = self
-		add_child(player)
-		player.joystick = joystick
+func _spawn_player_and_enemies(from_save:bool)->void:
+	if player==null:
+		player=CharacterBody3D.new(); player.set_script(PlayerScript); player.game=self; add_child(player); player.joystick=joystick
 	player.restore_full()
-	var pos := Vector3(0,0.9,5)
+	var pos:=Vector3(0,0.9,5)
 	if from_save:
-		var cfg := ConfigFile.new()
-		if cfg.load("user://faceless2_save.cfg") == OK:
-			pos = Vector3(0,0.9,float(cfg.get_value("save","z",5.0)))
-	player.global_position = pos
-	player.camera.fov = float(settings["fov"])
-	if selected_mode == "BLACKOUT": player.battery = 28.0
-	elif selected_mode == "NIGHTMARE": player.battery = 45.0
-	else: player.battery = 100.0
+		var cfg:=ConfigFile.new()
+		if cfg.load("user://faceless2_save.cfg")==OK: pos=Vector3(0,0.9,float(cfg.get_value("save","z",5.0)))
+	player.global_position=pos
+	player.camera.fov=float(settings["fov"])
+	if selected_mode=="BLACKOUT": player.battery=35.0
+	elif selected_mode=="NIGHTMARE": player.battery=55.0
 
-	if enemy != null and is_instance_valid(enemy): enemy.queue_free()
-	if selected_mode != "EXPLORATION":
-		enemy = CharacterBody3D.new()
-		enemy.set_script(EnemyScript)
-		enemy.game = self
-		enemy.player = player
-		enemy.position = Vector3(0,0.9,-28)
-		enemy.patrol_points = [Vector3(0,0.9,-20),Vector3(-5,0.9,-42),Vector3(5,0.9,-62),Vector3(0,0.9,-86)]
-		var diff := 1.0
-		if selected_mode == "RUSH": diff = 1.15
-		if selected_mode == "NIGHTMARE": diff = 1.42
-		if selected_mode == "BLACKOUT": diff = 1.20
-		enemy.difficulty = diff
+	if enemy and is_instance_valid(enemy): enemy.queue_free()
+	for s in soldiers:
+		if is_instance_valid(s): s.queue_free()
+	soldiers.clear()
+
+	if selected_mode!="EXPLORATION":
+		enemy=CharacterBody3D.new(); enemy.set_script(EnemyScript); enemy.game=self; enemy.player=player; enemy.position=Vector3(0,0.9,-34)
+		enemy.patrol_points=[Vector3(0,0.9,-24),Vector3(-5,0.9,-50),Vector3(5,0.9,-76),Vector3(0,0.9,-96)]
+		enemy.difficulty=1.35 if selected_mode=="NIGHTMARE" else 1.0
 		add_child(enemy)
 
-func _interact() -> void:
-	if not game_started or player == null:
-		return
-	for i in range(relays.size()):
-		if not relay_active[i] and player.global_position.distance_to(relays[i].global_position) < 2.4:
-			relay_active[i] = true
-			_show_notice("RELAY %d ONLINE" % (i+1))
-			_save_checkpoint()
-			_update_objective()
-			return
-	for e in evidence_nodes:
-		if is_instance_valid(e) and e.visible and player.global_position.distance_to(e.global_position) < 2.1:
-			e.visible = false
-			evidence_collected += 1
-			_show_notice("EVIDENCE RECOVERED %d/3" % evidence_collected)
-			_save_checkpoint()
-			_update_objective()
-			return
-	if terminal and player.global_position.distance_to(terminal.global_position) < 2.5:
-		camera_terminal_open = not camera_terminal_open
-		_show_notice("CAMERA GRID: "+("ONLINE" if camera_terminal_open else "CLOSED"))
-		return
-	if extraction_gate and player.global_position.distance_to(extraction_gate.global_position) < 3.2:
-		if _relay_count() >= 3:
-			_finish_game()
-		else:
-			_show_notice("GATE LOCKED // POWER  "+str(_relay_count())+"/3")
+	var positions=[Vector3(4.5,0.9,-25),Vector3(-5.0,0.9,-55),Vector3(4.2,0.9,-79)]
+	for i in range(positions.size()):
+		var s:=CharacterBody3D.new()
+		s.set_script(SoldierScript); s.game=self; s.player=player; s.position=positions[i]
+		s.patrol_points=[positions[i]+Vector3(-3,0,0),positions[i]+Vector3(3,0,-4)]
+		s.difficulty=1.25 if selected_mode=="NIGHTMARE" else 1.0
+		add_child(s); soldiers.append(s)
 
-func _update_nearby_prompt() -> void:
-	prompt_label.text = ""
+func _interact()->void:
+	if not game_started or player==null: return
+	if rifle_pickup and rifle_pickup.visible and player.global_position.distance_to(rifle_pickup.global_position)<2.2:
+		rifle_pickup.visible=false; player.unlock_rifle(); chapter=maxi(chapter,3); _show_notice("RIFLE ACQUIRED // CHAPTER III"); _save_checkpoint(); _update_objective(); return
+	for p in pickups:
+		if is_instance_valid(p) and p.visible and player.global_position.distance_to(p.global_position)<2.0:
+			var kind:=str(p.get_meta("pickup",""))
+			p.visible=false
+			if kind=="ammo": player.add_ammo(36)
+			elif kind=="medkit": player.add_health(45)
+			return
 	for i in range(relays.size()):
-		if not relay_active[i] and player.global_position.distance_to(relays[i].global_position) < 2.4:
-			prompt_label.text = "INTERACT — REACTIVATE RELAY "+str(i+1)
-			return
+		if not relay_active[i] and player.global_position.distance_to(relays[i].global_position)<2.4:
+			relay_active[i]=true
+			chapter=maxi(chapter,i+1)
+			_show_notice("RELAY %d ONLINE"%(i+1)); _save_checkpoint(); _update_objective(); return
 	for e in evidence_nodes:
-		if is_instance_valid(e) and e.visible and player.global_position.distance_to(e.global_position) < 2.1:
-			prompt_label.text = "INTERACT — RECOVER EVIDENCE"
-			return
-	if terminal and player.global_position.distance_to(terminal.global_position) < 2.5:
-		prompt_label.text = "INTERACT — SECURITY CAMERA TERMINAL"
-		return
-	if extraction_gate and player.global_position.distance_to(extraction_gate.global_position) < 3.2:
-		prompt_label.text = "INTERACT — DEAD-ZONE GATE"
+		if is_instance_valid(e) and e.visible and player.global_position.distance_to(e.global_position)<2.1:
+			e.visible=false; evidence_collected+=1; _show_notice("EVIDENCE %d/3"%evidence_collected); _save_checkpoint(); _update_objective(); return
+	if terminal and player.global_position.distance_to(terminal.global_position)<2.5:
+		camera_terminal_open=not camera_terminal_open; _show_notice("CAMERA GRID "+("ONLINE" if camera_terminal_open else "CLOSED")); return
+	if extraction_gate and player.global_position.distance_to(extraction_gate.global_position)<3.2:
+		if _relay_count()>=3 and evidence_collected>=2: _finish_game()
+		else: _show_notice("GATE LOCKED // NEED POWER 3/3 AND EVIDENCE 2/3")
 
-func _relay_count() -> int:
-	var n := 0
+func _update_nearby_prompt()->void:
+	prompt_label.text=""
+	if rifle_pickup and rifle_pickup.visible and player.global_position.distance_to(rifle_pickup.global_position)<2.2: prompt_label.text="INTERACT — TAKE RIFLE"; return
+	for p in pickups:
+		if is_instance_valid(p) and p.visible and player.global_position.distance_to(p.global_position)<2.0: prompt_label.text="INTERACT — PICKUP"; return
+	for i in range(relays.size()):
+		if not relay_active[i] and player.global_position.distance_to(relays[i].global_position)<2.4: prompt_label.text="INTERACT — REACTIVATE RELAY "+str(i+1); return
+	for e in evidence_nodes:
+		if is_instance_valid(e) and e.visible and player.global_position.distance_to(e.global_position)<2.1: prompt_label.text="INTERACT — RECOVER EVIDENCE"; return
+	if terminal and player.global_position.distance_to(terminal.global_position)<2.5: prompt_label.text="INTERACT — SECURITY TERMINAL"; return
+	if extraction_gate and player.global_position.distance_to(extraction_gate.global_position)<3.2: prompt_label.text="INTERACT — DEAD-ZONE GATE"
+
+func _update_story()->void:
+	var z:=player.global_position.z
+	if z<-20 and not story_flags.has("armed"):
+		story_flags["armed"]=true; chapter=2; _show_notice("CHAPTER II // ARMED RESPONSE DETECTED")
+	if z<-64 and not story_flags.has("cabin"):
+		story_flags["cabin"]=true; chapter=maxi(chapter,3); _show_notice("CHAPTER III // SEARCH THE RANGER CABIN")
+	if _relay_count()>=3 and not story_flags.has("dead_signal"):
+		story_flags["dead_signal"]=true; chapter=4; _show_notice("CHAPTER IV // DEAD SIGNAL")
+	if z<-96 and not story_flags.has("extract"):
+		story_flags["extract"]=true; chapter=5; _show_notice("CHAPTER V // EXTRACTION")
+
+func _relay_count()->int:
+	var n:=0
 	for v in relay_active:
-		if v: n += 1
+		if v:n+=1
 	return n
 
-func _update_zone() -> void:
-	var z := player.global_position.z
-	if z > -16: current_zone = "BLACKWOOD CHECKPOINT"
-	elif z > -36: current_zone = "SURVEILLANCE TOWER"
-	elif z > -58: current_zone = "ABANDONED STOP"
-	elif z > -80: current_zone = "RANGER WOODS"
-	else: current_zone = "DEAD ZONE"
+func _update_zone()->void:
+	var z:=player.global_position.z
+	if z>-16: current_zone="BLACKWOOD CHECKPOINT"
+	elif z>-36: current_zone="SURVEILLANCE TOWER"
+	elif z>-58: current_zone="ABANDONED STOP"
+	elif z>-80: current_zone="RANGER WOODS"
+	else: current_zone="DEAD ZONE"
 
-func update_hud(h: float, s: float, b: float) -> void:
-	if hud:
-		hud.text = "HP %03d   STAMINA %03d   BATTERY %03d   %s   %s" % [int(h),int(s),int(b),selected_mode,current_zone]
+func update_hud(h:float,s:float,b:float,weapon:String,mag:int,reserve:int)->void:
+	if hud: hud.text="HP %03d  STA %03d  BAT %03d  %s %02d/%03d  CH.%d  %s"%[int(h),int(s),int(b),weapon,mag,reserve,chapter,current_zone]
 
-func _update_objective() -> void:
+func _update_objective()->void:
 	if objective_label:
-		objective_label.text = "OBJECTIVE // Restore relays %d/3 · Evidence %d/3 · Reach the dead-zone gate" % [_relay_count(),evidence_collected]
+		objective_label.text="OBJECTIVE // Relays %d/3 · Evidence %d/3 · Rifle %s · Reach Dead Zone"%[_relay_count(),evidence_collected,("YES" if player and player.rifle_unlocked else "NO")]
 
-func _save_checkpoint() -> void:
-	if player == null: return
-	var cfg := ConfigFile.new()
-	cfg.set_value("save","mode",selected_mode)
-	cfg.set_value("save","evidence",evidence_collected)
-	cfg.set_value("save","z",player.global_position.z)
-	for i in range(relay_active.size()):
-		cfg.set_value("save","relay_"+str(i),relay_active[i])
+func _save_checkpoint()->void:
+	if player==null:return
+	var cfg:=ConfigFile.new()
+	cfg.set_value("save","mode",selected_mode); cfg.set_value("save","evidence",evidence_collected); cfg.set_value("save","z",player.global_position.z); cfg.set_value("save","chapter",chapter)
+	for i in range(relay_active.size()): cfg.set_value("save","relay_"+str(i),relay_active[i])
 	cfg.save("user://faceless2_save.cfg")
 
-func player_hurt() -> void:
-	fade.color = Color(0.42,0.0,0.0,0.32)
-	create_tween().tween_property(fade,"color",Color(0.05,0.0,0.0,0.0),0.28)
+func on_player_shot(_weapon:String)->void:
+	crosshair.modulate=Color(1.0,0.65,0.3,1.0)
+	create_tween().tween_property(crosshair,"modulate",Color(0.9,0.94,0.95,0.86),0.10)
 
-func on_enemy_attack() -> void:
-	_show_notice("SIGNAL LOST // MOVE")
-	if static_player: static_player.play()
+func weapon_event(t:String)->void:
+	_show_notice(t)
 
-func player_dead() -> void:
+func soldier_fired(_s:Node)->void:
+	fade.color=Color(0.5,0.06,0.02,0.18)
+	create_tween().tween_property(fade,"color",Color(0,0,0,0),0.16)
+
+func soldier_down(s:CharacterBody3D)->void:
+	soldiers.erase(s)
+	var tw:=create_tween(); tw.tween_property(s,"rotation:z",1.35,0.24); tw.tween_interval(.2); tw.tween_callback(s.queue_free)
+	_show_notice("HOSTILE DOWN")
+
+func faceless_down(e:CharacterBody3D)->void:
+	_show_notice("FACELESS DISRUPTED // IT WILL RETURN")
+	var tw:=create_tween(); tw.tween_property(e,"position:y",-2.0,0.55); tw.tween_interval(4.0); tw.tween_callback(func(): if is_instance_valid(e): e.position=Vector3(0,0.9,-96); e.health=160.0; e.dead=false)
+
+func player_hurt()->void:
+	fade.color=Color(0.50,0.0,0.0,0.30); create_tween().tween_property(fade,"color",Color(0,0,0,0),0.24)
+func on_enemy_attack()->void:
+	_show_notice("SIGNAL LOST // MOVE"); if static_player: static_player.play()
+func player_dead()->void:
 	_show_notice("YOU WERE RECORDED")
-	var tw := create_tween()
-	tw.tween_property(fade,"color",Color(0,0,0,1),0.9)
-	tw.tween_interval(1.0)
-	tw.tween_callback(_restart_from_checkpoint)
-
-func _restart_from_checkpoint() -> void:
-	fade.color = Color(0,0,0,0)
-	_continue_game()
-
-func _finish_game() -> void:
-	game_started = false
-	get_tree().paused = true
-	prompt_label.text = ""
-	objective_label.text = "ARCHIVE COMPLETE // CASE ZRX-BW/0217"
-	_show_notice("THE FEED WENT DARK — BUT IT SAVED YOUR FACELESS FRAME")
-	main_menu.visible = true
-
-func _show_notice(t: String) -> void:
-	if notice == null: return
-	notice.text = t
-	var tw := create_tween()
-	tw.tween_interval(1.35)
-	tw.tween_callback(func():
-		if notice.text == t: notice.text = ""
-	)
+	var tw:=create_tween(); tw.tween_property(fade,"color",Color(0,0,0,1),0.8); tw.tween_interval(.8); tw.tween_callback(_restart_from_checkpoint)
+func _restart_from_checkpoint()->void:
+	fade.color=Color(0,0,0,0); _continue_game()
+func _finish_game()->void:
+	game_started=false; get_tree().paused=true; objective_label.text="ARCHIVE COMPLETE // BLACKWOOD RESPONSE ENDED"; _show_notice("EXTRACTION COMPLETE // FACELESS 2"); main_menu.visible=true
+func _show_notice(t:String)->void:
+	if notice==null:return
+	notice.text=t
+	var tw:=create_tween(); tw.tween_interval(1.25); tw.tween_callback(func(): if notice.text==t: notice.text="")
