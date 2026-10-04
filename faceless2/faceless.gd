@@ -14,6 +14,24 @@ var difficulty := 1.0
 var health := 160.0
 var dead := false
 
+func _fit_visual(root: Node3D, target_height: float) -> void:
+	var first := true
+	var box := AABB()
+	for node in root.find_children("*","MeshInstance3D",true,false):
+		var mi := node as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var rel := root.global_transform.affine_inverse() * mi.global_transform
+		var b: AABB = rel * mi.get_aabb()
+		if first:
+			box = b
+			first = false
+		else:
+			box = box.merge(b)
+	if not first and box.size.y > 0.001:
+		root.scale = Vector3.ONE*(target_height/box.size.y)
+		root.position.y = -box.position.y*(target_height/box.size.y)
+
 func _ready() -> void:
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
@@ -26,6 +44,7 @@ func _ready() -> void:
 	if packed:
 		visual = packed.instantiate() as Node3D
 		add_child(visual)
+		_fit_visual(visual,2.05)
 
 func _physics_process(delta: float) -> void:
 	if dead:
