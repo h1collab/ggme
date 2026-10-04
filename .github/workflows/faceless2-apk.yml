@@ -1,16 +1,16 @@
-name: Build Faceless 2 v3 Hands APK
+name: Build Faceless 2 v4 Sketchfab Cinematic APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - faceless-2-v3-hands
+      - faceless-2-v4-sketchfab-cinematic
       - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
 
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
           mkdir app
           unzip -q upgrade.zip -d app
 
-      - name: Apply Faceless 2 project
+      - name: Apply Faceless 2 v4 project
         shell: bash
         run: |
           cp faceless2/game.gd app/scripts/game.gd
@@ -38,15 +38,42 @@ jobs:
           sed -i 's/School Brawl/Faceless 2/g' app/project.godot
           sed -i 's/Escape Black Pine/Faceless 2/g' app/export_presets.cfg
           sed -i 's/School Brawl/Faceless 2/g' app/export_presets.cfg
-          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v3-zorix.apk/g' app/export_presets.cfg
+          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v4-zorix.apk/g' app/export_presets.cfg
+          rm -f app/assets/*.glb
           test -s app/scripts/game.gd
           test -s app/main.tscn
 
-      - name: Generate Faceless 2 GLB and audio assets
+      - name: Verify Sketchfab authentication
+        shell: bash
+        env:
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN }}
+        run: |
+          if [ -z "$SKETCHFAB_TOKEN" ]; then
+            echo "::error::Missing SKETCHFAB_TOKEN repository secret. Faceless 2 v4 intentionally refuses to fall back to generated GLBs."
+            exit 1
+          fi
+
+      - name: Download original Sketchfab GLBs
+        shell: bash
+        env:
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN }}
+        run: |
+          python faceless2/fetch_sketchfab_assets.py app/assets
+          cp app/assets/SKETCHFAB_CREDITS.txt app/SKETCHFAB_CREDITS.txt
+          python - <<'PY'
+          import json, os
+          m=json.load(open("faceless2/sketchfab_assets.json",encoding="utf-8"))
+          for a in m["assets"]:
+              p=os.path.join("app","assets",a["output"])
+              assert os.path.isfile(p) and os.path.getsize(p)>1024, p
+          print("verified", len(m["assets"]), "Sketchfab GLBs")
+          PY
+
+      - name: Generate audio and Android icon
         shell: bash
         run: |
-          python -m pip install --disable-pip-version-check trimesh numpy cairosvg
-          python faceless2/generate_assets.py app/assets app/audio
+          python -m pip install --disable-pip-version-check cairosvg
+          python faceless2/generate_audio.py app/audio
           python - <<'PY'
           import cairosvg
           cairosvg.svg2png(url="app/ui/icon.svg", write_to="app/ui/icon.png", output_width=512, output_height=512)
@@ -54,19 +81,6 @@ jobs:
           sed -i 's#boot_splash/image="res://ui/icon.svg"#boot_splash/image="res://ui/icon.png"#' app/project.godot
           sed -i 's#config/icon="res://ui/icon.svg"#config/icon="res://ui/icon.png"#' app/project.godot
           sed -i 's#res://ui/icon.svg#res://ui/icon.png#g' app/export_presets.cfg
-          for f in             faceless_entity.glb             blackwood_road.glb             checkpoint_gate.glb             surveillance_tower.glb             abandoned_bus_stop.glb             ranger_cabin.glb             dead_zone_fence.glb             pine_cluster.glb             power_relay.glb             evidence_case.glb             security_terminal.glb             extraction_gate.glb \
-            pistol.glb \
-            rifle.glb \
-            blackwood_soldier.glb \
-            ammo_box.glb \
-            medkit.glb \
-            street_lamp.glb \
-            fp_right_hand.glb \
-            fp_left_hand.glb \
-            pistol_mag.glb \
-            rifle_mag.glb; do
-            test -s "app/assets/$f"
-          done
           test -s app/audio/blackwood_ambience.wav
           test -s app/audio/signal_static.wav
           test -s app/audio/chase_pulse.wav
@@ -127,7 +141,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 APK
+      - name: Export Faceless 2 v4 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -135,12 +149,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless-2-v3-zorix.apk
-          test -s app/build/faceless-2-v3-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless-2-v4-zorix.apk
+          test -s app/build/faceless-2-v4-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v3-zorix-apk
-          path: app/build/faceless-2-v3-zorix.apk
+          name: faceless-2-v4-zorix-apk
+          path: app/build/faceless-2-v4-zorix.apk
           if-no-files-found: error
