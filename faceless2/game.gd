@@ -775,11 +775,11 @@ func _current_objective() -> Dictionary:
 func _update_objective()->void:
 	if objective_label == null or player == null:
 		return
-	var obj := _current_objective()
-	var target := obj.get("target")
-	var distance := 0.0
-	if target is Node3D:
-		distance = player.global_position.distance_to((target as Node3D).global_position)
+	var obj: Dictionary = _current_objective()
+	var target: Node3D = obj.get("target") as Node3D
+	var distance: float = 0.0
+	if target != null:
+		distance = player.global_position.distance_to(target.global_position)
 	objective_label.text = "NEXT // %s   •   %.0f m" % [str(obj.get("text","")),distance]
 
 func _save_checkpoint()->void:
