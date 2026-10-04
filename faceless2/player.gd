@@ -70,6 +70,25 @@ func _ready() -> void:
 	if not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
+func _fit_visual(root: Node3D, target_extent: float) -> void:
+	var first := true
+	var box := AABB()
+	for node in root.find_children("*","MeshInstance3D",true,false):
+		var mi := node as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var rel := root.global_transform.affine_inverse() * mi.global_transform
+		var b: AABB = rel * mi.get_aabb()
+		if first:
+			box = b
+			first = false
+		else:
+			box = box.merge(b)
+	if not first:
+		var largest := maxf(box.size.x,maxf(box.size.y,box.size.z))
+		if largest > 0.001:
+			root.scale = Vector3.ONE*(target_extent/largest)
+
 func _build_viewmodel() -> void:
 	viewmodel_root = Node3D.new()
 	viewmodel_root.position = Vector3.ZERO
@@ -84,16 +103,19 @@ func _build_viewmodel() -> void:
 	if hands_scene:
 		hands_model = hands_scene.instantiate() as Node3D
 		hands_holder.add_child(hands_model)
+		_fit_visual(hands_model,0.82)
 
 	var pistol_scene: PackedScene = load("res://assets/pistol.glb")
 	if pistol_scene:
 		pistol_model = pistol_scene.instantiate() as Node3D
 		weapon_holder.add_child(pistol_model)
+		_fit_visual(pistol_model,0.34)
 
 	var rifle_scene: PackedScene = load("res://assets/rifle.glb")
 	if rifle_scene:
 		rifle_model = rifle_scene.instantiate() as Node3D
 		weapon_holder.add_child(rifle_model)
+		_fit_visual(rifle_model,0.95)
 
 	_apply_weapon_pose()
 
@@ -101,19 +123,19 @@ func _apply_weapon_pose() -> void:
 	if current_weapon == "PISTOL":
 		weapon_holder.position = Vector3(0.31,-0.30,-0.64)
 		weapon_holder.rotation_degrees = Vector3(-7,177,0)
-		weapon_holder.scale = Vector3(0.72,0.72,0.72)
+		weapon_holder.scale = Vector3.ONE
 		hands_holder.position = Vector3(0.02,-0.36,-0.46)
 		hands_holder.rotation_degrees = Vector3(-13,180,0)
-		hands_holder.scale = Vector3(0.78,0.78,0.78)
+		hands_holder.scale = Vector3.ONE
 		if pistol_model: pistol_model.visible = true
 		if rifle_model: rifle_model.visible = false
 	else:
 		weapon_holder.position = Vector3(0.30,-0.32,-0.88)
 		weapon_holder.rotation_degrees = Vector3(-8,177,0)
-		weapon_holder.scale = Vector3(0.68,0.68,0.68)
+		weapon_holder.scale = Vector3.ONE
 		hands_holder.position = Vector3(-0.02,-0.33,-0.58)
 		hands_holder.rotation_degrees = Vector3(-10,180,0)
-		hands_holder.scale = Vector3(0.80,0.80,0.80)
+		hands_holder.scale = Vector3.ONE
 		if pistol_model: pistol_model.visible = false
 		if rifle_model: rifle_model.visible = true
 
