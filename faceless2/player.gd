@@ -8,14 +8,10 @@ var muzzle_light: OmniLight3D
 
 var viewmodel_root: Node3D
 var weapon_holder: Node3D
-var right_hand_holder: Node3D
-var left_hand_holder: Node3D
+var hands_holder: Node3D
 var pistol_model: Node3D
 var rifle_model: Node3D
-var pistol_mag: Node3D
-var rifle_mag: Node3D
-var right_hand: Node3D
-var left_hand: Node3D
+var hands_model: Node3D
 
 var health := 100.0
 var stamina := 100.0
@@ -80,38 +76,24 @@ func _build_viewmodel() -> void:
 	camera.add_child(viewmodel_root)
 
 	weapon_holder = Node3D.new()
-	right_hand_holder = Node3D.new()
-	left_hand_holder = Node3D.new()
+	hands_holder = Node3D.new()
 	viewmodel_root.add_child(weapon_holder)
-	viewmodel_root.add_child(right_hand_holder)
-	viewmodel_root.add_child(left_hand_holder)
+	viewmodel_root.add_child(hands_holder)
 
-	var right_scene: PackedScene = load("res://assets/fp_right_hand.glb")
-	if right_scene:
-		right_hand = right_scene.instantiate() as Node3D
-		right_hand_holder.add_child(right_hand)
-	var left_scene: PackedScene = load("res://assets/fp_left_hand.glb")
-	if left_scene:
-		left_hand = left_scene.instantiate() as Node3D
-		left_hand_holder.add_child(left_hand)
+	var hands_scene: PackedScene = load("res://assets/fp_hands.glb")
+	if hands_scene:
+		hands_model = hands_scene.instantiate() as Node3D
+		hands_holder.add_child(hands_model)
 
 	var pistol_scene: PackedScene = load("res://assets/pistol.glb")
 	if pistol_scene:
 		pistol_model = pistol_scene.instantiate() as Node3D
 		weapon_holder.add_child(pistol_model)
-	var pistol_mag_scene: PackedScene = load("res://assets/pistol_mag.glb")
-	if pistol_mag_scene:
-		pistol_mag = pistol_mag_scene.instantiate() as Node3D
-		weapon_holder.add_child(pistol_mag)
 
 	var rifle_scene: PackedScene = load("res://assets/rifle.glb")
 	if rifle_scene:
 		rifle_model = rifle_scene.instantiate() as Node3D
 		weapon_holder.add_child(rifle_model)
-	var rifle_mag_scene: PackedScene = load("res://assets/rifle_mag.glb")
-	if rifle_mag_scene:
-		rifle_mag = rifle_mag_scene.instantiate() as Node3D
-		weapon_holder.add_child(rifle_mag)
 
 	_apply_weapon_pose()
 
@@ -120,34 +102,20 @@ func _apply_weapon_pose() -> void:
 		weapon_holder.position = Vector3(0.31,-0.30,-0.64)
 		weapon_holder.rotation_degrees = Vector3(-7,177,0)
 		weapon_holder.scale = Vector3(0.72,0.72,0.72)
-		right_hand_holder.position = Vector3(0.27,-0.34,-0.38)
-		right_hand_holder.rotation_degrees = Vector3(-18,168,-5)
-		right_hand_holder.scale = Vector3(0.76,0.76,0.76)
-		left_hand_holder.position = Vector3(-0.23,-0.48,-0.24)
-		left_hand_holder.rotation_degrees = Vector3(-35,195,18)
-		left_hand_holder.scale = Vector3(0.74,0.74,0.74)
+		hands_holder.position = Vector3(0.02,-0.36,-0.46)
+		hands_holder.rotation_degrees = Vector3(-13,180,0)
+		hands_holder.scale = Vector3(0.78,0.78,0.78)
 		if pistol_model: pistol_model.visible = true
-		if pistol_mag:
-			pistol_mag.visible = true
-			pistol_mag.position = Vector3(0,-0.17,0.16)
 		if rifle_model: rifle_model.visible = false
-		if rifle_mag: rifle_mag.visible = false
 	else:
 		weapon_holder.position = Vector3(0.30,-0.32,-0.88)
 		weapon_holder.rotation_degrees = Vector3(-8,177,0)
 		weapon_holder.scale = Vector3(0.68,0.68,0.68)
-		right_hand_holder.position = Vector3(0.30,-0.36,-0.38)
-		right_hand_holder.rotation_degrees = Vector3(-17,168,-6)
-		right_hand_holder.scale = Vector3(0.77,0.77,0.77)
-		left_hand_holder.position = Vector3(-0.17,-0.31,-0.82)
-		left_hand_holder.rotation_degrees = Vector3(-12,166,14)
-		left_hand_holder.scale = Vector3(0.76,0.76,0.76)
+		hands_holder.position = Vector3(-0.02,-0.33,-0.58)
+		hands_holder.rotation_degrees = Vector3(-10,180,0)
+		hands_holder.scale = Vector3(0.80,0.80,0.80)
 		if pistol_model: pistol_model.visible = false
-		if pistol_mag: pistol_mag.visible = false
 		if rifle_model: rifle_model.visible = true
-		if rifle_mag:
-			rifle_mag.visible = true
-			rifle_mag.position = Vector3(0,-0.19,-0.03)
 
 func set_controls_enabled(on: bool) -> void:
 	controls_enabled = on
@@ -288,11 +256,11 @@ func _play_fire_animation() -> void:
 	tw.parallel().tween_property(weapon_holder,"rotation_degrees",base_rot+Vector3(-lift,0,1.5),0.045)
 	tw.tween_property(weapon_holder,"position",base_pos,0.11)
 	tw.parallel().tween_property(weapon_holder,"rotation_degrees",base_rot,0.11)
-	if right_hand_holder:
-		var hand_base := right_hand_holder.rotation_degrees
+	if hands_holder:
+		var hand_base := hands_holder.rotation_degrees
 		var ht := create_tween()
-		ht.tween_property(right_hand_holder,"rotation_degrees",hand_base+Vector3(-4,0,2),0.045)
-		ht.tween_property(right_hand_holder,"rotation_degrees",hand_base,0.11)
+		ht.tween_property(hands_holder,"rotation_degrees",hand_base+Vector3(-3,0,1.5),0.045)
+		ht.tween_property(hands_holder,"rotation_degrees",hand_base,0.11)
 	pitch = clampf(pitch-(0.016 if current_weapon=="PISTOL" else 0.008),-1.25,1.25)
 	camera.rotation.x = pitch
 
@@ -310,34 +278,31 @@ func reload_weapon() -> void:
 func _play_reload_animation(mag_size: int) -> void:
 	var base_weapon_pos := weapon_holder.position
 	var base_weapon_rot := weapon_holder.rotation_degrees
-	var base_left_pos := left_hand_holder.position
-	var base_left_rot := left_hand_holder.rotation_degrees
-	var mag: Node3D = pistol_mag if current_weapon == "PISTOL" else rifle_mag
-	var mag_base := mag.position if mag else Vector3.ZERO
+	var base_hands_pos := hands_holder.position
+	var base_hands_rot := hands_holder.rotation_degrees
 
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(weapon_holder,"rotation_degrees",base_weapon_rot+Vector3(18,0,22),0.18)
-	tw.parallel().tween_property(weapon_holder,"position",base_weapon_pos+Vector3(-0.04,-0.05,0.10),0.18)
-	tw.parallel().tween_property(left_hand_holder,"position",base_left_pos+Vector3(0.20,0.10,-0.16),0.18)
-	tw.tween_interval(0.06)
-	if mag:
-		tw.tween_property(mag,"position",mag_base+Vector3(0,-0.58,0.12),0.22)
-	tw.parallel().tween_property(left_hand_holder,"position",base_left_pos+Vector3(0.08,-0.18,0.08),0.22)
+	tw.tween_property(weapon_holder,"rotation_degrees",base_weapon_rot+Vector3(22,-10,28),0.20)
+	tw.parallel().tween_property(weapon_holder,"position",base_weapon_pos+Vector3(-0.08,-0.12,0.15),0.20)
+	tw.parallel().tween_property(hands_holder,"position",base_hands_pos+Vector3(0.10,-0.04,0.10),0.20)
+	tw.parallel().tween_property(hands_holder,"rotation_degrees",base_hands_rot+Vector3(12,-8,16),0.20)
+	tw.tween_interval(0.10)
+	tw.tween_property(hands_holder,"position",base_hands_pos+Vector3(-0.18,-0.20,-0.10),0.22)
+	tw.parallel().tween_property(hands_holder,"rotation_degrees",base_hands_rot+Vector3(-24,18,-22),0.22)
 	tw.tween_interval(0.08)
-	if mag:
-		tw.tween_property(mag,"position",mag_base,0.26)
-	tw.parallel().tween_property(left_hand_holder,"position",base_left_pos+Vector3(0.18,0.02,-0.16),0.26)
+	tw.tween_property(hands_holder,"position",base_hands_pos+Vector3(0.05,0.03,-0.18),0.24)
+	tw.parallel().tween_property(hands_holder,"rotation_degrees",base_hands_rot+Vector3(8,-5,8),0.24)
 	tw.tween_callback(func():
 		var needed := mag_size-ammo_in_mag
 		var loaded := mini(needed,reserve_ammo)
 		ammo_in_mag += loaded
 		reserve_ammo -= loaded
 	)
-	tw.tween_property(weapon_holder,"rotation_degrees",base_weapon_rot,0.22)
-	tw.parallel().tween_property(weapon_holder,"position",base_weapon_pos,0.22)
-	tw.parallel().tween_property(left_hand_holder,"position",base_left_pos,0.22)
-	tw.parallel().tween_property(left_hand_holder,"rotation_degrees",base_left_rot,0.22)
+	tw.tween_property(weapon_holder,"rotation_degrees",base_weapon_rot,0.24)
+	tw.parallel().tween_property(weapon_holder,"position",base_weapon_pos,0.24)
+	tw.parallel().tween_property(hands_holder,"position",base_hands_pos,0.24)
+	tw.parallel().tween_property(hands_holder,"rotation_degrees",base_hands_rot,0.24)
 	tw.tween_callback(func():
 		reloading = false
 		_apply_weapon_pose()
