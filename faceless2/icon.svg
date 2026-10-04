@@ -1,0 +1,15 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<radialGradient id="bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#111B20"/><stop offset="1" stop-color="#020406"/></radialGradient>
+<linearGradient id="red" x1="130" y1="90" x2="380" y2="420"><stop stop-color="#ff2a32"/><stop offset="1" stop-color="#740008"/></linearGradient>
+</defs>
+<rect width="512" height="512" rx="108" fill="url(#bg)"/>
+<circle cx="256" cy="232" r="126" fill="#080B0D" stroke="#1d3a3e" stroke-width="8"/>
+<path d="M256 102c-61 0-99 48-99 116v86c0 70 49 108 99 108s99-38 99-108v-86c0-68-38-116-99-116z" fill="#d8d4cc"/>
+<path d="M169 206c19-85 155-95 176 0-18-30-52-48-89-48s-69 18-87 48z" fill="#111417"/>
+<path d="M200 236c18-15 94-15 112 0v94c-22 27-89 27-112 0z" fill="#d8d4cc"/>
+<path d="M180 392h152l30 72H150z" fill="#0b0d10"/>
+<rect x="96" y="74" width="320" height="364" rx="44" fill="none" stroke="#17757c" stroke-opacity=".55" stroke-width="6"/>
+<path d="M101 126h52M359 126h52M101 385h52M359 385h52" stroke="#ff3138" stroke-width="8" stroke-linecap="round"/>
+<text x="256" y="468" text-anchor="middle" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="url(#red)">FACELESS 2</text>
+</svg>
