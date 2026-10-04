@@ -78,16 +78,11 @@ func _mat(c: Color, rough := 0.85, metal := 0.0) -> StandardMaterial3D:
 	m.metallic = metal
 	return m
 
-func _static_box(pos: Vector3, size3: Vector3, material: Material) -> void:
+func _static_box(pos: Vector3, size3: Vector3, _material: Material) -> void:
+	# Collision only. v4 intentionally renders no procedural box geometry.
 	var body := StaticBody3D.new()
 	body.position = pos
 	add_child(body)
-	var mesh := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size3
-	mesh.mesh = box
-	mesh.material_override = material
-	body.add_child(mesh)
 	var cs := CollisionShape3D.new()
 	var sh := BoxShape3D.new()
 	sh.size = size3
