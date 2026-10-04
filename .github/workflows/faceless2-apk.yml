@@ -1,10 +1,10 @@
-name: Build Faceless 2 Android APK
+name: Build Faceless 2 v2 Gunfight APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - faceless-2
+      - faceless-2-v2
       - main
 
 jobs:
@@ -30,6 +30,7 @@ jobs:
           cp faceless2/game.gd app/scripts/game.gd
           cp faceless2/player.gd app/scripts/player.gd
           cp faceless2/faceless.gd app/scripts/faceless.gd
+          cp faceless2/soldier.gd app/scripts/soldier.gd
           cp faceless2/virtual_joystick.gd app/scripts/virtual_joystick.gd
           cp faceless2/main.tscn app/main.tscn
           cp faceless2/icon.svg app/ui/icon.svg
@@ -37,7 +38,7 @@ jobs:
           sed -i 's/School Brawl/Faceless 2/g' app/project.godot
           sed -i 's/Escape Black Pine/Faceless 2/g' app/export_presets.cfg
           sed -i 's/School Brawl/Faceless 2/g' app/export_presets.cfg
-          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-zorix.apk/g' app/export_presets.cfg
+          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v2-zorix.apk/g' app/export_presets.cfg
           test -s app/scripts/game.gd
           test -s app/main.tscn
 
@@ -53,7 +54,13 @@ jobs:
           sed -i 's#boot_splash/image="res://ui/icon.svg"#boot_splash/image="res://ui/icon.png"#' app/project.godot
           sed -i 's#config/icon="res://ui/icon.svg"#config/icon="res://ui/icon.png"#' app/project.godot
           sed -i 's#res://ui/icon.svg#res://ui/icon.png#g' app/export_presets.cfg
-          for f in             faceless_entity.glb             blackwood_road.glb             checkpoint_gate.glb             surveillance_tower.glb             abandoned_bus_stop.glb             ranger_cabin.glb             dead_zone_fence.glb             pine_cluster.glb             power_relay.glb             evidence_case.glb             security_terminal.glb             extraction_gate.glb; do
+          for f in             faceless_entity.glb             blackwood_road.glb             checkpoint_gate.glb             surveillance_tower.glb             abandoned_bus_stop.glb             ranger_cabin.glb             dead_zone_fence.glb             pine_cluster.glb             power_relay.glb             evidence_case.glb             security_terminal.glb             extraction_gate.glb \
+            pistol.glb \
+            rifle.glb \
+            blackwood_soldier.glb \
+            ammo_box.glb \
+            medkit.glb \
+            street_lamp.glb; do
             test -s "app/assets/$f"
           done
           test -s app/audio/blackwood_ambience.wav
@@ -108,6 +115,7 @@ jobs:
           godot --headless --path app --script scripts/virtual_joystick.gd --check-only
           godot --headless --path app --script scripts/player.gd --check-only
           godot --headless --path app --script scripts/faceless.gd --check-only
+          godot --headless --path app --script scripts/soldier.gd --check-only
           godot --headless --path app --script scripts/game.gd --check-only
 
       - name: Create debug keystore
@@ -123,12 +131,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless-2-zorix.apk
-          test -s app/build/faceless-2-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless-2-v2-zorix.apk
+          test -s app/build/faceless-2-v2-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-zorix-apk
-          path: app/build/faceless-2-zorix.apk
+          name: faceless-2-v2-zorix-apk
+          path: app/build/faceless-2-v2-zorix.apk
           if-no-files-found: error
