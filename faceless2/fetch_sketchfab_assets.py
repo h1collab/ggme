@@ -7,14 +7,21 @@ manifest_path = ROOT / "sketchfab_assets.json"
 out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "downloaded_assets"
 token = os.environ.get("SKETCHFAB_TOKEN", "").strip()
 if not token:
-    raise SystemExit("SKETCHFAB_TOKEN is required. Add a Sketchfab API token to GitHub Actions secrets.")
+    raise SystemExit("SKETCHFAB_TOKEN is required. Add your Sketchfab API token as a GitHub Actions repository secret.")
 
 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 out_dir.mkdir(parents=True, exist_ok=True)
 cache = {}
 
 def api_json(url):
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "User-Agent": "Faceless2-Zorix/1.0"})
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Token {token}",
+            "User-Agent": "Faceless2-Zorix/1.0",
+            "Accept": "application/json",
+        },
+    )
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r)
 
