@@ -25,6 +25,8 @@ var evidence_collected := 0
 var terminal: Node3D
 var extraction_gate: Node3D
 var camera_terminal_open := false
+var ambience_player: AudioStreamPlayer
+var static_player: AudioStreamPlayer
 var current_zone := "BLACKWOOD CHECKPOINT"
 var settings := {
 	"quality": 2,
@@ -41,6 +43,7 @@ func _ready() -> void:
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
 	_build_world()
 	_build_ui()
+	_build_audio()
 	_apply_settings()
 	get_tree().paused = true
 
@@ -145,6 +148,20 @@ func _build_world() -> void:
 		light.light_energy = 0.65
 		light.light_color = Color(0.55,0.72,0.78)
 		add_child(light)
+
+func _build_audio() -> void:
+	ambience_player = AudioStreamPlayer.new()
+	ambience_player.stream = load("res://audio/blackwood_ambience.wav")
+	ambience_player.volume_db = -9.0
+	ambience_player.finished.connect(func():
+		if game_started:
+			ambience_player.play()
+	)
+	add_child(ambience_player)
+	static_player = AudioStreamPlayer.new()
+	static_player.stream = load("res://audio/signal_static.wav")
+	static_player.volume_db = -5.0
+	add_child(static_player)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -481,6 +498,7 @@ func _start_new_game() -> void:
 	_spawn_player_and_enemy(false)
 	_update_objective()
 	_show_notice("NIGHT 1 // BLACKWOOD REOPENED")
+	if ambience_player: ambience_player.play()
 
 func _continue_game() -> void:
 	var cfg := ConfigFile.new()
@@ -497,6 +515,7 @@ func _continue_game() -> void:
 	_spawn_player_and_enemy(true)
 	_update_objective()
 	_show_notice("CHECKPOINT RESTORED")
+	if ambience_player: ambience_player.play()
 
 func _spawn_player_and_enemy(from_save: bool) -> void:
 	if player == null:
@@ -614,6 +633,7 @@ func player_hurt() -> void:
 
 func on_enemy_attack() -> void:
 	_show_notice("SIGNAL LOST // MOVE")
+	if static_player: static_player.play()
 
 func player_dead() -> void:
 	_show_notice("YOU WERE RECORDED")
