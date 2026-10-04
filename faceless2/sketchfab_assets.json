@@ -1,0 +1,156 @@
+{
+  "assets": [
+    {
+      "output": "fp_hands.glb",
+      "uid": "547a45535f0c4fe787948f7a7a6a88db",
+      "name": "First Person hands rigged",
+      "author": "David Fischer",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/first-person-hands-rigged-547a45535f0c4fe787948f7a7a6a88db"
+    },
+    {
+      "output": "pistol.glb",
+      "uid": "e3412d9803f04bdaa97ad9b68ed665d7",
+      "name": "G19 Pistol, Game Ready, Free version",
+      "author": "Rotuma",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/g19-pistol-game-ready-free-version-e3412d9803f04bdaa97ad9b68ed665d7"
+    },
+    {
+      "output": "rifle.glb",
+      "uid": "924e1cc70ce34c8887c3031f7658889b",
+      "name": "Ar15",
+      "author": "wburton",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/ar15-924e1cc70ce34c8887c3031f7658889b"
+    },
+    {
+      "output": "pine_cluster.glb",
+      "uid": "dc3fbd9205cf4027a4455d1f415e0478",
+      "name": "Pine Tree [Game-ready]",
+      "author": "Wenedi",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/pine-tree-game-ready-dc3fbd9205cf4027a4455d1f415e0478"
+    },
+    {
+      "output": "blackwood_road.glb",
+      "uid": "c4676cdf7715484382400ff63faffd45",
+      "name": "[UPDATE] Dirt Road Through Forest",
+      "author": "99.Miles",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/update-dirt-road-through-forest-c4676cdf7715484382400ff63faffd45"
+    },
+    {
+      "output": "checkpoint_gate.glb",
+      "uid": "4f557163e6ad4a63ad12c9182ceba0be",
+      "name": "Security/Parking Booth - Game Asset",
+      "author": "AspectStudios",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/securityparking-booth-game-asset-4f557163e6ad4a63ad12c9182ceba0be"
+    },
+    {
+      "output": "surveillance_tower.glb",
+      "uid": "8697eaf958674544b9061838335549b8",
+      "name": "Vigilance tower",
+      "author": "Christopher. campos",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/vigilance-tower-8697eaf958674544b9061838335549b8"
+    },
+    {
+      "output": "abandoned_bus_stop.glb",
+      "uid": "ccf5a5e803d041c4b8dde747cbfea088",
+      "name": "Abandoned Bus Shelter",
+      "author": "Tom",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/abandoned-bus-shelter-ccf5a5e803d041c4b8dde747cbfea088"
+    },
+    {
+      "output": "ranger_cabin.glb",
+      "uid": "76678173760042c7aab7a8dd2666b3b0",
+      "name": "Abandoned House",
+      "author": "Leon.com",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/abandoned-house-76678173760042c7aab7a8dd2666b3b0"
+    },
+    {
+      "output": "dead_zone_fence.glb",
+      "uid": "31542f4fbb8641da8eb5417f348c3b83",
+      "name": "Fence Gate",
+      "author": "whattheflip135",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/fence-gate-31542f4fbb8641da8eb5417f348c3b83"
+    },
+    {
+      "output": "extraction_gate.glb",
+      "uid": "31542f4fbb8641da8eb5417f348c3b83",
+      "name": "Fence Gate",
+      "author": "whattheflip135",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/fence-gate-31542f4fbb8641da8eb5417f348c3b83"
+    },
+    {
+      "output": "power_relay.glb",
+      "uid": "383a234d6d80421fbe67080048cbbc70",
+      "name": "Electrical box - FREE",
+      "author": "Mathieu Godard",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/electrical-box-free-383a234d6d80421fbe67080048cbbc70"
+    },
+    {
+      "output": "evidence_case.glb",
+      "uid": "71686e7250104e9e98e87ba404d78d2d",
+      "name": "Sealed Briefcase",
+      "author": "RoomyLEGO175",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/sealed-briefcase-71686e7250104e9e98e87ba404d78d2d"
+    },
+    {
+      "output": "security_terminal.glb",
+      "uid": "97c338b2ef6d4391b8b4b954b8ee25ae",
+      "name": "Computer Terminal",
+      "author": "Alistair_UON",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/computer-terminal-97c338b2ef6d4391b8b4b954b8ee25ae"
+    },
+    {
+      "output": "blackwood_soldier.glb",
+      "uid": "f83cb67bcbc04018aed6ce3bbca11106",
+      "name": "Security guard",
+      "author": "photon (that one larry)",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/security-guard-f83cb67bcbc04018aed6ce3bbca11106"
+    },
+    {
+      "output": "faceless_entity.glb",
+      "uid": "1dbd7d0a89274df08697314d694e090a",
+      "name": "Horror Monster",
+      "author": "GerardoA400",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/horror-monster-1dbd7d0a89274df08697314d694e090a"
+    },
+    {
+      "output": "ammo_box.glb",
+      "uid": "f8a19ef94d8a4c9cb1632a73799d4dcc",
+      "name": "Ammo Box",
+      "author": "SayakPal",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/ammo-box-f8a19ef94d8a4c9cb1632a73799d4dcc"
+    },
+    {
+      "output": "medkit.glb",
+      "uid": "772ab98ab9f54b30abb17f244f6ce76b",
+      "name": "MEDKIT",
+      "author": "Vaportrash",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/medkit-772ab98ab9f54b30abb17f244f6ce76b"
+    },
+    {
+      "output": "street_lamp.glb",
+      "uid": "165a86b9ef6a48a1a53add653ab7c979",
+      "name": "Street Lamp",
+      "author": "PatelDev",
+      "license": "CC BY",
+      "url": "https://sketchfab.com/3d-models/street-lamp-165a86b9ef6a48a1a53add653ab7c979"
+    }
+  ]
+}
