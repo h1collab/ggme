@@ -14,7 +14,7 @@ out_dir.mkdir(parents=True, exist_ok=True)
 cache = {}
 
 def api_json(url):
-    req = urllib.request.Request(url, headers={"Authorization": f"Token {token}", "User-Agent": "Faceless2-Zorix/1.0"})
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "User-Agent": "Faceless2-Zorix/1.0"})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r)
 
