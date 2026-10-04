@@ -39,6 +39,7 @@ var rifle_pickup: Node3D
 var camera_terminal_open := false
 var ambience_player: AudioStreamPlayer
 var static_player: AudioStreamPlayer
+var voice_player: AudioStreamPlayer
 var current_zone := "BLACKWOOD CHECKPOINT"
 var chapter := 1
 var story_flags := {}
@@ -67,6 +68,7 @@ func _process(_delta: float) -> void:
 	_update_nearby_prompt()
 	_update_zone()
 	_update_story()
+	_update_objective()
 
 func get_look_sensitivity() -> float:
 	return float(settings["sensitivity"])
@@ -89,91 +91,132 @@ func _static_box(pos: Vector3, size3: Vector3, _material: Material) -> void:
 	cs.shape = sh
 	body.add_child(cs)
 
-func _spawn_asset(path: String, pos: Vector3, rot_y := 0.0, scale3 := Vector3.ONE) -> Node3D:
+func _visual_aabb(root: Node3D) -> AABB:
+	var first := true
+	var result := AABB()
+	for node in root.find_children("*","MeshInstance3D",true,false):
+		var mi := node as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var rel := root.global_transform.affine_inverse() * mi.global_transform
+		var box: AABB = rel * mi.get_aabb()
+		if first:
+			result = box
+			first = false
+		else:
+			result = result.merge(box)
+	return result
+
+func _spawn_asset(path: String, pos: Vector3, rot_y := 0.0, target_extent := 0.0) -> Node3D:
 	var packed: PackedScene = load(path)
 	if packed == null:
 		return null
 	var inst := packed.instantiate()
-	if inst is Node3D:
-		var n := inst as Node3D
-		n.position = pos
-		n.rotation.y = rot_y
-		n.scale = scale3
-		add_child(n)
-		return n
-	return null
+	if not (inst is Node3D):
+		return null
+	var n := inst as Node3D
+	n.position = pos
+	n.rotation.y = rot_y
+	add_child(n)
+	if target_extent > 0.0:
+		var box := _visual_aabb(n)
+		var largest := maxf(box.size.x,maxf(box.size.y,box.size.z))
+		if largest > 0.001:
+			var factor := target_extent/largest
+			n.scale = Vector3.ONE*factor
+			# Put the lowest visible point on the requested ground height.
+			n.position.y = pos.y - box.position.y*factor
+	return n
 
 func _build_world() -> void:
 	var world := WorldEnvironment.new()
 	environment = Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.07,0.10,0.14)
+	environment.background_color = Color(0.055,0.075,0.105)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.42,0.50,0.62)
-	environment.ambient_light_energy = 0.72
+	environment.ambient_light_color = Color(0.38,0.46,0.58)
+	environment.ambient_light_energy = 0.70
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.adjustment_enabled = true
-	environment.adjustment_brightness = 1.35
+	environment.adjustment_brightness = 1.30
 	environment.fog_enabled = true
-	environment.fog_light_color = Color(0.18,0.23,0.28)
-	environment.fog_density = 0.008
-	environment.fog_height = 0.0
-	environment.fog_height_density = 0.08
+	environment.fog_light_color = Color(0.14,0.18,0.23)
+	environment.fog_density = 0.006
+	environment.fog_height_density = 0.055
 	world.environment = environment
 	add_child(world)
 
 	var moon := DirectionalLight3D.new()
-	moon.rotation_degrees = Vector3(-46,-22,0)
-	moon.light_color = Color(0.52,0.63,0.82)
+	moon.rotation_degrees = Vector3(-48,-18,0)
+	moon.light_color = Color(0.56,0.66,0.84)
 	moon.light_energy = 1.15
 	moon.shadow_enabled = true
 	add_child(moon)
 
-	_static_box(Vector3(0,-0.35,-40),Vector3(18,0.7,130),_mat(Color(0.06,0.06,0.065)))
-	_spawn_asset("res://assets/blackwood_road.glb",Vector3(0,0,-40))
-	_spawn_asset("res://assets/checkpoint_gate.glb",Vector3(0,0,8))
-	_spawn_asset("res://assets/surveillance_tower.glb",Vector3(-7,0,-18),0.2)
-	_spawn_asset("res://assets/abandoned_bus_stop.glb",Vector3(6.5,0,-40),PI)
-	_spawn_asset("res://assets/ranger_cabin.glb",Vector3(-7.0,0,-67),0.15)
-	_spawn_asset("res://assets/dead_zone_fence.glb",Vector3(0,0,-91),0.0)
+	# Collision-only road and invisible edge barriers.
+	_static_box(Vector3(0,-0.35,-47),Vector3(18,0.7,150),_mat(Color.WHITE))
+	_static_box(Vector3(-8.8,1.2,-47),Vector3(0.5,2.4,150),_mat(Color.WHITE))
+	_static_box(Vector3(8.8,1.2,-47),Vector3(0.5,2.4,150),_mat(Color.WHITE))
 
-	for z in range(6,-101,-8):
-		_spawn_asset("res://assets/pine_cluster.glb",Vector3(-11.5,0,float(z)),0.15*float(z))
-		_spawn_asset("res://assets/pine_cluster.glb",Vector3(11.5,0,float(z)+2.0),-0.11*float(z))
+	# Every visible object below is an original Sketchfab GLB, normalized to a sane game scale.
+	_spawn_asset("res://assets/blackwood_road.glb",Vector3(0,0,-47),0.0,145.0)
+	_spawn_asset("res://assets/checkpoint_gate.glb",Vector3(0,0,8),0.0,8.0)
+	_spawn_asset("res://assets/surveillance_tower.glb",Vector3(-6.4,0,-20),0.2,8.2)
+	_spawn_asset("res://assets/abandoned_bus_stop.glb",Vector3(6.0,0,-43),PI,4.5)
+	_spawn_asset("res://assets/ranger_cabin.glb",Vector3(-6.0,0,-69),0.15,6.0)
+	_spawn_asset("res://assets/dead_zone_fence.glb",Vector3(0,0,-94),0.0,12.0)
+
+	# Structure collision volumes, placed away from the playable road center.
+	_static_box(Vector3(-5.7,1.4,8),Vector3(3.0,2.8,3.0),_mat(Color.WHITE))
+	_static_box(Vector3(-6.4,2.4,-20),Vector3(3.4,4.8,3.4),_mat(Color.WHITE))
+	_static_box(Vector3(6.0,1.3,-43),Vector3(4.8,2.6,2.7),_mat(Color.WHITE))
+	_static_box(Vector3(-6.0,1.7,-69),Vector3(6.2,3.4,5.0),_mat(Color.WHITE))
+
+	# Cleaner forest spacing: fewer clusters, always outside the road barriers.
+	for z in range(4,-103,-12):
+		_spawn_asset("res://assets/pine_cluster.glb",Vector3(-12.2,0,float(z)),0.07*float(z),6.2)
+		_spawn_asset("res://assets/pine_cluster.glb",Vector3(12.2,0,float(z)-2.0),-0.05*float(z),6.2)
+		_static_box(Vector3(-12.2,2.4,float(z)),Vector3(3.6,4.8,3.6),_mat(Color.WHITE))
+		_static_box(Vector3(12.2,2.4,float(z)-2.0),Vector3(3.6,4.8,3.6),_mat(Color.WHITE))
 
 	relay_active = [false,false,false]
-	var relay_positions := [Vector3(5.8,0,-12),Vector3(-6.2,0,-51),Vector3(5.5,0,-82)]
+	var relay_positions := [Vector3(5.5,0,-13),Vector3(-5.4,0,-53),Vector3(5.3,0,-84)]
 	for i in range(3):
-		var r := _spawn_asset("res://assets/power_relay.glb",relay_positions[i],0.0)
+		var r := _spawn_asset("res://assets/power_relay.glb",relay_positions[i],0.0,1.9)
 		if r:
 			r.set_meta("relay_index",i)
 			relays.append(r)
+		_static_box(relay_positions[i]+Vector3(0,0.9,0),Vector3(1.4,1.8,0.9),_mat(Color.WHITE))
 
-	var evidence_positions := [Vector3(-4.8,0.65,-28),Vector3(5.7,0.65,-63),Vector3(-5.8,0.65,-88)]
+	var evidence_positions := [Vector3(-4.5,0,-29),Vector3(5.2,0,-64),Vector3(-4.8,0,-88)]
 	for i in range(3):
-		var e := _spawn_asset("res://assets/evidence_case.glb",evidence_positions[i],0.2*float(i))
+		var e := _spawn_asset("res://assets/evidence_case.glb",evidence_positions[i],0.2*float(i),0.65)
 		if e:
 			e.set_meta("evidence_index",i)
 			evidence_nodes.append(e)
 
-	terminal = _spawn_asset("res://assets/security_terminal.glb",Vector3(-6.2,0,-19),0.3)
-	extraction_gate = _spawn_asset("res://assets/extraction_gate.glb",Vector3(0,0,-103),0.0)
-	rifle_pickup = _spawn_asset("res://assets/rifle.glb",Vector3(-6.4,1.0,-67.8),0.4,Vector3(1.3,1.3,1.3))
+	terminal = _spawn_asset("res://assets/security_terminal.glb",Vector3(-5.2,0,-22),0.25,1.6)
+	extraction_gate = _spawn_asset("res://assets/extraction_gate.glb",Vector3(0,0,-106),0.0,11.0)
+	rifle_pickup = _spawn_asset("res://assets/rifle.glb",Vector3(-4.9,0.95,-70.5),0.35,1.05)
 
-	for p in [Vector3(5.3,0,-24),Vector3(-5.5,0,-58),Vector3(4.5,0,-86)]:
-		var a := _spawn_asset("res://assets/ammo_box.glb",p)
-		if a: a.set_meta("pickup","ammo"); pickups.append(a)
-	for p in [Vector3(-4.0,0,-34),Vector3(5.2,0,-76)]:
-		var m := _spawn_asset("res://assets/medkit.glb",p)
-		if m: m.set_meta("pickup","medkit"); pickups.append(m)
+	for p in [Vector3(5.0,0,-25),Vector3(-4.8,0,-59),Vector3(4.6,0,-87)]:
+		var a := _spawn_asset("res://assets/ammo_box.glb",p,0.0,0.65)
+		if a:
+			a.set_meta("pickup","ammo")
+			pickups.append(a)
+	for p in [Vector3(-4.2,0,-36),Vector3(4.9,0,-78)]:
+		var m := _spawn_asset("res://assets/medkit.glb",p,0.0,0.52)
+		if m:
+			m.set_meta("pickup","medkit")
+			pickups.append(m)
 
-	for z in [3,-14,-28,-44,-60,-76,-92]:
-		_spawn_asset("res://assets/street_lamp.glb",Vector3(3.6,0,float(z)))
+	for z in [3,-14,-30,-46,-62,-78,-94]:
+		_spawn_asset("res://assets/street_lamp.glb",Vector3(4.8,0,float(z)),0.0,4.2)
 		var light := OmniLight3D.new()
-		light.position = Vector3(4.1,3.45,float(z))
-		light.omni_range = 16.0
-		light.light_energy = 2.2
-		light.light_color = Color(0.72,0.84,0.95)
+		light.position = Vector3(4.5,3.6,float(z))
+		light.omni_range = 15.5
+		light.light_energy = 1.9
+		light.light_color = Color(0.70,0.82,0.94)
 		add_child(light)
 
 func _build_audio() -> void:
@@ -188,6 +231,9 @@ func _build_audio() -> void:
 	static_player.stream = load("res://audio/signal_static.wav")
 	static_player.volume_db = -4.0
 	add_child(static_player)
+	voice_player = AudioStreamPlayer.new()
+	voice_player.volume_db = -1.0
+	add_child(voice_player)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -230,9 +276,12 @@ func _build_ui() -> void:
 
 	crosshair = Label.new()
 	crosshair.text = "+"
-	crosshair.position = Vector2(790,430)
-	crosshair.size = Vector2(30,30)
-	crosshair.add_theme_font_size_override("font_size",28)
+	crosshair.set_anchors_preset(Control.PRESET_CENTER)
+	crosshair.position = Vector2(-20,-20)
+	crosshair.size = Vector2(40,40)
+	crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	crosshair.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	crosshair.add_theme_font_size_override("font_size",24)
 	crosshair.modulate = Color(0.9,0.94,0.95,0.86)
 	layer.add_child(crosshair)
 
@@ -284,42 +333,50 @@ func _build_cinematic_ui(layer: CanvasLayer) -> void:
 	layer.add_child(cinematic_overlay)
 
 	subtitle_box = ColorRect.new()
-	subtitle_box.position = Vector2(180,690)
-	subtitle_box.size = Vector2(1240,150)
-	subtitle_box.color = Color(0.01,0.015,0.02,0.78)
+	subtitle_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	subtitle_box.position = Vector2(150,-168)
+	subtitle_box.size = Vector2(-300,138)
+	subtitle_box.color = Color(0.008,0.012,0.018,0.84)
 	cinematic_overlay.add_child(subtitle_box)
 
 	subtitle_speaker = Label.new()
-	subtitle_speaker.position = Vector2(30,16)
-	subtitle_speaker.size = Vector2(1180,28)
-	subtitle_speaker.add_theme_font_size_override("font_size",16)
-	subtitle_speaker.modulate = Color(0.38,0.75,0.80)
+	subtitle_speaker.position = Vector2(28,14)
+	subtitle_speaker.size = Vector2(1120,25)
+	subtitle_speaker.add_theme_font_size_override("font_size",15)
+	subtitle_speaker.modulate = Color(0.30,0.82,0.86)
 	subtitle_box.add_child(subtitle_speaker)
 
 	subtitle_label = Label.new()
-	subtitle_label.position = Vector2(30,47)
-	subtitle_label.size = Vector2(1180,88)
+	subtitle_label.position = Vector2(28,43)
+	subtitle_label.size = Vector2(1120,80)
 	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	subtitle_label.add_theme_font_size_override("font_size",23)
-	subtitle_label.modulate = Color(0.92,0.94,0.95)
+	subtitle_label.add_theme_font_size_override("font_size",22)
+	subtitle_label.modulate = Color(0.94,0.95,0.96)
 	subtitle_box.add_child(subtitle_label)
 
 	cinematic_camera = Camera3D.new()
-	cinematic_camera.fov = 66.0
+	cinematic_camera.fov = 62.0
+	cinematic_camera.near = 0.08
 	add_child(cinematic_camera)
 	cinematic_camera.current = false
 
-func _type_subtitle(speaker: String, text_value: String, cps: float = 38.0) -> void:
+func _type_subtitle(speaker: String, text_value: String, voice_path := "", cps := 34.0) -> void:
 	subtitle_speaker.text = speaker
 	subtitle_label.text = text_value
 	subtitle_label.visible_characters = 0
+	if voice_path != "" and ResourceLoader.exists(voice_path):
+		voice_player.stream = load(voice_path)
+		voice_player.play()
 	for i in range(text_value.length()+1):
 		if not cinematic_running:
 			return
 		subtitle_label.visible_characters = i
 		await get_tree().create_timer(1.0/cps).timeout
+	if voice_player.playing:
+		await voice_player.finished
 
 func _shot(from_pos: Vector3, to_pos: Vector3, look_target: Vector3, duration: float) -> void:
+	# All intro shots stay above the clear road centerline, avoiding structures and tree collision.
 	var start_basis := Basis.looking_at((look_target-from_pos).normalized(),Vector3.UP)
 	var end_basis := Basis.looking_at((look_target-to_pos).normalized(),Vector3.UP)
 	cinematic_camera.global_transform = Transform3D(start_basis,from_pos)
@@ -345,36 +402,22 @@ func _start_cinematic_intro() -> void:
 	_run_cinematic_intro()
 
 func _run_cinematic_intro() -> void:
-	await _shot(Vector3(-2.8,2.2,18),Vector3(0.0,1.8,8.5),Vector3(0,1.4,5),4.2)
-	await _type_subtitle("BLACKWOOD ARCHIVE // 48 HOURS EARLIER","At 02:13, the abandoned checkpoint powered itself back on. No utility crew was scheduled. No vehicle entered the road.")
-	await get_tree().create_timer(0.8).timeout
+	await _shot(Vector3(0,4.2,18),Vector3(0,3.1,9.5),Vector3(0,1.2,0),3.6)
+	await _type_subtitle("BLACKWOOD CONTROL","The checkpoint powered itself back on at 02:13. No utility crew is present. Proceed to Relay One and restore the grid.","res://audio/voice_intro_01.wav",32.0)
 
-	await _shot(Vector3(6.8,4.0,-5),Vector3(-5.0,5.8,-18),Vector3(-7,4.8,-18),4.5)
-	await _type_subtitle("DISPATCH RECORDING","Patrol Twelve was sent to verify the relay. Their body cameras captured movement around the surveillance tower before the first shot.")
-	await get_tree().create_timer(0.7).timeout
+	await _shot(Vector3(0,4.6,-7),Vector3(0,4.3,-17),Vector3(-6.4,4.5,-20),3.4)
+	await _type_subtitle("DISPATCH","Patrol Twelve stopped responding forty-eight hours ago. Armed security now holds the road. They will fire on sight.","res://audio/voice_intro_02.wav",32.0)
 
-	if soldiers.size() > 0 and is_instance_valid(soldiers[0]):
-		await _shot(Vector3(7.5,2.1,-21),Vector3(3.5,1.7,-25),soldiers[0].global_position+Vector3(0,1.3,0),3.4)
-	else:
-		await _shot(Vector3(7.5,2.1,-21),Vector3(3.5,1.7,-25),Vector3(4.5,1.5,-25),3.4)
-	await _type_subtitle("UNKNOWN RADIO","Blackwood Security now controls the route. Anyone approaching the relays is treated as hostile.")
-	await get_tree().create_timer(0.7).timeout
-
-	await _shot(Vector3(-2.5,1.2,-27),Vector3(-4.2,1.0,-28.5),Vector3(-4.8,0.7,-28),3.0)
-	await _type_subtitle("RECOVERY NOTE","Three evidence cases were left behind. Their recordings are the only proof of what happened to the first patrol.")
-	await get_tree().create_timer(0.7).timeout
-
+	await _shot(Vector3(0,3.2,-31),Vector3(0,3.0,-42),Vector3(3.0,1.8,-46),3.4)
 	if enemy and is_instance_valid(enemy):
-		enemy.global_position = Vector3(3.2,0.9,-46)
-		await _shot(Vector3(-7.5,1.8,-39),Vector3(-3.0,1.7,-43),enemy.global_position+Vector3(0,1.4,0),4.2)
-	else:
-		await _shot(Vector3(-7.5,1.8,-39),Vector3(-3.0,1.7,-43),Vector3(3.2,2.0,-46),4.2)
-	await _type_subtitle("FRAME 0913","One figure appears in every recovered feed. No face. No confirmed identity. Gunfire delays it, but the archive has no record of a permanent kill.",34.0)
-	await get_tree().create_timer(1.0).timeout
+		enemy.global_position = Vector3(4.3,0.9,-48)
+	await _type_subtitle("ARCHIVE","One impossible frame survived. A man without a face appears behind every lost patrol. Gunfire only delays it.","res://audio/voice_intro_03.wav",30.0)
 
-	await _shot(Vector3(1.8,1.8,3.0),Vector3(0.2,1.65,5.2),Vector3(0,1.2,-8),2.8)
-	await _type_subtitle("CONTROL","Restore the three relays. Recover the evidence. Reach the ranger cabin for heavier weapons. Then get to the dead-zone gate.")
-	await get_tree().create_timer(0.7).timeout
+	await _shot(Vector3(0,3.0,-54),Vector3(0,2.7,-65),Vector3(-5.0,1.0,-69),3.3)
+	await _type_subtitle("BLACKWOOD CONTROL","Restore all three relays. Recover the evidence. Find the rifle at the ranger cabin. Then reach the dead-zone gate alive.","res://audio/voice_intro_04.wav",31.0)
+
+	await _shot(Vector3(0,2.5,6),Vector3(0,1.75,4.5),Vector3(5.5,1.0,-13),2.4)
+	await _type_subtitle("OBJECTIVE","First objective: follow the road to Relay One. Interact with the electrical cabinet when you reach it.","res://audio/voice_objective_01.wav",32.0)
 	_finish_cinematic_intro()
 
 func _finish_cinematic_intro() -> void:
@@ -389,32 +432,50 @@ func _finish_cinematic_intro() -> void:
 	prompt_label.visible = true
 	crosshair.visible = true
 	_show_notice("CHAPTER I // ENTER BLACKWOOD")
+	_update_objective()
 
 func _build_main_menu() -> Control:
-	var root := _panel(Vector2(170,90),Vector2(1260,720),Color(0.005,0.01,0.015,0.96))
-	var title := Label.new()
-	title.text = "FACELESS 2"
-	title.position = Vector2(80,40)
-	title.size = Vector2(520,74)
-	title.add_theme_font_size_override("font_size",58)
-	title.modulate = Color(0.86,0.07,0.08)
-	root.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "BLACKWOOD // ARMED RESPONSE"
-	subtitle.position = Vector2(85,110)
-	subtitle.add_theme_font_size_override("font_size",20)
-	subtitle.modulate = Color(0.38,0.72,0.76)
-	root.add_child(subtitle)
-	var by := Label.new()
-	by.text = "made by zorix"
-	by.position = Vector2(85,150)
-	by.modulate = Color(0.65,0.65,0.70)
-	root.add_child(by)
+	var root := ColorRect.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.color = Color(0.004,0.007,0.011,0.94)
+
+	var rail := ColorRect.new()
+	rail.position = Vector2(0,0)
+	rail.size = Vector2(18,900)
+	rail.color = Color(0.72,0.025,0.035,0.92)
+	root.add_child(rail)
+
+	var brand := Label.new()
+	brand.text = "FACELESS"
+	brand.position = Vector2(82,72)
+	brand.size = Vector2(520,70)
+	brand.add_theme_font_size_override("font_size",56)
+	brand.modulate = Color(0.94,0.95,0.96)
+	root.add_child(brand)
+
+	var sequel := Label.new()
+	sequel.text = "02"
+	sequel.position = Vector2(460,58)
+	sequel.size = Vector2(120,80)
+	sequel.add_theme_font_size_override("font_size",64)
+	sequel.modulate = Color(0.78,0.04,0.05)
+	root.add_child(sequel)
+
+	var tagline := Label.new()
+	tagline.text = "BLACKWOOD INCIDENT // FIELD TERMINAL"
+	tagline.position = Vector2(87,145)
+	tagline.size = Vector2(570,34)
+	tagline.add_theme_font_size_override("font_size",16)
+	tagline.modulate = Color(0.28,0.72,0.76)
+	root.add_child(tagline)
 
 	var labels := ["CONTINUE","NEW GAME","GAME MODES","SETTINGS","ARCHIVE"]
 	for i in range(labels.size()):
-		var b := _menu_button(labels[i],Vector2(90,230+i*66),Vector2(390,54))
-		if i == 0: b.pressed.connect(_continue_game)
+		var b := _menu_button(labels[i],Vector2(86,242+i*70),Vector2(390,54))
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.add_theme_constant_override("outline_size",0)
+		if i == 0:
+			b.pressed.connect(_continue_game)
 		elif i == 1:
 			b.pressed.connect(func(): root.visible=false; mode_panel.visible=true)
 		elif i == 2:
@@ -425,18 +486,43 @@ func _build_main_menu() -> Control:
 			b.pressed.connect(func(): root.visible=false; archive_panel.visible=true)
 		root.add_child(b)
 
-	var panel := ColorRect.new()
-	panel.position = Vector2(610,160)
-	panel.size = Vector2(560,430)
-	panel.color = Color(0.02,0.06,0.07,0.74)
-	root.add_child(panel)
-	var lore := Label.new()
-	lore.position = Vector2(28,24)
-	lore.size = Vector2(510,380)
-	lore.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lore.add_theme_font_size_override("font_size",19)
-	lore.text = "CASE ZRX-BW/0217 // RESPONSE PHASE\n\nBlackwood's cameras are no longer the only threat. An unauthorized security unit has sealed the road and is shooting anyone approaching the relays.\n\nYou begin with a pistol. Reach the ranger cabin to recover a rifle. Restore three relays, survive the armed patrols, collect evidence, and reach the dead-zone gate. The Faceless entity cannot be trusted to stay dead."
-	panel.add_child(lore)
+	var card := ColorRect.new()
+	card.position = Vector2(760,120)
+	card.size = Vector2(720,600)
+	card.color = Color(0.018,0.028,0.038,0.88)
+	root.add_child(card)
+
+	var status := Label.new()
+	status.text = "CASE STATUS  //  ACTIVE"
+	status.position = Vector2(38,34)
+	status.size = Vector2(620,34)
+	status.add_theme_font_size_override("font_size",16)
+	status.modulate = Color(0.78,0.07,0.08)
+	card.add_child(status)
+
+	var mission := Label.new()
+	mission.text = "BLACKWOOD RESPONSE"
+	mission.position = Vector2(38,82)
+	mission.size = Vector2(620,50)
+	mission.add_theme_font_size_override("font_size",32)
+	card.add_child(mission)
+
+	var summary := Label.new()
+	summary.position = Vector2(38,150)
+	summary.size = Vector2(630,260)
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	summary.add_theme_font_size_override("font_size",19)
+	summary.text = "Three relay stations are offline. Patrol Twelve is missing. Armed security controls the road.\n\nYour route is now guided step by step in the HUD. Follow the current objective marker, interact with highlighted equipment, and use checkpoints to continue."
+	summary.modulate = Color(0.78,0.83,0.88)
+	card.add_child(summary)
+
+	var hint := Label.new()
+	hint.text = "STORY MODE RECOMMENDED  •  HEADPHONES RECOMMENDED\nOriginal Sketchfab environment assets  •  made by zorix"
+	hint.position = Vector2(38,500)
+	hint.size = Vector2(630,70)
+	hint.add_theme_font_size_override("font_size",15)
+	hint.modulate = Color(0.40,0.58,0.64)
+	card.add_child(hint)
 	return root
 
 func _build_mode_panel() -> Control:
@@ -667,9 +753,34 @@ func _update_zone()->void:
 func update_hud(h:float,s:float,b:float,weapon:String,mag:int,reserve:int)->void:
 	if hud: hud.text="HP %03d  STA %03d  BAT %03d  %s %02d/%03d  CH.%d  %s"%[int(h),int(s),int(b),weapon,mag,reserve,chapter,current_zone]
 
+func _current_objective() -> Dictionary:
+	if relay_active.size() >= 1 and not relay_active[0] and relays.size() > 0:
+		return {"text":"GO TO RELAY 1 — restore checkpoint power","target":relays[0]}
+	if evidence_nodes.size() > 0 and is_instance_valid(evidence_nodes[0]) and evidence_nodes[0].visible:
+		return {"text":"RECOVER EVIDENCE 1 — case beside the road","target":evidence_nodes[0]}
+	if relay_active.size() >= 2 and not relay_active[1] and relays.size() > 1:
+		return {"text":"GO TO RELAY 2 — surveillance sector","target":relays[1]}
+	if player and not player.rifle_unlocked and rifle_pickup and rifle_pickup.visible:
+		return {"text":"GET THE RIFLE — ranger cabin","target":rifle_pickup}
+	if evidence_nodes.size() > 1 and is_instance_valid(evidence_nodes[1]) and evidence_nodes[1].visible:
+		return {"text":"RECOVER EVIDENCE 2","target":evidence_nodes[1]}
+	if relay_active.size() >= 3 and not relay_active[2] and relays.size() > 2:
+		return {"text":"GO TO RELAY 3 — dead-zone approach","target":relays[2]}
+	if evidence_collected < 2:
+		for e in evidence_nodes:
+			if is_instance_valid(e) and e.visible:
+				return {"text":"RECOVER ANOTHER EVIDENCE CASE","target":e}
+	return {"text":"REACH THE DEAD-ZONE GATE — extraction","target":extraction_gate}
+
 func _update_objective()->void:
-	if objective_label:
-		objective_label.text="OBJECTIVE // Relays %d/3 · Evidence %d/3 · Rifle %s · Reach Dead Zone"%[_relay_count(),evidence_collected,("YES" if player and player.rifle_unlocked else "NO")]
+	if objective_label == null or player == null:
+		return
+	var obj := _current_objective()
+	var target := obj.get("target")
+	var distance := 0.0
+	if target is Node3D:
+		distance = player.global_position.distance_to((target as Node3D).global_position)
+	objective_label.text = "NEXT // %s   •   %.0f m" % [str(obj.get("text","")),distance]
 
 func _save_checkpoint()->void:
 	if player==null:return
