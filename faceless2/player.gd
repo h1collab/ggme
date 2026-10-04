@@ -212,9 +212,9 @@ func _physics_process(delta: float) -> void:
 func _update_viewmodel_motion(running: bool) -> void:
 	if viewmodel_root == null or reloading:
 		return
-	var amount := 1.0 if running else 0.55
-	var bob_x := sin(bob_time)*0.012*last_move_strength*amount
-	var bob_y := abs(cos(bob_time))*0.014*last_move_strength*amount
+	var amount: float = 1.0 if running else 0.55
+	var bob_x: float = sin(bob_time)*0.012*last_move_strength*amount
+	var bob_y: float = absf(cos(bob_time))*0.014*last_move_strength*amount
 	viewmodel_root.position = viewmodel_root.position.lerp(Vector3(bob_x,-bob_y,0),0.18)
 	viewmodel_root.rotation_degrees = viewmodel_root.rotation_degrees.lerp(Vector3(bob_y*65.0,bob_x*45.0,-bob_x*80.0),0.18)
 
