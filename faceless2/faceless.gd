@@ -11,6 +11,8 @@ var speed_chase := 4.6
 var attack_cd := 0.0
 var memory := 0.0
 var difficulty := 1.0
+var health := 160.0
+var dead := false
 
 func _ready() -> void:
 	var cs := CollisionShape3D.new()
@@ -26,6 +28,9 @@ func _ready() -> void:
 		add_child(visual)
 
 func _physics_process(delta: float) -> void:
+	if dead:
+		velocity = Vector3.ZERO
+		return
 	if not player or not player.alive:
 		velocity = Vector3.ZERO
 		return
@@ -65,3 +70,16 @@ func _physics_process(delta: float) -> void:
 				look_at(global_position+Vector3(d.x,0,d.z),Vector3.UP)
 	velocity.y = -1.0
 	move_and_slide()
+
+
+func take_bullet(damage: float, _hit_pos: Vector3) -> void:
+	if dead:
+		return
+	health -= damage
+	if visual:
+		visual.scale = Vector3(1.06,0.94,1.06)
+		create_tween().tween_property(visual,"scale",Vector3.ONE,0.13)
+	if health <= 0.0:
+		dead = true
+		if game:
+			game.faceless_down(self)
