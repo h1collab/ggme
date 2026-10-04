@@ -18,11 +18,12 @@ var main_menu: Control
 var mode_panel: Control
 var settings_panel: Control
 var archive_panel: Control
-var intro_panel: Control
-var intro_title: Label
-var intro_body: Label
-var intro_next: Button
-var intro_step := 0
+var cinematic_camera: Camera3D
+var cinematic_overlay: ColorRect
+var subtitle_box: ColorRect
+var subtitle_label: Label
+var subtitle_speaker: Label
+var cinematic_running := false
 var crosshair: Label
 var environment: Environment
 var game_started := false
@@ -277,85 +278,122 @@ func _build_ui() -> void:
 	archive_panel = _build_archive_panel()
 	layer.add_child(archive_panel)
 	archive_panel.visible = false
-	intro_panel = _build_intro_panel()
-	layer.add_child(intro_panel)
-	intro_panel.visible = false
+	_build_cinematic_ui(layer)
 
-func _build_intro_panel() -> Control:
-	var p := ColorRect.new()
-	p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	p.color = Color(0.002,0.004,0.006,0.985)
-	p.mouse_filter = Control.MOUSE_FILTER_STOP
+func _build_cinematic_ui(layer: CanvasLayer) -> void:
+	cinematic_overlay = ColorRect.new()
+	cinematic_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cinematic_overlay.color = Color(0,0,0,0.0)
+	cinematic_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	cinematic_overlay.visible = false
+	layer.add_child(cinematic_overlay)
 
-	intro_title = Label.new()
-	intro_title.position = Vector2(180,140)
-	intro_title.size = Vector2(1240,90)
-	intro_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	intro_title.add_theme_font_size_override("font_size",46)
-	intro_title.modulate = Color(0.82,0.08,0.09)
-	p.add_child(intro_title)
+	subtitle_box = ColorRect.new()
+	subtitle_box.position = Vector2(180,690)
+	subtitle_box.size = Vector2(1240,150)
+	subtitle_box.color = Color(0.01,0.015,0.02,0.78)
+	cinematic_overlay.add_child(subtitle_box)
 
-	intro_body = Label.new()
-	intro_body.position = Vector2(300,270)
-	intro_body.size = Vector2(1000,330)
-	intro_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	intro_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	intro_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	intro_body.add_theme_font_size_override("font_size",24)
-	intro_body.modulate = Color(0.82,0.88,0.90)
-	p.add_child(intro_body)
+	subtitle_speaker = Label.new()
+	subtitle_speaker.position = Vector2(30,16)
+	subtitle_speaker.size = Vector2(1180,28)
+	subtitle_speaker.add_theme_font_size_override("font_size",16)
+	subtitle_speaker.modulate = Color(0.38,0.75,0.80)
+	subtitle_box.add_child(subtitle_speaker)
 
-	var case_label := Label.new()
-	case_label.text = "ZRX SECURITY ARCHIVE // BLACKWOOD INCIDENT 0217"
-	case_label.position = Vector2(320,90)
-	case_label.size = Vector2(960,36)
-	case_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	case_label.add_theme_font_size_override("font_size",17)
-	case_label.modulate = Color(0.35,0.67,0.72)
-	p.add_child(case_label)
+	subtitle_label = Label.new()
+	subtitle_label.position = Vector2(30,47)
+	subtitle_label.size = Vector2(1180,88)
+	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	subtitle_label.add_theme_font_size_override("font_size",23)
+	subtitle_label.modulate = Color(0.92,0.94,0.95)
+	subtitle_box.add_child(subtitle_label)
 
-	intro_next = _menu_button("CONTINUE",Vector2(625,660),Vector2(350,58))
-	intro_next.pressed.connect(_advance_intro)
-	p.add_child(intro_next)
+	cinematic_camera = Camera3D.new()
+	cinematic_camera.fov = 66.0
+	add_child(cinematic_camera)
+	cinematic_camera.current = false
 
-	var skip := _menu_button("SKIP BRIEFING",Vector2(680,735),Vector2(240,44))
-	skip.pressed.connect(_finish_intro)
-	p.add_child(skip)
-	return p
+func _type_subtitle(speaker: String, text_value: String, cps: float = 38.0) -> void:
+	subtitle_speaker.text = speaker
+	subtitle_label.text = text_value
+	subtitle_label.visible_characters = 0
+	for i in range(text_value.length()+1):
+		if not cinematic_running:
+			return
+		subtitle_label.visible_characters = i
+		await get_tree().create_timer(1.0/cps).timeout
 
-func _show_intro() -> void:
-	intro_step = 0
-	intro_panel.visible = true
+func _shot(from_pos: Vector3, to_pos: Vector3, look_target: Vector3, duration: float) -> void:
+	var start_basis := Basis.looking_at((look_target-from_pos).normalized(),Vector3.UP)
+	var end_basis := Basis.looking_at((look_target-to_pos).normalized(),Vector3.UP)
+	cinematic_camera.global_transform = Transform3D(start_basis,from_pos)
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(cinematic_camera,"global_transform",Transform3D(end_basis,to_pos),duration)
+	await tw.finished
+
+func _start_cinematic_intro() -> void:
+	if cinematic_running:
+		return
+	cinematic_running = true
+	cinematic_overlay.visible = true
+	cinematic_camera.current = true
 	if player:
 		player.set_controls_enabled(false)
-	_set_intro_page()
+		player.camera.current = false
+	hud.visible = false
+	objective_label.visible = false
+	prompt_label.visible = false
+	crosshair.visible = false
+	_run_cinematic_intro()
 
-func _set_intro_page() -> void:
-	if intro_step == 0:
-		intro_title.text = "48 HOURS EARLIER"
-		intro_body.text = "A Blackwood patrol team entered the closed road after three abandoned surveillance relays powered themselves back on.\n\nTheir final transmission contained twelve seconds of gunfire, one scream, and a frame showing a man with no face standing behind the patrol."
-		intro_next.text = "NEXT"
-	elif intro_step == 1:
-		intro_title.text = "BLACKWOOD RESPONSE"
-		intro_body.text = "The official recovery unit never returned. An unauthorized armed security team now controls the road and is shooting anyone who approaches the relay network.\n\nYou are sent in alone with a sidearm, a flashlight, and the access code to the old camera archive."
-		intro_next.text = "NEXT"
-	elif intro_step == 2:
-		intro_title.text = "YOUR ORDERS"
-		intro_body.text = "Restore all three relays. Recover the incident evidence. Reach the ranger cabin and secure the rifle. Survive the armed patrols.\n\nIf the Faceless entity appears, do not trust a kill. The archive reports that it always returns somewhere farther down the road."
-		intro_next.text = "ENTER BLACKWOOD"
+func _run_cinematic_intro() -> void:
+	await _shot(Vector3(-2.8,2.2,18),Vector3(0.0,1.8,8.5),Vector3(0,1.4,5),4.2)
+	await _type_subtitle("BLACKWOOD ARCHIVE // 48 HOURS EARLIER","At 02:13, the abandoned checkpoint powered itself back on. No utility crew was scheduled. No vehicle entered the road.")
+	await get_tree().create_timer(0.8).timeout
 
-func _advance_intro() -> void:
-	intro_step += 1
-	if intro_step >= 3:
-		_finish_intro()
+	await _shot(Vector3(6.8,4.0,-5),Vector3(-5.0,5.8,-18),Vector3(-7,4.8,-18),4.5)
+	await _type_subtitle("DISPATCH RECORDING","Patrol Twelve was sent to verify the relay. Their body cameras captured movement around the surveillance tower before the first shot.")
+	await get_tree().create_timer(0.7).timeout
+
+	if soldiers.size() > 0 and is_instance_valid(soldiers[0]):
+		await _shot(Vector3(7.5,2.1,-21),Vector3(3.5,1.7,-25),soldiers[0].global_position+Vector3(0,1.3,0),3.4)
 	else:
-		_set_intro_page()
+		await _shot(Vector3(7.5,2.1,-21),Vector3(3.5,1.7,-25),Vector3(4.5,1.5,-25),3.4)
+	await _type_subtitle("UNKNOWN RADIO","Blackwood Security now controls the route. Anyone approaching the relays is treated as hostile.")
+	await get_tree().create_timer(0.7).timeout
 
-func _finish_intro() -> void:
-	intro_panel.visible = false
+	await _shot(Vector3(-2.5,1.2,-27),Vector3(-4.2,1.0,-28.5),Vector3(-4.8,0.7,-28),3.0)
+	await _type_subtitle("RECOVERY NOTE","Three evidence cases were left behind. Their recordings are the only proof of what happened to the first patrol.")
+	await get_tree().create_timer(0.7).timeout
+
+	if enemy and is_instance_valid(enemy):
+		enemy.global_position = Vector3(3.2,0.9,-46)
+		await _shot(Vector3(-7.5,1.8,-39),Vector3(-3.0,1.7,-43),enemy.global_position+Vector3(0,1.4,0),4.2)
+	else:
+		await _shot(Vector3(-7.5,1.8,-39),Vector3(-3.0,1.7,-43),Vector3(3.2,2.0,-46),4.2)
+	await _type_subtitle("FRAME 0913","One figure appears in every recovered feed. No face. No confirmed identity. Gunfire delays it, but the archive has no record of a permanent kill.",34.0)
+	await get_tree().create_timer(1.0).timeout
+
+	await _shot(Vector3(1.8,1.8,3.0),Vector3(0.2,1.65,5.2),Vector3(0,1.2,-8),2.8)
+	await _type_subtitle("CONTROL","Restore the three relays. Recover the evidence. Reach the ranger cabin for heavier weapons. Then get to the dead-zone gate.")
+	await get_tree().create_timer(0.7).timeout
+	_finish_cinematic_intro()
+
+func _finish_cinematic_intro() -> void:
+	cinematic_running = false
+	cinematic_overlay.visible = false
+	cinematic_camera.current = false
 	if player:
+		player.camera.current = true
 		player.set_controls_enabled(true)
-	_show_notice("CHAPTER I // BLACKWOOD REOPENED")
+	hud.visible = true
+	objective_label.visible = true
+	prompt_label.visible = true
+	crosshair.visible = true
+	_show_notice("CHAPTER I // ENTER BLACKWOOD")
 
 func _build_main_menu() -> Control:
 	var root := _panel(Vector2(170,90),Vector2(1260,720),Color(0.005,0.01,0.015,0.96))
@@ -519,7 +557,7 @@ func _start_new_game() -> void:
 	evidence_collected=0
 	_spawn_player_and_enemies(false)
 	_update_objective()
-	_show_intro()
+	_start_cinematic_intro()
 	if ambience_player: ambience_player.play()
 
 func _continue_game() -> void:
