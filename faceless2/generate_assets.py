@@ -1,0 +1,228 @@
+import os, math, sys, wave, struct
+import numpy as np
+import trimesh
+from trimesh.visual.material import PBRMaterial
+
+OUT = sys.argv[1] if len(sys.argv) > 1 else "assets"
+AUDIO = sys.argv[2] if len(sys.argv) > 2 else "audio"
+os.makedirs(OUT, exist_ok=True)
+os.makedirs(AUDIO, exist_ok=True)
+
+def mat(name, rgb, rough=0.75, metal=0.0, emissive=None, alpha=1.0):
+    kwargs=dict(
+        name=name,
+        baseColorFactor=[int(max(0,min(1,c))*255) for c in rgb]+[int(alpha*255)],
+        roughnessFactor=rough,
+        metallicFactor=metal
+    )
+    if emissive is not None:
+        kwargs["emissiveFactor"]=list(emissive)
+    return PBRMaterial(**kwargs)
+
+M={
+    "asphalt":mat("asphalt",(0.055,0.06,0.065),0.97),
+    "line":mat("line",(0.78,0.72,0.42),0.85),
+    "concrete":mat("concrete",(0.28,0.30,0.31),0.95),
+    "rust":mat("rust",(0.28,0.10,0.055),0.92,0.15),
+    "metal":mat("metal",(0.20,0.24,0.27),0.42,0.75),
+    "darkmetal":mat("darkmetal",(0.06,0.075,0.085),0.36,0.82),
+    "glass":mat("glass",(0.16,0.30,0.34),0.12,0.05,alpha=0.55),
+    "wood":mat("wood",(0.20,0.12,0.07),0.90),
+    "wood2":mat("wood2",(0.32,0.21,0.11),0.82),
+    "pine":mat("pine",(0.035,0.11,0.07),0.94),
+    "bark":mat("bark",(0.12,0.075,0.045),0.96),
+    "cloth":mat("cloth",(0.025,0.028,0.032),0.88),
+    "skin":mat("skin",(0.74,0.71,0.66),0.86),
+    "black":mat("black",(0.01,0.01,0.012),0.88),
+    "red":mat("red",(0.42,0.02,0.025),0.56,0.05,emissive=(0.18,0.0,0.0)),
+    "cyan":mat("cyan",(0.08,0.42,0.46),0.38,0.10,emissive=(0.0,0.18,0.20)),
+    "paper":mat("paper",(0.82,0.80,0.72),0.96),
+    "rubber":mat("rubber",(0.025,0.025,0.028),0.98),
+    "white":mat("white",(0.80,0.82,0.84),0.7),
+}
+
+def T(pos=(0,0,0),rot=(0,0,0),scale=(1,1,1)):
+    m=trimesh.transformations.euler_matrix(*rot,axes='sxyz')
+    m[:3,3]=pos
+    m[:3,:3]=m[:3,:3]@np.diag(scale)
+    return m
+
+def add(sc,name,mesh,material,transform=None):
+    mesh=mesh.copy()
+    mesh.visual=trimesh.visual.TextureVisuals(material=material)
+    sc.add_geometry(mesh,node_name=name,geom_name=name,transform=transform if transform is not None else np.eye(4))
+
+def box(ext): return trimesh.creation.box(extents=ext)
+def cyl(r,h,sections=28): return trimesh.creation.cylinder(radius=r,height=h,sections=sections)
+def sphere(r,sub=3): return trimesh.creation.icosphere(subdivisions=sub,radius=r)
+def cone(r,h,sections=24): return trimesh.creation.cone(radius=r,height=h,sections=sections)
+def capsule(r,h): return trimesh.creation.capsule(radius=r,height=max(0.01,h-2*r),count=[24,24])
+
+def export(sc,name):
+    path=os.path.join(OUT,name)
+    sc.export(path)
+    print(name,os.path.getsize(path))
+
+# Faceless entity
+sc=trimesh.Scene()
+add(sc,"Torso",capsule(.23,1.05),M["cloth"],T((0,1.38,0),rot=(math.pi/2,0,0),scale=(1.18,1,0.78)))
+add(sc,"CoatFront",box((.72,.92,.08)),M["cloth"],T((0,1.34,-.17)))
+add(sc,"CoatTailL",box((.30,.55,.11)),M["cloth"],T((-.19,.77,.02),rot=(0,0,.05)))
+add(sc,"CoatTailR",box((.30,.55,.11)),M["cloth"],T((.19,.77,.02),rot=(0,0,-.05)))
+add(sc,"Neck",cyl(.07,.13),M["skin"],T((0,1.91,0),rot=(math.pi/2,0,0)))
+add(sc,"Head",sphere(.22,4),M["skin"],T((0,2.15,0),scale=(.88,1.06,.92)))
+add(sc,"FaceBlank",sphere(.19,4),M["white"],T((0,2.14,-.08),scale=(.86,1.02,.35)))
+for side,sx in [("L",-.47),("R",.47)]:
+    add(sc,"UpperArm"+side,capsule(.065,.72),M["cloth"],T((sx,1.48,0),rot=(math.pi/2,0,.08 if sx<0 else -.08)))
+    add(sc,"ForeArm"+side,capsule(.055,.72),M["cloth"],T((sx*1.02,.91,.0),rot=(math.pi/2,0,0)))
+    add(sc,"Hand"+side,sphere(.065,2),M["skin"],T((sx*1.02,.52,-.01),scale=(.8,1.1,.72)))
+for side,sx in [("L",-.15),("R",.15)]:
+    add(sc,"Leg"+side,capsule(.085,.92),M["cloth"],T((sx,.43,.02),rot=(math.pi/2,0,0)))
+    add(sc,"Shoe"+side,box((.18,.10,.32)),M["black"],T((sx,.035,-.06)))
+export(sc,"faceless_entity.glb")
+
+# Road
+sc=trimesh.Scene()
+add(sc,"Road",box((8.0,.12,130.0)),M["asphalt"],T((0,-.02,-40)))
+add(sc,"ShoulderL",box((2.4,.09,130)),M["concrete"],T((-5.2,-.03,-40)))
+add(sc,"ShoulderR",box((2.4,.09,130)),M["concrete"],T((5.2,-.03,-40)))
+for z in range(20,-111,-5):
+    add(sc,f"Dash{z}",box((.12,.015,2.4)),M["line"],T((0,.05,z)))
+for x in (-3.75,3.75):
+    add(sc,f"Edge{x}",box((.08,.015,129.0)),M["white"],T((x,.05,-40)))
+export(sc,"blackwood_road.glb")
+
+# checkpoint gate
+sc=trimesh.Scene()
+add(sc,"Booth",box((2.4,2.5,2.2)),M["concrete"],T((-5.1,1.25,0)))
+add(sc,"BoothRoof",box((2.8,.18,2.6)),M["darkmetal"],T((-5.1,2.6,0)))
+add(sc,"Window",box((1.45,.95,.05)),M["glass"],T((-5.1,1.6,-1.12)))
+for x in (-3.8,3.8):
+    add(sc,f"Post{x}",box((.22,3.2,.22)),M["metal"],T((x,1.6,0)))
+add(sc,"Crossbar",box((8.0,.22,.22)),M["metal"],T((0,3.05,0)))
+add(sc,"Barrier",box((6.8,.12,.18)),M["white"],T((.5,1.05,-.65),rot=(0,0,.06)))
+for x in (-1.6,1.6):
+    add(sc,f"Stripe{x}",box((.65,.13,.19)),M["red"],T((x,1.05,-.66),rot=(0,0,.06)))
+add(sc,"CameraPole",cyl(.055,2.8),M["metal"],T((3.2,1.4,-.6),rot=(math.pi/2,0,0)))
+add(sc,"Camera",box((.38,.22,.52)),M["darkmetal"],T((3.2,2.78,-.75),rot=(0,.2,0)))
+export(sc,"checkpoint_gate.glb")
+
+# tower
+sc=trimesh.Scene()
+for sx in (-1.1,1.1):
+    for sz in (-1.1,1.1):
+        add(sc,f"Leg{sx}{sz}",cyl(.07,6.0),M["metal"],T((sx,3,sz),rot=(math.pi/2,0,0)))
+for y in (1.0,2.5,4.0,5.5):
+    add(sc,f"BraceX{y}",box((2.4,.07,.07)),M["metal"],T((0,y,-1.05)))
+    add(sc,f"BraceZ{y}",box((.07,.07,2.4)),M["metal"],T((1.05,y,0)))
+add(sc,"Cabin",box((3.0,1.7,3.0)),M["darkmetal"],T((0,6.25,0)))
+for x in (-.85,.0,.85):
+    add(sc,"Glass"+str(x),box((.65,.7,.04)),M["glass"],T((x,6.35,-1.52)))
+add(sc,"Roof",box((3.4,.18,3.4)),M["metal"],T((0,7.18,0)))
+add(sc,"Dish",cyl(.62,.08,32),M["metal"],T((0,7.62,0),rot=(0,0,0)))
+add(sc,"Mast",cyl(.04,1.3),M["metal"],T((0,7.65,0),rot=(math.pi/2,0,0)))
+export(sc,"surveillance_tower.glb")
+
+# bus stop
+sc=trimesh.Scene()
+add(sc,"Roof",box((4.4,.18,2.2)),M["metal"],T((0,2.3,0)))
+for x in (-2.0,2.0):
+    add(sc,"Post"+str(x),box((.12,2.3,.12)),M["metal"],T((x,1.15,.75)))
+add(sc,"Back",box((4.0,1.8,.08)),M["glass"],T((0,1.2,.95)))
+add(sc,"BenchSeat",box((2.8,.12,.55)),M["wood2"],T((0,.72,.3)))
+add(sc,"BenchBack",box((2.8,.65,.09)),M["wood2"],T((0,1.05,.55),rot=(.15,0,0)))
+export(sc,"abandoned_bus_stop.glb")
+
+# cabin
+sc=trimesh.Scene()
+add(sc,"Body",box((5.8,2.7,4.6)),M["wood"],T((0,1.35,0)))
+add(sc,"RoofL",box((3.6,.18,5.0)),M["rust"],T((-1.45,3.05,0),rot=(0,0,.38)))
+add(sc,"RoofR",box((3.6,.18,5.0)),M["rust"],T((1.45,3.05,0),rot=(0,0,-.38)))
+add(sc,"Door",box((1.2,2.2,.12)),M["darkmetal"],T((0,1.1,-2.35)))
+for x in (-1.8,1.8):
+    add(sc,"Window"+str(x),box((1.1,1.0,.06)),M["glass"],T((x,1.55,-2.36)))
+add(sc,"Porch",box((4.5,.15,1.6)),M["wood2"],T((0,.08,-3.0)))
+export(sc,"ranger_cabin.glb")
+
+# fence
+sc=trimesh.Scene()
+for x in range(-6,7,2):
+    add(sc,"Post"+str(x),box((.12,2.8,.12)),M["metal"],T((x,1.4,0)))
+for y in (.4,.9,1.4,1.9,2.4):
+    add(sc,"Rail"+str(y),box((12.0,.04,.04)),M["metal"],T((0,y,0)))
+add(sc,"GateL",box((2.6,2.2,.10)),M["darkmetal"],T((-1.45,1.1,-.1),rot=(0,.18,0)))
+add(sc,"GateR",box((2.6,2.2,.10)),M["darkmetal"],T((1.45,1.1,-.1),rot=(0,-.18,0)))
+add(sc,"Warning",box((1.6,.8,.05)),M["red"],T((0,1.75,-.18)))
+export(sc,"dead_zone_fence.glb")
+
+# pine cluster
+sc=trimesh.Scene()
+for i,(x,z,s) in enumerate([(-2.2,-1.0,1.0),(0,0,1.25),(2.0,.7,.9),(-.6,2.2,.75)]):
+    add(sc,f"Trunk{i}",cyl(.16*s,2.5*s),M["bark"],T((x,1.25*s,z),rot=(math.pi/2,0,0)))
+    for j,(yy,rr,hh) in enumerate([(2.0,1.3,2.2),(2.8,1.0,1.9),(3.5,.7,1.5)]):
+        add(sc,f"Needle{i}_{j}",cone(rr*s,hh*s,28),M["pine"],T((x,yy*s,z)))
+export(sc,"pine_cluster.glb")
+
+# power relay
+sc=trimesh.Scene()
+add(sc,"Cabinet",box((1.35,1.75,.65)),M["darkmetal"],T((0,.88,0)))
+add(sc,"Door",box((1.18,1.52,.05)),M["metal"],T((0,.9,-.35)))
+for y in (.5,.9,1.3):
+    add(sc,"Vent"+str(y),box((.65,.035,.03)),M["black"],T((0,y,-.39)))
+add(sc,"Screen",box((.42,.25,.025)),M["cyan"],T((0,1.42,-.39)))
+add(sc,"Handle",cyl(.025,.3,18),M["white"],T((.43,.95,-.41),rot=(math.pi/2,0,0)))
+export(sc,"power_relay.glb")
+
+# evidence case
+sc=trimesh.Scene()
+add(sc,"Case",box((.62,.12,.45)),M["darkmetal"],T((0,.08,0)))
+add(sc,"Lid",box((.62,.06,.45)),M["metal"],T((0,.18,.02),rot=(-.18,0,0)))
+add(sc,"Paper",box((.38,.015,.25)),M["paper"],T((0,.225,-.02)))
+add(sc,"Seal",box((.11,.015,.11)),M["red"],T((.12,.236,-.03)))
+export(sc,"evidence_case.glb")
+
+# terminal
+sc=trimesh.Scene()
+add(sc,"Desk",box((1.6,.75,.8)),M["metal"],T((0,.38,0)))
+add(sc,"Monitor",box((1.15,.7,.16)),M["darkmetal"],T((0,1.18,-.08),rot=(-.1,0,0)))
+add(sc,"Screen",box((.92,.52,.025)),M["cyan"],T((0,1.18,-.17),rot=(-.1,0,0)))
+add(sc,"Keyboard",box((.85,.06,.3)),M["darkmetal"],T((0,.82,-.28),rot=(.08,0,0)))
+for x in (-.48,-.16,.16,.48):
+    add(sc,"Key"+str(x),box((.08,.025,.08)),M["red"] if x==.48 else M["white"],T((x,.86,-.31)))
+export(sc,"security_terminal.glb")
+
+# extraction gate
+sc=trimesh.Scene()
+for x in (-3.8,3.8):
+    add(sc,"Pillar"+str(x),box((.55,4.2,.55)),M["concrete"],T((x,2.1,0)))
+add(sc,"Header",box((8.2,.6,.7)),M["concrete"],T((0,4.0,0)))
+add(sc,"GateL",box((3.5,3.2,.18)),M["darkmetal"],T((-1.85,1.6,0)))
+add(sc,"GateR",box((3.5,3.2,.18)),M["darkmetal"],T((1.85,1.6,0)))
+for x in (-2.8,-1.8,-.8,.8,1.8,2.8):
+    add(sc,"Bar"+str(x),box((.08,2.8,.12)),M["metal"],T((x,1.6,-.12)))
+add(sc,"Light",box((1.6,.25,.18)),M["red"],T((0,3.72,-.4)))
+export(sc,"extraction_gate.glb")
+
+def wav(path, seconds, kind):
+    rate=22050
+    n=int(rate*seconds)
+    rng=np.random.default_rng(7)
+    data=[]
+    for i in range(n):
+        t=i/rate
+        if kind=="amb":
+            v=0.10*math.sin(2*math.pi*48*t)+0.05*math.sin(2*math.pi*73*t)+0.02*rng.normal()
+        elif kind=="static":
+            env=max(0.0,1.0-t/seconds)
+            v=0.22*rng.normal()*env + 0.06*math.sin(2*math.pi*180*t)*env
+        else:
+            v=0.11*math.sin(2*math.pi*(72+22*math.sin(t*1.8))*t)+0.035*rng.normal()
+        data.append(max(-1,min(1,v)))
+    with wave.open(path,"w") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)
+        w.writeframes(b"".join(struct.pack("<h",int(v*32767)) for v in data))
+
+wav(os.path.join(AUDIO,"blackwood_ambience.wav"),8.0,"amb")
+wav(os.path.join(AUDIO,"signal_static.wav"),1.2,"static")
+wav(os.path.join(AUDIO,"chase_pulse.wav"),6.0,"chase")
+print("audio generated")
