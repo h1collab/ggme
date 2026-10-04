@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, os, shutil, subprocess, sys, tempfile, urllib.request, zipfile
+import json, os, shutil, subprocess, sys, tempfile, urllib.request, urllib.error, zipfile, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -12,18 +12,38 @@ if not token:
 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 out_dir.mkdir(parents=True, exist_ok=True)
 cache = {}
+_last_api_call = 0.0
 
 def api_json(url):
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Authorization": f"Token {token}",
-            "User-Agent": "Faceless2-Zorix/1.0",
-            "Accept": "application/json",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r)
+    global _last_api_call
+    # Sketchfab may rate-limit model download URL requests. Keep calls under ~12/min.
+    wait = 5.2 - (time.monotonic() - _last_api_call)
+    if wait > 0:
+        time.sleep(wait)
+    for attempt in range(8):
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Authorization": f"Token {token}",
+                "User-Agent": "Faceless2-Zorix/1.0",
+                "Accept": "application/json",
+            },
+        )
+        try:
+            _last_api_call = time.monotonic()
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or attempt >= 7:
+                raise
+            retry_after = e.headers.get("Retry-After")
+            try:
+                delay = max(15.0, float(retry_after)) if retry_after else 30.0 * (attempt + 1)
+            except ValueError:
+                delay = 30.0 * (attempt + 1)
+            print(f"Sketchfab rate limit hit; retrying in {delay:.0f}s (attempt {attempt+1}/8)", flush=True)
+            time.sleep(delay)
+    raise RuntimeError("Sketchfab download API retries exhausted")
 
 def download(url, path):
     req = urllib.request.Request(url, headers={"User-Agent": "Faceless2-Zorix/1.0"})
