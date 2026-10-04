@@ -72,6 +72,7 @@ jobs:
       - name: Generate offline cinematic TTS voice files
         shell: bash
         run: |
+          mkdir -p app/audio
           curl -L --retry 4 -o piper.tar.gz "https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_amd64.tar.gz"
           tar -xzf piper.tar.gz
           curl -L --retry 4 -o voice.onnx "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/hfc_male/medium/en_US-hfc_male-medium.onnx"
@@ -81,7 +82,11 @@ jobs:
           printf '%s\n' "One impossible frame survived. A man without a face appears behind every lost patrol. Gunfire only delays it." | ./piper/piper --model voice.onnx --output_file app/audio/voice_intro_03.wav
           printf '%s\n' "Restore all three relays. Recover the evidence. Find the rifle at the ranger cabin. Then reach the dead zone gate alive." | ./piper/piper --model voice.onnx --output_file app/audio/voice_intro_04.wav
           printf '%s\n' "First objective. Follow the road to Relay One. Interact with the electrical cabinet when you reach it." | ./piper/piper --model voice.onnx --output_file app/audio/voice_objective_01.wav
-          ls -lh app/audio/voice_*.wav
+          test -s app/audio/voice_intro_01.wav
+          test -s app/audio/voice_intro_02.wav
+          test -s app/audio/voice_intro_03.wav
+          test -s app/audio/voice_intro_04.wav
+          test -s app/audio/voice_objective_01.wav
 
       - name: Generate audio and Android icon
         shell: bash
