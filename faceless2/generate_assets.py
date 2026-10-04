@@ -275,3 +275,84 @@ add(sc,"Pole",cyl(.055,3.8,18),M["metal"],T((0,1.9,0),rot=(math.pi/2,0,0)))
 add(sc,"Arm",box((.55,.06,.06)),M["metal"],T((.24,3.75,0)))
 add(sc,"Lamp",box((.48,.18,.28)),M["white"],T((.52,3.62,0)))
 export(sc,"street_lamp.glb")
+
+
+# --- v3 first-person realistic-ish viewmodel assets ---
+HAND_SKIN = mat("hand_skin",(0.71,0.50,0.37),0.78)
+HAND_NAIL = mat("hand_nail",(0.78,0.61,0.52),0.64)
+SLEEVE = mat("sleeve",(0.07,0.09,0.11),0.88)
+GUN_BLACK = mat("gun_black",(0.055,0.065,0.075),0.30,0.82)
+GUN_STEEL = mat("gun_steel",(0.20,0.23,0.26),0.28,0.92)
+GUN_GRIP = mat("gun_grip",(0.035,0.035,0.038),0.88,0.06)
+BRASS = mat("brass",(0.55,0.36,0.12),0.38,0.78)
+RED_DOT = mat("red_dot",(0.22,0.02,0.02),0.25,0.15,emissive=(0.30,0.0,0.0))
+
+def make_hand(name, mirror=1.0):
+    sc=trimesh.Scene()
+    add(sc,"Forearm",capsule(.075,.46),SLEEVE,T((0,-.18,.22),rot=(math.pi/2,0,0),scale=(1.05,1,.88)))
+    add(sc,"Wrist",cyl(.065,.11,24),HAND_SKIN,T((0,.05,.02),rot=(math.pi/2,0,0)))
+    add(sc,"Palm",box((.18,.085,.24)),HAND_SKIN,T((0,.12,-.08),rot=(-.08,0,0)))
+    finger_x=[-.075,-.025,.025,.075]
+    lengths=[.15,.17,.165,.145]
+    for i,(x,l) in enumerate(zip(finger_x,lengths)):
+        add(sc,f"Finger{i}_1",capsule(.019,l),HAND_SKIN,T((x,.16,-.215),rot=(math.pi/2+.18,0,.02*x)))
+        add(sc,f"Finger{i}_2",capsule(.017,l*.72),HAND_SKIN,T((x,.145,-.335),rot=(math.pi/2+.55,0,0)))
+        add(sc,f"Nail{i}",box((.028,.010,.045)),HAND_NAIL,T((x,.115,-.385),rot=(.35,0,0)))
+    add(sc,"Thumb1",capsule(.023,.13),HAND_SKIN,T((-.115*mirror,.11,-.10),rot=(1.20,0,.85*mirror)))
+    add(sc,"Thumb2",capsule(.021,.10),HAND_SKIN,T((-.155*mirror,.075,-.17),rot=(1.35,0,.55*mirror)))
+    return sc
+
+make_hand("Right",1.0).export(os.path.join(OUT,"fp_right_hand.glb"))
+make_hand("Left",-1.0).export(os.path.join(OUT,"fp_left_hand.glb"))
+
+# More detailed pistol, overwrites v2 pistol.glb
+sc=trimesh.Scene()
+add(sc,"Slide",box((.30,.16,.78)),GUN_STEEL,T((0,.085,-.08)))
+add(sc,"SlideCutL",box((.035,.07,.26)),GUN_BLACK,T((-.145,.09,-.19)))
+add(sc,"SlideCutR",box((.035,.07,.26)),GUN_BLACK,T((.145,.09,-.19)))
+add(sc,"Frame",box((.27,.16,.56)),GUN_BLACK,T((0,-.045,.03)))
+add(sc,"Grip",box((.21,.46,.24)),GUN_GRIP,T((0,-.27,.18),rot=(.18,0,0)))
+add(sc,"GripBack",box((.12,.38,.06)),GUN_BLACK,T((0,-.27,.32),rot=(.18,0,0)))
+add(sc,"Barrel",cyl(.034,.54,24),GUN_STEEL,T((0,.08,-.55)))
+add(sc,"Muzzle",cyl(.047,.05,24),GUN_BLACK,T((0,.08,-.82)))
+add(sc,"TriggerGuard",trimesh.creation.torus(major_radius=.075,minor_radius=.012,major_sections=24,minor_sections=10),GUN_BLACK,T((0,-.12,-.02),rot=(math.pi/2,0,0),scale=(1.2,1,.72)))
+add(sc,"Trigger",box((.025,.10,.025)),GUN_STEEL,T((0,-.115,.02),rot=(0,0,.20)))
+add(sc,"RearSight",box((.11,.055,.06)),GUN_BLACK,T((0,.19,.20)))
+add(sc,"FrontSight",box((.035,.06,.05)),GUN_BLACK,T((0,.19,-.41)))
+add(sc,"Rail",box((.18,.035,.34)),GUN_BLACK,T((0,-.15,-.25)))
+export(sc,"pistol.glb")
+
+sc=trimesh.Scene()
+add(sc,"MagBody",box((.17,.42,.18)),GUN_BLACK,T((0,-.02,0),rot=(.16,0,0)))
+add(sc,"MagBase",box((.19,.05,.20)),GUN_GRIP,T((0,-.25,.03),rot=(.16,0,0)))
+add(sc,"FeedLips",box((.14,.04,.14)),GUN_STEEL,T((0,.205,-.02),rot=(.16,0,0)))
+export(sc,"pistol_mag.glb")
+
+# More detailed rifle, overwrites v2 rifle.glb
+sc=trimesh.Scene()
+add(sc,"UpperReceiver",box((.25,.18,.92)),GUN_STEEL,T((0,.08,-.12)))
+add(sc,"LowerReceiver",box((.24,.23,.60)),GUN_BLACK,T((0,-.08,.05)))
+add(sc,"Handguard",box((.21,.20,.76)),GUN_BLACK,T((0,.06,-.95)))
+for z in (-.72,-.95,-1.18):
+    add(sc,"Rail"+str(z),box((.22,.025,.18)),GUN_STEEL,T((0,.175,z)))
+add(sc,"Barrel",cyl(.026,1.08,24),GUN_STEEL,T((0,.06,-1.58)))
+add(sc,"MuzzleBrake",cyl(.048,.18,20),GUN_BLACK,T((0,.06,-2.15)))
+add(sc,"StockTube",cyl(.045,.56,20),GUN_STEEL,T((0,.02,.74)))
+add(sc,"Stock",box((.26,.34,.65)),GUN_BLACK,T((0,-.02,1.10),rot=(.03,0,0)))
+add(sc,"PistolGrip",box((.17,.38,.20)),GUN_GRIP,T((0,-.27,.32),rot=(.22,0,0)))
+add(sc,"TriggerGuard",trimesh.creation.torus(major_radius=.07,minor_radius=.011,major_sections=20,minor_sections=8),GUN_BLACK,T((0,-.17,.05),rot=(math.pi/2,0,0),scale=(1.2,1,.7)))
+add(sc,"OpticBase",box((.17,.06,.26)),GUN_BLACK,T((0,.21,-.22)))
+add(sc,"Optic",cyl(.07,.28,24),GUN_STEEL,T((0,.29,-.20),rot=(math.pi/2,0,0)))
+add(sc,"LensF",cyl(.058,.012,24),RED_DOT,T((0,.29,-.35),rot=(math.pi/2,0,0)))
+add(sc,"ForeGrip",box((.11,.30,.12)),GUN_GRIP,T((0,-.16,-.93),rot=(.15,0,0)))
+export(sc,"rifle.glb")
+
+sc=trimesh.Scene()
+add(sc,"MagBody",box((.18,.52,.23)),GUN_BLACK,T((0,-.02,0),rot=(.20,0,0)))
+add(sc,"MagCurve",box((.18,.24,.22)),GUN_BLACK,T((0,-.38,.05),rot=(.35,0,0)))
+add(sc,"MagBase",box((.20,.05,.24)),GUN_GRIP,T((0,-.53,.10),rot=(.35,0,0)))
+for i in range(3):
+    add(sc,"Round"+str(i),cyl(.015,.16,12),BRASS,T((-.045+i*.045,.27,-.03),rot=(math.pi/2,0,0)))
+export(sc,"rifle_mag.glb")
+
+print("v3 viewmodel GLBs generated")
