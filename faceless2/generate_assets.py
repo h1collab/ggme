@@ -226,3 +226,52 @@ wav(os.path.join(AUDIO,"blackwood_ambience.wav"),8.0,"amb")
 wav(os.path.join(AUDIO,"signal_static.wav"),1.2,"static")
 wav(os.path.join(AUDIO,"chase_pulse.wav"),6.0,"chase")
 print("audio generated")
+
+
+# --- v2 combat assets ---
+sc=trimesh.Scene()
+add(sc,"Slide",box((.28,.16,.72)),M["darkmetal"],T((0,.06,0)))
+add(sc,"Grip",box((.18,.42,.22)),M["rubber"],T((0,-.20,.18),rot=(.18,0,0)))
+add(sc,"Barrel",cyl(.035,.48,20),M["metal"],T((0,.06,-.46),rot=(0,0,0)))
+add(sc,"FrontSight",box((.025,.05,.04)),M["white"],T((0,.17,-.32)))
+export(sc,"pistol.glb")
+
+sc=trimesh.Scene()
+add(sc,"Receiver",box((.24,.20,.92)),M["darkmetal"],T((0,.04,-.08)))
+add(sc,"Barrel",cyl(.028,1.05,22),M["metal"],T((0,.05,-.94)))
+add(sc,"Stock",box((.22,.30,.58)),M["wood"],T((0,-.03,.68),rot=(0.05,0,0)))
+add(sc,"Grip",box((.14,.34,.20)),M["rubber"],T((0,-.24,.18),rot=(.22,0,0)))
+add(sc,"Magazine",box((.14,.38,.24)),M["darkmetal"],T((0,-.24,-.10),rot=(.25,0,0)))
+add(sc,"Sight",box((.06,.07,.10)),M["white"],T((0,.18,-.52)))
+export(sc,"rifle.glb")
+
+sc=trimesh.Scene()
+add(sc,"Torso",capsule(.22,1.0),M["darkmetal"],T((0,1.35,0),rot=(math.pi/2,0,0),scale=(1.2,1,.8)))
+add(sc,"Vest",box((.78,.68,.30)),M["metal"],T((0,1.38,-.04)))
+add(sc,"Head",sphere(.21,3),M["skin"],T((0,2.02,0),scale=(.95,1.0,.92)))
+add(sc,"Helmet",sphere(.23,2),M["darkmetal"],T((0,2.13,.02),scale=(1.02,.70,1.02)))
+for side,sx in [("L",-.46),("R",.46)]:
+    add(sc,"Arm"+side,capsule(.07,.70),M["darkmetal"],T((sx,1.34,0),rot=(math.pi/2,0,0)))
+for side,sx in [("L",-.16),("R",.16)]:
+    add(sc,"Leg"+side,capsule(.09,.90),M["darkmetal"],T((sx,.47,0),rot=(math.pi/2,0,0)))
+add(sc,"Weapon",box((.15,.14,1.0)),M["metal"],T((.27,1.16,-.34),rot=(0,.25,-.22)))
+export(sc,"blackwood_soldier.glb")
+
+sc=trimesh.Scene()
+add(sc,"AmmoCrate",box((.75,.32,.52)),M["darkmetal"],T((0,.16,0)))
+add(sc,"Lid",box((.78,.06,.55)),M["metal"],T((0,.35,0)))
+for x in (-.22,0,.22):
+    add(sc,"Round"+str(x),cyl(.025,.28,12),M["line"],T((x,.41,0),rot=(math.pi/2,0,0)))
+export(sc,"ammo_box.glb")
+
+sc=trimesh.Scene()
+add(sc,"Case",box((.52,.18,.40)),M["white"],T((0,.10,0)))
+add(sc,"CrossV",box((.10,.025,.28)),M["red"],T((0,.205,0)))
+add(sc,"CrossH",box((.28,.025,.10)),M["red"],T((0,.205,0)))
+export(sc,"medkit.glb")
+
+sc=trimesh.Scene()
+add(sc,"Pole",cyl(.055,3.8,18),M["metal"],T((0,1.9,0),rot=(math.pi/2,0,0)))
+add(sc,"Arm",box((.55,.06,.06)),M["metal"],T((.24,3.75,0)))
+add(sc,"Lamp",box((.48,.18,.28)),M["white"],T((.52,3.62,0)))
+export(sc,"street_lamp.glb")
