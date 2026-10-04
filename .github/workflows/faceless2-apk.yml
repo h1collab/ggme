@@ -81,7 +81,7 @@ jobs:
           printf '%s\n' "One impossible frame survived. A man without a face appears behind every lost patrol. Gunfire only delays it." | ./piper/piper --model voice.onnx --output_file app/audio/voice_intro_03.wav
           printf '%s\n' "Restore all three relays. Recover the evidence. Find the rifle at the ranger cabin. Then reach the dead zone gate alive." | ./piper/piper --model voice.onnx --output_file app/audio/voice_intro_04.wav
           printf '%s\n' "First objective. Follow the road to Relay One. Interact with the electrical cabinet when you reach it." | ./piper/piper --model voice.onnx --output_file app/audio/voice_objective_01.wav
-          for f in app/audio/voice_*.wav; do test -s "$f"; done
+          ls -lh app/audio/voice_*.wav
 
       - name: Generate audio and Android icon
         shell: bash
