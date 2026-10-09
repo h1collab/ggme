@@ -1,5 +1,7 @@
 extends Node3D
 
+const AssetVisual = preload("res://scripts/asset_visual.gd")
+
 const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/faceless.gd")
 const SoldierScript = preload("res://scripts/soldier.gd")
@@ -26,6 +28,10 @@ var subtitle_speaker: Label
 var cinematic_running := false
 var crosshair: Label
 var environment: Environment
+var moon_light: DirectionalLight3D
+var street_lights: Array[OmniLight3D] = []
+var prompt_timer := 0.0
+
 var game_started := false
 var selected_mode := "STORY"
 var relays: Array[Node3D] = []
@@ -67,13 +73,16 @@ func _ready() -> void:
 	_apply_settings()
 	get_tree().paused = true
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not game_started or player == null:
 		return
-	_update_nearby_prompt()
-	_update_zone()
-	_update_story()
-	_update_objective()
+	prompt_timer -= delta
+	if prompt_timer <= 0.0:
+		prompt_timer = 0.10
+		_update_nearby_prompt()
+		_update_zone()
+		_update_story()
+		_update_objective()
 
 func get_look_sensitivity() -> float:
 	return float(settings["sensitivity"])
@@ -96,22 +105,6 @@ func _static_box(pos: Vector3, size3: Vector3, _material: Material) -> void:
 	cs.shape = sh
 	body.add_child(cs)
 
-func _visual_aabb(root: Node3D) -> AABB:
-	var first := true
-	var result := AABB()
-	for node in root.find_children("*","MeshInstance3D",true,false):
-		var mi := node as MeshInstance3D
-		if mi == null or mi.mesh == null:
-			continue
-		var rel := root.global_transform.affine_inverse() * mi.global_transform
-		var box: AABB = rel * mi.get_aabb()
-		if first:
-			result = box
-			first = false
-		else:
-			result = result.merge(box)
-	return result
-
 func _spawn_asset(path: String, pos: Vector3, rot_y := 0.0, target_extent := 0.0) -> Node3D:
 	var packed: PackedScene = load(path)
 	if packed == null:
@@ -124,38 +117,94 @@ func _spawn_asset(path: String, pos: Vector3, rot_y := 0.0, target_extent := 0.0
 	n.rotation.y = rot_y
 	add_child(n)
 	if target_extent > 0.0:
-		var box := _visual_aabb(n)
+		var box := AssetVisual.bounds(n)
 		var largest := maxf(box.size.x,maxf(box.size.y,box.size.z))
 		if largest > 0.001:
 			var factor := target_extent/largest
 			n.scale = Vector3.ONE*factor
 			# Put the lowest visible point on the requested ground height.
-			n.position.y = pos.y - box.position.y*factor
+			n.position = pos - n.basis * Vector3(box.get_center().x, box.position.y, box.get_center().z)
+	for mesh in n.find_children("*", "MeshInstance3D", true, false):
+		mesh.visibility_range_end = 95.0
+		mesh.visibility_range_end_margin = 10.0
 	return n
+
+func _build_road() -> void:
+	# This download is a complete, inverted forest diorama, not a road strip.
+	# Use its original textured road surface, instead of scaling tree bounds to 145m.
+	var packed := ResourceLoader.load("res://assets/blackwood_road.glb", "PackedScene", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
+	if packed == null:
+		push_error("Missing original road asset")
+		return
+	var source := packed.instantiate() as Node3D
+	add_child(source)
+	var surface: MeshInstance3D
+	for node in source.find_children("*", "MeshInstance3D", true, false):
+		if "Dirt_Road_Bare" in node.name:
+			surface = node as MeshInstance3D
+			break
+	if surface == null:
+		push_error("Sketchfab road surface Dirt_Road_Bare is missing")
+		source.free()
+		return
+	# The source patch is an irregular showcase mesh with gaps at its edges.
+	# Reuse its original PBR texture on continuous, upward-facing gameplay planes.
+	var road_material := surface.get_active_material(0).duplicate() as BaseMaterial3D
+	road_material.albedo_color = Color(0.32, 0.34, 0.36)
+	road_material.roughness = 0.94
+	road_material.metallic = 0.0
+	road_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	road_material.uv1_scale = Vector3(3.0, 4.0, 1.0)
+	for i in range(6):
+		var tile := Node3D.new()
+		tile.name = "RoadTile%d" % i
+		tile.position = Vector3(0, 0, 15.5 - 25.0 * i)
+		add_child(tile)
+		var visual := MeshInstance3D.new()
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(18.0, 25.0)
+		plane.material = road_material
+		visual.mesh = plane
+		visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		tile.add_child(visual)
+	var forest_floor := MeshInstance3D.new()
+	var shoulder := PlaneMesh.new()
+	shoulder.size = Vector2(70.0, 150.0)
+	var soil := road_material.duplicate() as BaseMaterial3D
+	soil.albedo_color = Color(0.18, 0.22, 0.20)
+	soil.uv1_scale = Vector3(12.0, 25.0, 1.0)
+	shoulder.material = soil
+	forest_floor.mesh = shoulder
+	forest_floor.position = Vector3(0, -0.035, -47)
+	add_child(forest_floor)
+	# Release the unused diorama meshes and materials after extracting the road.
+	source.free()
 
 func _build_world() -> void:
 	var world := WorldEnvironment.new()
 	environment = Environment.new()
 	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.055,0.075,0.105)
+	environment.background_color = Color(0.008,0.014,0.025)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color(0.38,0.46,0.58)
-	environment.ambient_light_energy = 0.70
+	environment.ambient_light_energy = 0.42
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.adjustment_enabled = true
 	environment.adjustment_brightness = 1.30
 	environment.fog_enabled = true
-	environment.fog_light_color = Color(0.14,0.18,0.23)
-	environment.fog_density = 0.006
-	environment.fog_height_density = 0.055
+	environment.fog_light_color = Color(0.035,0.055,0.075)
+	environment.fog_density = 0.004
+	environment.fog_height_density = 0.012
 	world.environment = environment
 	add_child(world)
 
 	var moon := DirectionalLight3D.new()
 	moon.rotation_degrees = Vector3(-48,-18,0)
 	moon.light_color = Color(0.56,0.66,0.84)
-	moon.light_energy = 1.15
+	moon.light_energy = 0.75
 	moon.shadow_enabled = true
+	moon.directional_shadow_max_distance = 45.0
+	moon_light = moon
 	add_child(moon)
 
 	# Collision-only road and invisible edge barriers.
@@ -164,7 +213,7 @@ func _build_world() -> void:
 	_static_box(Vector3(8.8,1.2,-47),Vector3(0.5,2.4,150),_mat(Color.WHITE))
 
 	# Every visible object below is an original Sketchfab GLB, normalized to a sane game scale.
-	_spawn_asset("res://assets/blackwood_road.glb",Vector3(0,0,-47),0.0,145.0)
+	_build_road()
 	_spawn_asset("res://assets/checkpoint_gate.glb",Vector3(0,0,8),0.0,8.0)
 	_spawn_asset("res://assets/surveillance_tower.glb",Vector3(-6.4,0,-20),0.2,8.2)
 	_spawn_asset("res://assets/abandoned_bus_stop.glb",Vector3(6.0,0,-43),PI,4.5)
@@ -220,8 +269,12 @@ func _build_world() -> void:
 		var light := OmniLight3D.new()
 		light.position = Vector3(4.5,3.6,float(z))
 		light.omni_range = 15.5
-		light.light_energy = 1.9
-		light.light_color = Color(0.70,0.82,0.94)
+		light.light_energy = 1.2
+		light.light_color = Color(1.0,0.76,0.48)
+		light.distance_fade_enabled = true
+		light.distance_fade_begin = 28.0
+		light.distance_fade_length = 12.0
+		street_lights.append(light)
 		add_child(light)
 
 func _build_audio() -> void:
@@ -311,7 +364,8 @@ func _build_ui() -> void:
 	interact.pressed.connect(_interact)
 	layer.add_child(interact)
 	var fire := _action_button("FIRE",Vector2(1380,610),Vector2(160,66))
-	fire.pressed.connect(func(): if player: player.fire_weapon())
+	fire.button_down.connect(func(): if player: player.set_firing(true))
+	fire.button_up.connect(func(): if player: player.set_firing(false))
 	layer.add_child(fire)
 	var reload := _action_button("RELOAD",Vector2(1210,610),Vector2(150,58))
 	reload.pressed.connect(func(): if player: player.reload_weapon())
@@ -319,20 +373,20 @@ func _build_ui() -> void:
 	var flashlight_btn := _action_button("LIGHT",Vector2(1220,680),Vector2(125,58))
 	flashlight_btn.pressed.connect(func(): if player: player.toggle_flashlight())
 	layer.add_child(flashlight_btn)
-	var crouch_btn := _action_button("CROUCH",Vector2(1210,750),Vector2(140,58))
+	var crouch_btn := _action_button("CROUCH",Vector2(1380,770),Vector2(160,58))
 	crouch_btn.pressed.connect(func(): if player: player.toggle_crouch())
 	layer.add_child(crouch_btn)
-	var run_btn := _action_button("RUN",Vector2(1045,748),Vector2(115,56))
+	var run_btn := _action_button("RUN",Vector2(1205,750),Vector2(150,58))
 	run_btn.button_down.connect(func(): if player: player.set_running(true))
 	run_btn.button_up.connect(func(): if player: player.set_running(false))
 	layer.add_child(run_btn)
 
-	var aim_btn := _action_button("AIM",Vector2(1050,675),Vector2(110,56))
-	aim_btn.button_down.connect(func(): if player: player.set_aiming(true))
-	aim_btn.button_up.connect(func(): if player: player.set_aiming(false))
+	var aim_btn := _action_button("AIM",Vector2(1380,525),Vector2(160,58))
+	aim_btn.button_down.connect(func(): if player: player.set_touch_aiming(true))
+	aim_btn.button_up.connect(func(): if player: player.set_touch_aiming(false))
 	layer.add_child(aim_btn)
 
-	var swap_btn := _action_button("SWAP",Vector2(920,748),Vector2(115,56))
+	var swap_btn := _action_button("SWAP",Vector2(1205,525),Vector2(150,58))
 	swap_btn.pressed.connect(func(): if player: player.switch_weapon())
 	layer.add_child(swap_btn)
 
@@ -359,8 +413,10 @@ func _build_cinematic_ui(layer: CanvasLayer) -> void:
 
 	subtitle_box = ColorRect.new()
 	subtitle_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	subtitle_box.position = Vector2(150,-168)
-	subtitle_box.size = Vector2(-300,138)
+	subtitle_box.offset_left = 150
+	subtitle_box.offset_right = -150
+	subtitle_box.offset_top = -168
+	subtitle_box.offset_bottom = -30
 	subtitle_box.color = Color(0.008,0.012,0.018,0.84)
 	cinematic_overlay.add_child(subtitle_box)
 
@@ -608,7 +664,7 @@ func _build_settings_panel() -> Control:
 	var fov := HSlider.new()
 	fov.position=Vector2(330,340); fov.size=Vector2(290,40)
 	fov.min_value=60; fov.max_value=95; fov.value=settings["fov"]
-	fov.value_changed.connect(func(v): settings["fov"]=v; if player and player.camera: player.camera.fov=v)
+	fov.value_changed.connect(func(v): settings["fov"]=v; if player and player.camera: player.set_field_of_view(v))
 	p.add_child(_setting_label("FIELD OF VIEW",Vector2(52,352))); p.add_child(fov)
 
 	var sens := HSlider.new()
@@ -649,12 +705,19 @@ func _action_button(t:String,pos:Vector2,size2:Vector2)->Button:
 func _apply_settings() -> void:
 	Engine.max_fps=int(settings["fps"])
 	var q:=int(settings["quality"])
-	get_viewport().scaling_3d_scale=[0.66,0.82,1.0,1.12][q]
+	get_viewport().scaling_3d_scale=[0.66,0.82,1.0,1.0][q]
 	get_viewport().msaa_3d=[Viewport.MSAA_DISABLED,Viewport.MSAA_2X,Viewport.MSAA_4X,Viewport.MSAA_4X][q]
+	if moon_light:
+		moon_light.shadow_enabled = q >= 1
+		moon_light.directional_shadow_max_distance = [20.0, 30.0, 45.0, 65.0][q]
+	if player:
+		player.set_field_of_view(float(settings["fov"]))
+		player.flashlight.shadow_enabled = q >= 2
+		player.viewmodel_viewport.msaa_3d = Viewport.MSAA_2X if q < 2 else Viewport.MSAA_4X
 	if environment:
 		environment.adjustment_brightness=float(settings["brightness"])
-		environment.ambient_light_energy=0.72*float(settings["night_visibility"])
-		environment.fog_density=0.008/max(float(settings["night_visibility"]),0.5)
+		environment.ambient_light_energy=0.42*float(settings["night_visibility"])
+		environment.fog_density=0.004/max(float(settings["night_visibility"]),0.5)
 
 func _run_mid_cinematic(beat: String) -> void:
 	if cinematic_running or player == null:
@@ -724,7 +787,8 @@ func _spawn_player_and_enemies(from_save:bool)->void:
 		var cfg:=ConfigFile.new()
 		if cfg.load("user://faceless2_save.cfg")==OK: pos=Vector3(0,0.9,float(cfg.get_value("save","z",5.0)))
 	player.global_position=pos
-	player.camera.fov=float(settings["fov"])
+	player.set_field_of_view(float(settings["fov"]))
+	_apply_settings()
 	if selected_mode=="BLACKOUT": player.battery=35.0
 	elif selected_mode=="NIGHTMARE": player.battery=55.0
 
@@ -735,7 +799,7 @@ func _spawn_player_and_enemies(from_save:bool)->void:
 
 	if selected_mode!="EXPLORATION":
 		enemy=CharacterBody3D.new(); enemy.set_script(EnemyScript); enemy.game=self; enemy.player=player; enemy.position=Vector3(0,0.9,-34)
-		enemy.patrol_points=[Vector3(0,0.9,-24),Vector3(-5,0.9,-50),Vector3(5,0.9,-76),Vector3(0,0.9,-96)]
+		enemy.patrol_points.assign([Vector3(0,0.9,-24),Vector3(-5,0.9,-50),Vector3(5,0.9,-76),Vector3(0,0.9,-96)])
 		enemy.difficulty=1.35 if selected_mode=="NIGHTMARE" else 1.0
 		add_child(enemy)
 
@@ -749,7 +813,7 @@ func _spawn_soldier(pos: Vector3, hard := false) -> void:
 	s.game=self
 	s.player=player
 	s.position=pos
-	s.patrol_points=[pos+Vector3(-3,0,0),pos+Vector3(3,0,-4)]
+	s.patrol_points.assign([pos+Vector3(-3,0,0),pos+Vector3(3,0,-4)])
 	s.difficulty=1.35 if hard or selected_mode=="NIGHTMARE" else 1.0
 	add_child(s)
 	soldiers.append(s)

@@ -6,6 +6,7 @@ on:
     branches:
       - faceless-2-v6-expanded
       - main
+      - fix/faceless2-rendering-polish
 
 jobs:
   build:
@@ -29,6 +30,9 @@ jobs:
         run: |
           cp faceless2/game.gd app/scripts/game.gd
           cp faceless2/player.gd app/scripts/player.gd
+          cp faceless2/asset_visual.gd app/scripts/asset_visual.gd
+          cp faceless2/first_person_assets.gd app/scripts/first_person_assets.gd
+          cp faceless2/rendering_checks.gd app/scripts/rendering_checks.gd
           cp faceless2/faceless.gd app/scripts/faceless.gd
           cp faceless2/soldier.gd app/scripts/soldier.gd
           cp faceless2/virtual_joystick.gd app/scripts/virtual_joystick.gd
@@ -172,10 +176,13 @@ jobs:
         run: |
           godot --headless --path app --import
           godot --headless --path app --script scripts/virtual_joystick.gd --check-only
+          godot --headless --path app --script scripts/asset_visual.gd --check-only
+          godot --headless --path app --script scripts/first_person_assets.gd --check-only
           godot --headless --path app --script scripts/player.gd --check-only
           godot --headless --path app --script scripts/faceless.gd --check-only
           godot --headless --path app --script scripts/soldier.gd --check-only
           godot --headless --path app --script scripts/game.gd --check-only
+          godot --headless --path app --script scripts/rendering_checks.gd
 
       - name: Create debug keystore
         shell: bash

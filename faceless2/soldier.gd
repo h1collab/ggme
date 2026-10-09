@@ -3,6 +3,9 @@ extends CharacterBody3D
 var game: Node
 var player: CharacterBody3D
 var visual: Node3D
+var visual_scale := Vector3.ONE
+var hit_tween: Tween
+
 var health := 80.0
 var attack_cd := 0.0
 var dead := false
@@ -41,6 +44,7 @@ func _ready() -> void:
 		visual = packed.instantiate() as Node3D
 		add_child(visual)
 		_fit_visual(visual,1.86)
+		visual_scale = visual.scale
 
 func _physics_process(delta: float) -> void:
 	if dead or player == null or not player.alive:
@@ -57,7 +61,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			velocity.x = move_toward(velocity.x,0.0,delta*8.0)
 			velocity.z = move_toward(velocity.z,0.0,delta*8.0)
-		if d < 15.0 and attack_cd <= 0.0:
+		if d < 15.0 and attack_cd <= 0.0 and _can_see_player():
 			attack_cd = 1.15/max(difficulty,0.8)
 			player.take_damage(9.0*difficulty)
 			if game:
@@ -76,13 +80,22 @@ func _physics_process(delta: float) -> void:
 	velocity.y = -1.0
 	move_and_slide()
 
+func _can_see_player() -> bool:
+	var query := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 1.5, 0), player.global_position + Vector3(0, 1.2, 0))
+	query.exclude = [self]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	return not hit.is_empty() and hit.get("collider") == player
+
 func take_bullet(damage: float, _hit_pos: Vector3) -> void:
 	if dead:
 		return
 	health -= damage
 	if visual:
-		visual.scale = Vector3(1.04,0.97,1.04)
-		create_tween().tween_property(visual,"scale",Vector3.ONE,0.10)
+		if hit_tween and hit_tween.is_running():
+			hit_tween.kill()
+		visual.scale = visual_scale * Vector3(1.04,0.97,1.04)
+		hit_tween = create_tween()
+		hit_tween.tween_property(visual,"scale",visual_scale,0.10)
 	if health <= 0.0:
 		dead = true
 		if game:

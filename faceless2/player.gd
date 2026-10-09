@@ -1,10 +1,23 @@
 extends CharacterBody3D
 
+const AssetVisual = preload("res://scripts/asset_visual.gd")
+const FirstPersonAssets = preload("res://scripts/first_person_assets.gd")
+
 var game: Node
 var camera: Camera3D
 var joystick: Control
 var flashlight: SpotLight3D
 var muzzle_light: OmniLight3D
+
+var viewmodel_viewport: SubViewport
+var viewmodel_layer: CanvasLayer
+var viewmodel_camera: Camera3D
+var reload_tween: Tween
+var aim_touch := false
+var fire_touch := false
+var base_fov := 76.0
+var recoil := 0.0
+var sway := Vector2.ZERO
 
 var viewmodel_root: Node3D
 var weapon_holder: Node3D
@@ -51,7 +64,8 @@ func _ready() -> void:
 
 	camera = Camera3D.new()
 	camera.position = Vector3(0,1.58,0)
-	camera.fov = 76.0
+	camera.fov = base_fov
+	camera.near = 0.06
 	add_child(camera)
 
 	flashlight = SpotLight3D.new()
@@ -59,7 +73,7 @@ func _ready() -> void:
 	flashlight.rotation_degrees.x = -1.0
 	flashlight.spot_range = 30.0
 	flashlight.spot_angle = 42.0
-	flashlight.light_energy = 6.2
+	flashlight.light_energy = 2.0
 	flashlight.light_color = Color(0.91,0.96,1.0)
 	flashlight.shadow_enabled = true
 	camera.add_child(flashlight)
@@ -76,77 +90,149 @@ func _ready() -> void:
 	if not OS.has_feature("mobile"):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-func _fit_visual(root: Node3D, target_extent: float) -> void:
-	var first := true
-	var box := AABB()
-	for node in root.find_children("*","MeshInstance3D",true,false):
-		var mi := node as MeshInstance3D
-		if mi == null or mi.mesh == null:
-			continue
-		var rel := root.global_transform.affine_inverse() * mi.global_transform
-		var b: AABB = rel * mi.get_aabb()
-		if first:
-			box = b
-			first = false
-		else:
-			box = box.merge(b)
-	if not first:
-		var largest := maxf(box.size.x,maxf(box.size.y,box.size.z))
-		if largest > 0.001:
-			root.scale = Vector3.ONE*(target_extent/largest)
+func _load_viewmodel(path: String, extent: float, orientation: Vector3) -> Node3D:
+	var packed := load(path) as PackedScene
+	if packed == null:
+		return null
+	var holder := Node3D.new()
+	weapon_holder.add_child(holder)
+	var pivot := Node3D.new()
+	holder.add_child(pivot)
+	pivot.rotation_degrees = orientation
+	var content := packed.instantiate() as Node3D
+	pivot.add_child(content)
+	if path.ends_with("pistol.glb"):
+		FirstPersonAssets.assemble_pistol(content)
+	AssetVisual.fit_centered(holder, pivot, extent)
+	AssetVisual.prepare_viewmodel(holder)
+	return holder
 
 func _build_viewmodel() -> void:
-	viewmodel_root = Node3D.new()
-	viewmodel_root.position = Vector3.ZERO
-	camera.add_child(viewmodel_root)
+	# A transparent, independent world keeps walls and night fog from hiding hands.
+	# Only three small models are rendered here; the environment is rendered once.
+	viewmodel_layer = CanvasLayer.new()
+	viewmodel_layer.layer = -1
+	add_child(viewmodel_layer)
+	viewmodel_viewport = SubViewport.new()
+	viewmodel_viewport.own_world_3d = true
+	viewmodel_viewport.transparent_bg = true
+	viewmodel_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	viewmodel_layer.add_child(viewmodel_viewport)
+	var overlay := TextureRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.texture = viewmodel_viewport.get_texture()
+	viewmodel_layer.add_child(overlay)
+	get_viewport().size_changed.connect(_resize_viewmodel)
+	_resize_viewmodel()
 
+	viewmodel_camera = Camera3D.new()
+	viewmodel_camera.fov = 70.0
+	viewmodel_camera.near = 0.025
+	viewmodel_camera.far = 4.0
+	viewmodel_viewport.add_child(viewmodel_camera)
+	viewmodel_camera.current = true
+	var world := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0, 0, 0, 0)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.72, 0.80, 0.92)
+	env.ambient_light_energy = 0.9
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	world.environment = env
+	viewmodel_viewport.add_child(world)
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-35, -30, 0)
+	key.light_color = Color(0.94, 0.96, 1.0)
+	key.light_energy = 1.2
+	viewmodel_viewport.add_child(key)
+	var rim := DirectionalLight3D.new()
+	rim.rotation_degrees = Vector3(20, 145, 0)
+	rim.light_color = Color(0.48, 0.68, 1.0)
+	rim.light_energy = 0.55
+	viewmodel_viewport.add_child(rim)
+
+	viewmodel_root = Node3D.new()
+	viewmodel_viewport.add_child(viewmodel_root)
 	weapon_holder = Node3D.new()
 	hands_holder = Node3D.new()
 	viewmodel_root.add_child(weapon_holder)
 	viewmodel_root.add_child(hands_holder)
-
-	var hands_scene: PackedScene = load("res://assets/fp_hands.glb")
-	if hands_scene:
-		hands_model = hands_scene.instantiate() as Node3D
+	pistol_model = _load_viewmodel("res://assets/pistol.glb", 0.30, Vector3(0, 180, 0))
+	# Measure the AR15 in its actual skeleton pose, not its vertical bind space.
+	rifle_model = _load_viewmodel("res://assets/rifle.glb", 0.90, Vector3.ZERO)
+	var packed := load("res://assets/fp_hands.glb") as PackedScene
+	if packed:
+		var source := packed.instantiate() as Node3D
+		viewmodel_viewport.add_child(source)
+		hands_model = FirstPersonAssets.make_hands(source)
 		hands_holder.add_child(hands_model)
-		_fit_visual(hands_model,0.82)
+		source.free()
+	_apply_weapon_pose()
 
-	var pistol_scene: PackedScene = load("res://assets/pistol.glb")
-	if pistol_scene:
-		pistol_model = pistol_scene.instantiate() as Node3D
-		weapon_holder.add_child(pistol_model)
-		_fit_visual(pistol_model,0.34)
+func _resize_viewmodel() -> void:
+	viewmodel_viewport.size = Vector2i(get_viewport().get_visible_rect().size)
 
-	var rifle_scene: PackedScene = load("res://assets/rifle.glb")
-	if rifle_scene:
-		rifle_model = rifle_scene.instantiate() as Node3D
-		weapon_holder.add_child(rifle_model)
-		_fit_visual(rifle_model,0.95)
-
+func _process(delta: float) -> void:
+	if viewmodel_root == null:
+		return
+	viewmodel_layer.visible = alive and camera.current and controls_enabled
+	viewmodel_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if viewmodel_layer.visible else SubViewport.UPDATE_DISABLED
+	if reloading:
+		return
+	var blend := 1.0 - exp(-14.0 * delta)
+	camera.fov = lerpf(camera.fov, base_fov * 0.78 if aiming else base_fov, blend)
+	recoil = move_toward(recoil, 0.0, delta * 4.8)
+	sway = sway.lerp(Vector2.ZERO, blend)
+	var motion := 0.18 if aiming else 1.0
+	var bob := Vector3(sin(bob_time) * 0.009, -absf(cos(bob_time)) * 0.01, 0) * last_move_strength * motion
+	viewmodel_root.position = viewmodel_root.position.lerp(bob + Vector3(sway.x, sway.y, recoil * 0.055), blend)
+	viewmodel_root.rotation_degrees = viewmodel_root.rotation_degrees.lerp(Vector3(-recoil * 5.0, 0, -bob.x * 75.0), blend)
 	_apply_weapon_pose()
 
 func _apply_weapon_pose() -> void:
 	if current_weapon == "PISTOL":
-		weapon_holder.position = Vector3(0.31,-0.30,-0.64)
-		weapon_holder.rotation_degrees = Vector3(-7,177,0)
-		weapon_holder.scale = Vector3.ONE
-		hands_holder.position = Vector3(0.02,-0.36,-0.46)
-		hands_holder.rotation_degrees = Vector3(-13,180,0)
-		hands_holder.scale = Vector3.ONE
+		weapon_holder.position = Vector3(0, -0.08, -0.58) if aiming else Vector3(0.24, -0.20, -0.58)
+		hands_holder.position = Vector3(0, -0.29, -0.49) if aiming else Vector3(0.10, -0.30, -0.49)
 		if pistol_model: pistol_model.visible = true
 		if rifle_model: rifle_model.visible = false
 	else:
-		weapon_holder.position = Vector3(0.30,-0.32,-0.88)
-		weapon_holder.rotation_degrees = Vector3(-8,177,0)
-		weapon_holder.scale = Vector3.ONE
-		hands_holder.position = Vector3(-0.02,-0.33,-0.58)
-		hands_holder.rotation_degrees = Vector3(-10,180,0)
-		hands_holder.scale = Vector3.ONE
+		weapon_holder.position = Vector3(0, -0.15, -0.49) if aiming else Vector3(0.23, -0.22, -0.70)
+		hands_holder.position = Vector3(0, -0.27, -0.51) if aiming else Vector3(0.05, -0.29, -0.51)
 		if pistol_model: pistol_model.visible = false
 		if rifle_model: rifle_model.visible = true
+	hands_holder.position = weapon_holder.position
+	if hands_model:
+		var right := hands_model.get_node("RightHand") as Node3D
+		var left := hands_model.get_node("LeftHand") as Node3D
+		right.position = Vector3(0.03, -0.10, 0.08) if current_weapon == "PISTOL" else Vector3(0.04, -0.12, 0.15)
+		right.rotation_degrees = Vector3(20, 15, -15)
+		left.position = Vector3(-0.03, -0.10, 0.01) if current_weapon == "PISTOL" else Vector3(-0.035, -0.11, -0.23)
+		left.rotation_degrees = Vector3(15, -50, 20) if current_weapon == "PISTOL" else Vector3(15, -60, 20)
+	weapon_holder.rotation_degrees = Vector3.ZERO
+	hands_holder.rotation_degrees = Vector3.ZERO
+
+func set_field_of_view(value: float) -> void:
+	base_fov = clampf(value, 60.0, 95.0)
+
+func set_touch_aiming(on: bool) -> void:
+	aim_touch = on
+	set_aiming(on)
+
+func set_firing(on: bool) -> void:
+	fire_touch = on
 
 func set_controls_enabled(on: bool) -> void:
 	controls_enabled = on
+	if viewmodel_layer:
+		viewmodel_layer.visible = on and alive
+	if not on:
+		look_touch = -1
+		fire_touch = false
+		aim_touch = false
+		sprint_touch = false
+		set_aiming(false)
 	if not on:
 		velocity.x = 0.0
 		velocity.z = 0.0
@@ -165,6 +251,7 @@ func _physics_process(delta: float) -> void:
 		if Input.is_key_pressed(KEY_S): mv.y += 1.0
 		if joystick and joystick.value.length() > 0.04:
 			mv = joystick.value
+		mv = mv.limit_length(1.0)
 
 	var wants_run := controls_enabled and (sprint_touch or Input.is_key_pressed(KEY_SHIFT))
 	var running := wants_run and stamina > 1.0 and mv.length() > 0.12 and not crouched
@@ -176,20 +263,19 @@ func _physics_process(delta: float) -> void:
 
 	var dir := global_transform.basis * Vector3(mv.x,0,mv.y)
 	dir.y = 0.0
-	if dir.length() > 0.01:
+	if dir.length() > 1.0:
 		dir = dir.normalized()
-	velocity.x = dir.x*speed
-	velocity.z = dir.z*speed
+	velocity.x = move_toward(velocity.x, dir.x * speed, delta * 24.0)
+	velocity.z = move_toward(velocity.z, dir.z * speed, delta * 24.0)
 	velocity.y = -0.2 if is_on_floor() else velocity.y - 18.0*delta
 	move_and_slide()
-	camera.position.y = lerpf(camera.position.y,1.10 if crouched else 1.58,delta*9.0)
+	camera.position.y = lerpf(camera.position.y,1.10 if crouched else 1.58,1.0 - exp(-9.0 * delta))
 
 	last_move_strength = move_toward(last_move_strength,mv.length(),delta*4.0)
 	if last_move_strength > 0.05 and is_on_floor():
 		bob_time += delta*(11.5 if running else 8.0)
 	else:
 		bob_time += delta*2.0
-	_update_viewmodel_motion(running)
 
 	if controls_enabled and mv.length() > 0.15 and is_on_floor():
 		step_timer -= delta
@@ -206,29 +292,22 @@ func _physics_process(delta: float) -> void:
 			flashlight.visible = false
 
 	if controls_enabled:
-		if Input.is_key_pressed(KEY_SPACE):
+		if fire_touch or Input.is_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 			fire_weapon()
-		if Input.is_key_pressed(KEY_R):
-			reload_weapon()
-		if Input.is_key_pressed(KEY_Q):
-			switch_weapon()
-		set_aiming(Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
+		set_aiming(aim_touch or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
 
 	if game:
 		game.update_hud(health,stamina,battery,current_weapon,ammo_in_mag,reserve_ammo)
 
-func _update_viewmodel_motion(running: bool) -> void:
-	if viewmodel_root == null or reloading:
-		return
-	var amount: float = 1.0 if running else 0.55
-	var bob_x: float = sin(bob_time)*0.012*last_move_strength*amount
-	var bob_y: float = absf(cos(bob_time))*0.014*last_move_strength*amount
-	viewmodel_root.position = viewmodel_root.position.lerp(Vector3(bob_x,-bob_y,0),0.18)
-	viewmodel_root.rotation_degrees = viewmodel_root.rotation_degrees.lerp(Vector3(bob_y*65.0,bob_x*45.0,-bob_x*80.0),0.18)
-
 func _unhandled_input(event: InputEvent) -> void:
 	if not alive or not controls_enabled:
 		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.physical_keycode:
+			KEY_Q: switch_weapon()
+			KEY_R: reload_weapon()
+			KEY_F: toggle_flashlight()
+			KEY_C: toggle_crouch()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_look((event as InputEventMouseMotion).relative*0.0023)
 	elif event is InputEventScreenTouch:
@@ -249,13 +328,6 @@ func set_aiming(on: bool) -> void:
 	if aiming == on:
 		return
 	aiming = on
-	var target_fov := 58.0 if aiming else 76.0
-	var target_pos := Vector3(0,0,-0.10) if aiming else Vector3.ZERO
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_QUAD)
-	tw.set_ease(Tween.EASE_OUT)
-	tw.tween_property(camera,"fov",target_fov,0.13)
-	tw.parallel().tween_property(viewmodel_root,"position",target_pos,0.13)
 	if game:
 		game.set_crosshair_aiming(aiming)
 
@@ -283,6 +355,8 @@ func _look(v: Vector2) -> void:
 	var sens := 1.0
 	if game:
 		sens = game.get_look_sensitivity()
+	sway += Vector2(-v.x, v.y) * 0.12
+	sway = sway.limit_length(0.025)
 	yaw -= v.x*sens
 	pitch = clampf(pitch-v.y*sens,-1.25,1.25)
 	rotation.y = yaw
@@ -330,21 +404,7 @@ func fire_weapon() -> void:
 func _play_fire_animation() -> void:
 	muzzle_light.light_energy = 5.4
 	create_tween().tween_property(muzzle_light,"light_energy",0.0,0.055)
-	var kick := 0.085 if current_weapon == "PISTOL" else 0.045
-	var lift := 7.0 if current_weapon == "PISTOL" else 3.5
-	var base_pos := weapon_holder.position
-	var base_rot := weapon_holder.rotation_degrees
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(weapon_holder,"position",base_pos+Vector3(0,0,kick),0.045)
-	tw.parallel().tween_property(weapon_holder,"rotation_degrees",base_rot+Vector3(-lift,0,1.5),0.045)
-	tw.tween_property(weapon_holder,"position",base_pos,0.11)
-	tw.parallel().tween_property(weapon_holder,"rotation_degrees",base_rot,0.11)
-	if hands_holder:
-		var hand_base := hands_holder.rotation_degrees
-		var ht := create_tween()
-		ht.tween_property(hands_holder,"rotation_degrees",hand_base+Vector3(-3,0,1.5),0.045)
-		ht.tween_property(hands_holder,"rotation_degrees",hand_base,0.11)
+	recoil = minf(recoil + (1.0 if current_weapon == "PISTOL" else 0.55), 1.6)
 	pitch = clampf(pitch-(0.016 if current_weapon=="PISTOL" else 0.008),-1.25,1.25)
 	camera.rotation.x = pitch
 
@@ -366,7 +426,10 @@ func _play_reload_animation(mag_size: int) -> void:
 	var base_hands_pos := hands_holder.position
 	var base_hands_rot := hands_holder.rotation_degrees
 
-	var tw := create_tween()
+	if reload_tween and reload_tween.is_running():
+		reload_tween.kill()
+	reload_tween = create_tween()
+	var tw := reload_tween
 	tw.set_trans(Tween.TRANS_QUAD)
 	tw.tween_property(weapon_holder,"rotation_degrees",base_weapon_rot+Vector3(22,-10,28),0.20)
 	tw.parallel().tween_property(weapon_holder,"position",base_weapon_pos+Vector3(-0.08,-0.12,0.15),0.20)
@@ -410,6 +473,8 @@ func unlock_rifle() -> void:
 	ammo_in_mag = rifle_mag
 	reserve_ammo = rifle_reserve
 	reloading = false
+	if reload_tween and reload_tween.is_running():
+		reload_tween.kill()
 	set_aiming(false)
 	_apply_weapon_pose()
 	if game: game.weapon_event("RIFLE ACQUIRED // Q OR SWAP TO SWITCH")
@@ -456,8 +521,21 @@ func restore_full() -> void:
 	alive = true
 	velocity = Vector3.ZERO
 	reloading = false
+	if reload_tween and reload_tween.is_running():
+		reload_tween.kill()
+	recoil = 0.0
+	sway = Vector2.ZERO
+	weapon_cooldown = 0.0
+	reload_cooldown = 0.0
+	aim_touch = false
+	fire_touch = false
+	sprint_touch = false
+	look_touch = -1
+	crouched = false
 	aiming = false
+	if game: game.set_crosshair_aiming(false)
+	if weapon_holder: _apply_weapon_pose()
 	if camera:
-		camera.fov = 76.0
+		camera.fov = base_fov
 	if viewmodel_root:
 		viewmodel_root.position = Vector3.ZERO

@@ -1,3 +1,6 @@
+> 当前主要开发版本为 **Faceless 2**，代码在 [`faceless2/`](faceless2/README.md)。
+> 安卓构建使用 **Build Faceless 2 v6 Expanded APK** 工作流；下面是保留的旧版原型说明。
+
 # Escape Black Pine / 逃离黑松疗养院
 
 这是一个 Godot 4.7.2 制作的 3D 第一人称恐怖逃脱游戏原型，目标平台为 Android。
