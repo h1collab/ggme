@@ -656,6 +656,40 @@ func _apply_settings() -> void:
 		environment.ambient_light_energy=0.72*float(settings["night_visibility"])
 		environment.fog_density=0.008/max(float(settings["night_visibility"]),0.5)
 
+func _run_mid_cinematic(beat: String) -> void:
+	if cinematic_running or player == null:
+		return
+	cinematic_running=true
+	cinematic_overlay.visible=true
+	cinematic_camera.current=true
+	player.set_controls_enabled(false)
+	player.camera.current=false
+	hud.visible=false
+	objective_label.visible=false
+	prompt_label.visible=false
+	crosshair.visible=false
+
+	if beat=="tower":
+		await _shot(Vector3(0,3.2,-15),Vector3(0,2.8,-22),Vector3(-6.4,3.8,-20),2.5)
+		await _type_subtitle("DISPATCH","Movement confirmed around the surveillance tower. Armed personnel are searching the road ahead.","res://audio/voice_chapter_02.wav",32.0)
+	elif beat=="cabin":
+		await _shot(Vector3(0,3.0,-59),Vector3(-1.5,2.4,-66),Vector3(-6.0,1.6,-69),2.7)
+		await _type_subtitle("BLACKWOOD CONTROL","The ranger cabin is close. Recover the rifle and resupply before continuing.","res://audio/voice_chapter_03.wav",32.0)
+	elif beat=="dead_signal":
+		await _shot(Vector3(0,3.0,-81),Vector3(0,2.6,-89),Vector3(5.3,1.2,-84),2.6)
+		await _type_subtitle("ARCHIVE","All three relays are synchronized. The Faceless signal is now moving with you instead of behind you.","res://audio/voice_chapter_04.wav",30.0)
+
+	cinematic_running=false
+	cinematic_overlay.visible=false
+	cinematic_camera.current=false
+	player.camera.current=true
+	player.set_controls_enabled(true)
+	hud.visible=true
+	objective_label.visible=true
+	prompt_label.visible=true
+	crosshair.visible=true
+	_update_objective()
+
 func _start_new_game() -> void:
 	mode_panel.visible=false; main_menu.visible=false; get_tree().paused=false; game_started=true
 	chapter=1; story_flags={}; kills=0; final_wave_started=false; final_wave_cleared=false
@@ -806,7 +840,7 @@ func _update_story()->void:
 		story_flags["armed"]=true
 		chapter=2
 		_show_notice("CHAPTER II // ARMED RESPONSE")
-		_play_radio_line("DISPATCH","Movement confirmed around the surveillance tower. Armed personnel are searching the road ahead.","res://audio/voice_chapter_02.wav")
+		_run_mid_cinematic("tower")
 	if z<-43 and not story_flags.has("stop"):
 		story_flags["stop"]=true
 		_show_notice("CHECKPOINT // ABANDONED STOP")
@@ -815,12 +849,12 @@ func _update_story()->void:
 		story_flags["cabin"]=true
 		chapter=maxi(chapter,3)
 		_show_notice("CHAPTER III // RANGER WOODS")
-		_play_radio_line("BLACKWOOD CONTROL","The ranger cabin is close. Recover the rifle and resupply before continuing.","res://audio/voice_chapter_03.wav")
+		_run_mid_cinematic("cabin")
 	if _relay_count()>=3 and not story_flags.has("dead_signal"):
 		story_flags["dead_signal"]=true
 		chapter=4
 		_show_notice("CHAPTER IV // DEAD SIGNAL")
-		_play_radio_line("ARCHIVE","All three relays are synchronized. The Faceless signal is now moving with you instead of behind you.","res://audio/voice_chapter_04.wav")
+		_run_mid_cinematic("dead_signal")
 	if z<-92 and not story_flags.has("extract"):
 		story_flags["extract"]=true
 		chapter=5
