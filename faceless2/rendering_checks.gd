@@ -84,6 +84,12 @@ func run_checks() -> void:
 		var canvas: Control = game.interface.design
 		var extent: Vector2 = canvas.position + canvas.size * canvas.scale
 		check(canvas.position.x >= -0.1 and canvas.position.y >= -0.1 and extent.x <= game.interface.get_viewport_rect().size.x + 0.1 and extent.y <= game.interface.get_viewport_rect().size.y + 0.1, "Interface must fit 16:9, ultrawide, tablet and small displays")
+	var hud_canvas: Control = game.interface.design
+	var original_offset := hud_canvas.position
+	hud_canvas.position += Vector2(86, 0)
+	var reticle_screen: Vector2 = hud_canvas.get_global_transform_with_canvas() * game.interface.reticle_center()
+	check(reticle_screen.is_equal_approx(game.interface.get_viewport_rect().size * 0.5), "Asymmetric safe-area offsets must not move the reticle away from the camera ray")
+	hud_canvas.position = original_offset
 	var joystick: Control = game.joystick
 	var touch := InputEventScreenTouch.new()
 	touch.index = 7

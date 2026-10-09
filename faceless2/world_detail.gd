@@ -52,6 +52,8 @@ void sky() {
 	game.environment.background_energy_multiplier = 0.8
 	game.environment.fog_light_color = Color(0.055, 0.085, 0.12)
 	game.environment.fog_sky_affect = 0.10
+	# Match the shadow direction to the moon shown in the sky.
+	game.moon_light.basis = Basis.looking_at(-Vector3(0.38, 0.40, -0.83).normalized(), Vector3.UP)
 
 func _build_forest() -> void:
 	var source := load("res://assets/pine_cluster.glb").instantiate() as Node3D

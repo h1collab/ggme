@@ -489,6 +489,10 @@ func _update_marker() -> void:
 	marker_offscreen = behind or not marker_position.is_equal_approx(screen)
 	marker_visible = marker_distance > 2.5
 
+func reticle_center() -> Vector2:
+	# The camera aims at the full viewport centre, even on asymmetrical cutouts.
+	return design.get_global_transform_with_canvas().affine_inverse() * (get_viewport_rect().size * 0.5)
+
 func _draw() -> void:
 	if not is_instance_valid(design): return
 	var menu_visible: bool = game.main_menu.visible or game.mode_panel.visible or game.settings_panel.visible or game.archive_panel.visible or pause_panel.visible
@@ -510,7 +514,7 @@ func _draw() -> void:
 		draw_line(Vector2(90, 282), Vector2(530, 282), RED, 3)
 		draw_line(Vector2(90, 792), Vector2(1500, 792), Color(0.18, 0.30, 0.32), 1)
 	if not combat_visible: return
-	var center := DESIGN * 0.5
+	var center := reticle_center()
 	var gap: float = (3.0 if reticle_aiming else 5.0 + game.player.current_spread * 280.0) + shot_time * 65.0
 	var color := WHITE if shot_time <= 0 else Color(1, 0.73, 0.38)
 	draw_circle(center, 1.6, color)
