@@ -6,7 +6,11 @@ const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/faceless.gd")
 const SoldierScript = preload("res://scripts/soldier.gd")
 const InterfaceScript = preload("res://scripts/interface.gd")
+const WorldDetailScript = preload("res://scripts/world_detail.gd")
+const CombatEffectsScript = preload("res://scripts/combat_effects.gd")
 var interface: Control
+var world_detail: Node3D
+var effects: Node3D
 
 var player: CharacterBody3D
 var enemy: CharacterBody3D
@@ -74,6 +78,14 @@ func _ready() -> void:
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
 	_load_settings()
 	_build_world()
+	world_detail = Node3D.new()
+	world_detail.set_script(WorldDetailScript)
+	world_detail.game = self
+	add_child(world_detail)
+	effects = Node3D.new()
+	effects.set_script(CombatEffectsScript)
+	effects.game = self
+	add_child(effects)
 	_build_ui()
 	_build_audio()
 	_apply_settings()
@@ -456,6 +468,8 @@ func _apply_settings() -> void:
 	AudioServer.set_bus_mute(0, float(settings["volume"]) == 0.0)
 	if interface: interface.touch_controls.modulate.a = float(settings["touch_opacity"])
 	var q:=int(settings["quality"])
+	if world_detail: world_detail.apply_quality(q)
+	if effects: effects.quality = q
 	get_viewport().scaling_3d_scale=[0.66,0.82,1.0,1.0][q]
 	get_viewport().msaa_3d=[Viewport.MSAA_DISABLED,Viewport.MSAA_2X,Viewport.MSAA_4X,Viewport.MSAA_4X][q]
 	if moon_light:
@@ -500,6 +514,8 @@ func _start_new_game() -> void:
 	for item in evidence_nodes + pickups: item.visible = true
 	if rifle_pickup: rifle_pickup.visible = true
 	if player: player.reset_loadout()
+	world_detail.refresh_relays()
+	effects.clear_effects()
 	_spawn_player_and_enemies(false)
 	_update_objective()
 	_start_cinematic_intro()
@@ -515,6 +531,8 @@ func _continue_game() -> void:
 	main_menu.visible=false; get_tree().paused=false; game_started=true
 	for i in range(relay_active.size()): relay_active[i]=bool(cfg.get_value("save","relay_"+str(i),false))
 	evidence_collected=int(cfg.get_value("save","evidence",0))
+	world_detail.refresh_relays()
+	effects.clear_effects()
 	kills = int(cfg.get_value("save", "kills", 0))
 	story_flags = cfg.get_value("save", "story_flags", {})
 	final_wave_started = bool(cfg.get_value("save", "final_wave_started", false))
@@ -629,6 +647,7 @@ func _interact()->void:
 	for i in range(relays.size()):
 		if not relay_active[i] and player.global_position.distance_to(relays[i].global_position)<2.4:
 			relay_active[i]=true
+			world_detail.refresh_relays()
 			chapter=maxi(chapter,i+1)
 			_show_notice("RELAY %d ONLINE"%(i+1))
 			if i == 0: _spawn_reinforcements(1)
@@ -775,6 +794,8 @@ func play_footstep(running: bool) -> void:
 
 func on_player_shot(weapon:String)->void:
 	interface.shot_time = 0.09
+	for soldier in soldiers:
+		if is_instance_valid(soldier): soldier.hear_shot(player.global_position)
 	_play_sfx("res://audio/rifle_shot.wav" if weapon=="RIFLE" else "res://audio/pistol_shot.wav",-1.0)
 
 func weapon_event(t:String)->void:
@@ -811,8 +832,12 @@ func faceless_down(e:CharacterBody3D)->void:
 	_show_notice("FACELESS DISRUPTED // IT WILL RETURN")
 	var tw:=create_tween(); tw.tween_property(e,"position:y",-2.0,0.55); tw.tween_interval(4.0); tw.tween_callback(func(): if is_instance_valid(e): e.position=Vector3(0,0.9,-96); e.health=160.0; e.dead=false)
 
-func player_hurt()->void:
+func player_hurt(source_position := Vector3.INF)->void:
 	interface.damage_time = 0.65
+	if source_position.is_finite() and player:
+		var local: Vector3 = player.camera.global_transform.affine_inverse() * source_position
+		interface.damage_bearing = atan2(local.x, -local.z) - PI * 0.5
+		interface.damage_direction_time = 0.9
 	if player and player.health < 35.0 and heartbeat_player and not heartbeat_player.playing:
 		heartbeat_player.play()
 func on_enemy_attack()->void:

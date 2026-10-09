@@ -1,4 +1,4 @@
-name: Build Faceless 2 v6 Expanded APK
+name: Build Faceless 2 v7 Atmosphere and Combat APK
 
 on:
   workflow_dispatch:
@@ -25,10 +25,12 @@ jobs:
           mkdir app
           unzip -q upgrade.zip -d app
 
-      - name: Apply Faceless 2 v4 project
+      - name: Apply Faceless 2 v7 project
         shell: bash
         run: |
           cp faceless2/interface.gd app/scripts/interface.gd
+          cp faceless2/world_detail.gd app/scripts/world_detail.gd
+          cp faceless2/combat_effects.gd app/scripts/combat_effects.gd
           cp faceless2/touch_action.gd app/scripts/touch_action.gd
           cp faceless2/game.gd app/scripts/game.gd
           cp faceless2/player.gd app/scripts/player.gd
@@ -44,7 +46,9 @@ jobs:
           sed -i 's/School Brawl/Faceless 2/g' app/project.godot
           sed -i 's/Escape Black Pine/Faceless 2/g' app/export_presets.cfg
           sed -i 's/School Brawl/Faceless 2/g' app/export_presets.cfg
-          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v6-zorix.apk/g' app/export_presets.cfg
+          sed -i 's/^version\/code=.*/version\/code=7/' app/export_presets.cfg
+          sed -i 's/^version\/name=.*/version\/name="0.7.0"/' app/export_presets.cfg
+          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v7-zorix.apk/g' app/export_presets.cfg
           rm -f app/assets/*.glb
           test -s app/scripts/game.gd
           test -s app/main.tscn
@@ -184,6 +188,8 @@ jobs:
           godot --headless --path app --script scripts/faceless.gd --check-only
           godot --headless --path app --script scripts/soldier.gd --check-only
           godot --headless --path app --script scripts/interface.gd --check-only
+          godot --headless --path app --script scripts/world_detail.gd --check-only
+          godot --headless --path app --script scripts/combat_effects.gd --check-only
           godot --headless --path app --script scripts/touch_action.gd --check-only
           godot --headless --path app --script scripts/game.gd --check-only
           timeout 180 godot --headless --path app --script scripts/rendering_checks.gd
@@ -193,7 +199,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v6 APK
+      - name: Export Faceless 2 v7 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -201,12 +207,12 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless-2-v6-zorix.apk
-          test -s app/build/faceless-2-v6-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless-2-v7-zorix.apk
+          test -s app/build/faceless-2-v7-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v6-zorix-apk
-          path: app/build/faceless-2-v6-zorix.apk
+          name: faceless-2-v7-zorix-apk
+          path: app/build/faceless-2-v7-zorix.apk
           if-no-files-found: error

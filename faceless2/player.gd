@@ -19,6 +19,14 @@ var suppress_mouse_fire := true
 var base_fov := 76.0
 var recoil := 0.0
 var sway := Vector2.ZERO
+var aim_blend := 0.0
+var sprint_blend := 0.0
+var running := false
+var current_spread := 0.012
+var shot_random := RandomNumberGenerator.new()
+var damage_shake := 0.0
+var muzzle_flash: MeshInstance3D
+var flash_timer := 0.0
 
 var viewmodel_root: Node3D
 var weapon_holder: Node3D
@@ -86,6 +94,7 @@ func _ready() -> void:
 	muzzle_light.light_energy = 0.0
 	camera.add_child(muzzle_light)
 
+	shot_random.randomize()
 	_build_viewmodel()
 
 	if not OS.has_feature("mobile"):
@@ -160,6 +169,31 @@ func _build_viewmodel() -> void:
 	hands_holder = Node3D.new()
 	viewmodel_root.add_child(weapon_holder)
 	viewmodel_root.add_child(hands_holder)
+	muzzle_flash = MeshInstance3D.new()
+	var flash_quad := QuadMesh.new()
+	flash_quad.size = Vector2(0.13, 0.13)
+	var flash_shader := Shader.new()
+	flash_shader.code = """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float radius = length(p);
+	float rays = 0.60 + abs(cos(atan(p.y, p.x) * 3.0)) * 0.35;
+	float mask = 1.0 - smoothstep(0.12, rays, radius);
+	ALBEDO = mix(vec3(1.0, 0.98, 0.72), vec3(1.0, 0.30, 0.035), clamp(radius, 0.0, 1.0));
+	EMISSION = ALBEDO * 1.5;
+	ALPHA = mask;
+	if (mask < 0.04) { discard; }
+}
+"""
+	var flash_material := ShaderMaterial.new()
+	flash_material.shader = flash_shader
+	flash_quad.material = flash_material
+	muzzle_flash.mesh = flash_quad
+	muzzle_flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	muzzle_flash.hide()
+	weapon_holder.add_child(muzzle_flash)
 	pistol_model = _load_viewmodel("res://assets/pistol.glb", 0.30, Vector3(0, 180, 0))
 	# Measure the AR15 in its actual skeleton pose, not its vertical bind space.
 	rifle_model = _load_viewmodel("res://assets/rifle.glb", 0.90, Vector3.ZERO)
@@ -181,7 +215,14 @@ func _process(delta: float) -> void:
 	viewmodel_layer.visible = alive and camera.current and controls_enabled
 	viewmodel_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if viewmodel_layer.visible else SubViewport.UPDATE_DISABLED
 	var blend := 1.0 - exp(-14.0 * delta)
-	camera.fov = lerpf(camera.fov, base_fov * 0.78 if aiming else base_fov, blend)
+	flash_timer = maxf(0, flash_timer - delta)
+	muzzle_flash.visible = flash_timer > 0 and controls_enabled and alive
+	aim_blend = move_toward(aim_blend, 1.0 if aiming else 0.0, delta * 8)
+	sprint_blend = lerpf(sprint_blend, 1.0 if running and not aiming else 0.0, blend)
+	camera.fov = lerpf(camera.fov, base_fov * 0.78 if aiming else base_fov + sprint_blend * 3.0, blend)
+	damage_shake = move_toward(damage_shake, 0, delta * 2.8)
+	camera.rotation.x = pitch + sin(Time.get_ticks_msec() * 0.071) * damage_shake * 0.018
+	camera.rotation.z = sin(Time.get_ticks_msec() * 0.057) * damage_shake * 0.012
 	if reloading:
 		return
 	recoil = move_toward(recoil, 0.0, delta * 4.8)
@@ -194,15 +235,16 @@ func _process(delta: float) -> void:
 
 func _apply_weapon_pose() -> void:
 	if current_weapon == "PISTOL":
-		weapon_holder.position = Vector3(0, -0.08, -0.58) if aiming else Vector3(0.24, -0.20, -0.58)
+		weapon_holder.position = Vector3(0.24, -0.20, -0.58).lerp(Vector3(0, -0.08, -0.58), aim_blend)
 		hands_holder.position = Vector3(0, -0.29, -0.49) if aiming else Vector3(0.10, -0.30, -0.49)
 		if pistol_model: pistol_model.visible = true
 		if rifle_model: rifle_model.visible = false
 	else:
-		weapon_holder.position = Vector3(0, -0.15, -0.49) if aiming else Vector3(0.23, -0.22, -0.70)
+		weapon_holder.position = Vector3(0.23, -0.22, -0.70).lerp(Vector3(0, -0.15, -0.49), aim_blend)
 		hands_holder.position = Vector3(0, -0.27, -0.51) if aiming else Vector3(0.05, -0.29, -0.51)
 		if pistol_model: pistol_model.visible = false
 		if rifle_model: rifle_model.visible = true
+	weapon_holder.position += Vector3(0, -0.075, 0.085) * sprint_blend
 	hands_holder.position = weapon_holder.position
 	if hands_model:
 		var right := hands_model.get_node("RightHand") as Node3D
@@ -211,8 +253,10 @@ func _apply_weapon_pose() -> void:
 		right.rotation_degrees = Vector3(20, 15, -15)
 		left.position = Vector3(-0.03, -0.10, 0.01) if current_weapon == "PISTOL" else Vector3(-0.035, -0.11, -0.23)
 		left.rotation_degrees = Vector3(15, -50, 20) if current_weapon == "PISTOL" else Vector3(15, -60, 20)
-	weapon_holder.rotation_degrees = Vector3.ZERO
-	hands_holder.rotation_degrees = Vector3.ZERO
+	weapon_holder.rotation_degrees = Vector3(9, 0, -12) * sprint_blend
+	hands_holder.rotation_degrees = weapon_holder.rotation_degrees
+	if muzzle_flash:
+		muzzle_flash.position = Vector3(0, 0.005, -0.15 if current_weapon == "PISTOL" else -0.44)
 
 func set_field_of_view(value: float) -> void:
 	base_fov = clampf(value, 60.0, 95.0)
@@ -256,8 +300,8 @@ func _physics_process(delta: float) -> void:
 		mv = mv.limit_length(1.0)
 
 	var wants_run := controls_enabled and (sprint_touch or Input.is_key_pressed(KEY_SHIFT))
-	var running := wants_run and stamina > 1.0 and mv.length() > 0.12 and not crouched
-	var speed := 5.9 if running else (2.0 if crouched else 3.9)
+	running = wants_run and stamina > 1.0 and mv.length() > 0.12 and not crouched and not aiming
+	var speed := 5.9 if running else (2.0 if crouched else (2.35 if aiming else 3.9))
 	if running:
 		stamina = max(0.0,stamina-delta*21.0)
 	else:
@@ -300,6 +344,7 @@ func _physics_process(delta: float) -> void:
 			fire_weapon()
 		set_aiming(aim_touch or (mouse_active and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)))
 
+	current_spread = get_shot_spread()
 	if game:
 		game.update_hud(health,stamina,battery,current_weapon,ammo_in_mag,reserve_ammo)
 
@@ -388,6 +433,10 @@ func fire_weapon() -> void:
 
 	var from := camera.global_position
 	var direction := -camera.global_transform.basis.z
+	var spread := get_shot_spread()
+	var angle := shot_random.randf_range(-PI, PI)
+	var radius := sqrt(shot_random.randf()) * spread
+	direction = (direction + camera.global_basis.x * cos(angle) * radius + camera.global_basis.y * sin(angle) * radius).normalized()
 	var to := from + direction*90.0
 	var query := PhysicsRayQueryParameters3D.create(from,to)
 	query.exclude = [self]
@@ -397,6 +446,13 @@ func fire_weapon() -> void:
 		if collider != null and collider.has_method("take_bullet"):
 			collider.take_bullet(damage,result.get("position",to))
 			if game: game.weapon_event("HIT")
+	if game:
+		var end: Vector3 = result.get("position", to)
+		var normal: Vector3 = result.get("normal", Vector3.ZERO)
+		var actor_hit: bool = not result.is_empty() and result["collider"].has_method("take_bullet")
+		var muzzle_screen := viewmodel_camera.unproject_position(muzzle_flash.global_position)
+		var muzzle := camera.project_position(muzzle_screen, 0.35)
+		game.effects.shot(muzzle, end, normal, actor_hit)
 	if current_weapon == "PISTOL":
 		pistol_mag = ammo_in_mag
 		pistol_reserve = reserve_ammo
@@ -407,6 +463,9 @@ func fire_weapon() -> void:
 		game.on_player_shot(current_weapon)
 
 func _play_fire_animation() -> void:
+	flash_timer = 0.065
+	muzzle_flash.show()
+	muzzle_flash.rotation.z = shot_random.randf_range(-PI, PI)
 	muzzle_light.light_energy = 5.4
 	create_tween().tween_property(muzzle_light,"light_energy",0.0,0.055)
 	recoil = minf(recoil + (1.0 if current_weapon == "PISTOL" else 0.55), 1.6)
@@ -507,11 +566,12 @@ func toggle_crouch() -> void:
 	if controls_enabled:
 		crouched = not crouched
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, source_position := Vector3.INF) -> void:
 	if not alive:
 		return
 	health = max(0.0,health-amount)
-	if game: game.player_hurt()
+	damage_shake = minf(damage_shake + 0.45, 0.75)
+	if game: game.player_hurt(source_position)
 	if health <= 0.0:
 		alive = false
 		if game: game.player_dead()
@@ -530,6 +590,13 @@ func restore_full() -> void:
 		reload_tween.kill()
 	recoil = 0.0
 	sway = Vector2.ZERO
+	aim_blend = 0
+	sprint_blend = 0
+	running = false
+	damage_shake = 0
+	flash_timer = 0
+	if muzzle_flash: muzzle_flash.hide()
+	if camera: camera.rotation.z = 0
 	weapon_cooldown = 0.0
 	reload_cooldown = 0.0
 	aim_touch = false
@@ -555,3 +622,10 @@ func reset_loadout() -> void:
 	ammo_in_mag = pistol_mag
 	reserve_ammo = pistol_reserve
 	if weapon_holder: _apply_weapon_pose()
+
+func get_shot_spread() -> float:
+	var spread := 0.012 if current_weapon == "PISTOL" else 0.018
+	spread += last_move_strength * 0.013
+	if crouched: spread *= 0.65
+	if aiming: spread *= 0.12
+	return spread

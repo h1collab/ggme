@@ -178,6 +178,92 @@ func run_checks() -> void:
 		original_file.store_buffer(original_checkpoint)
 		original_file.close()
 	else: DirAccess.remove_absolute(checkpoint_path)
+	# Telegraphs, snapshot shots and sight checks must reward movement/cover.
+	for hostile in game.soldiers: hostile.set_physics_process(false)
+	var guard: CharacterBody3D = game.soldiers[0]
+	for i in range(1, game.soldiers.size()): game.soldiers[i].global_position = Vector3(100 + i, 0, 100)
+	guard.global_position = Vector3(0, 0.05, -5)
+	guard.look_at(Vector3(0, 0.05, 0), Vector3.UP)
+	guard.attack_cd = 0
+	guard.windup = 0
+	guard.sense_cd = 0
+	guard.memory = 0
+	guard.has_sight = false
+	player.global_position = Vector3(0, 0.05, 0)
+	player.health = 100
+	var wall := StaticBody3D.new()
+	var blocker := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(3, 3, 0.5)
+	blocker.shape = shape
+	wall.position = Vector3(0, 1.5, -2.5)
+	wall.add_child(blocker)
+	game.add_child(wall)
+	await physics_frame
+	await physics_frame
+	check(not guard._can_see_player(), "Opaque cover must block soldier vision")
+	guard.hear_shot(player.global_position)
+	guard._physics_process(0.18)
+	check(guard.memory > 0 and guard.windup == 0 and player.health == 100, "Gunfire may alert an occluded soldier but must not permit shooting through cover")
+	wall.queue_free()
+	await physics_frame
+	await physics_frame
+	guard.sense_cd = 0
+	guard._physics_process(0.18)
+	check(guard.windup > 0 and player.health == 100 and guard.muzzle_signal.visible, "Soldier must visibly wind up before a shot")
+	player.global_position.x = 2.5
+	await physics_frame
+	await physics_frame
+	guard._physics_process(0.6)
+	check(player.health == 100, "Moving away from the snapshot aim point must dodge the shot")
+	guard.windup = 0.3
+	var guard_health: float = guard.health
+	guard.take_bullet(10, guard.global_position + Vector3(0, 0.8, 0))
+	check(guard.windup == 0 and guard.stagger > 0 and is_equal_approx(guard.health, guard_health - 10), "A body hit must interrupt the shooting tell")
+	guard_health = guard.health
+	guard.take_bullet(10, guard.global_position + Vector3(0, 1.7, 0))
+	check(is_equal_approx(guard.health, guard_health - 18), "Head hits must receive the intended damage multiplier")
+	var entity := CharacterBody3D.new()
+	entity.set_script(load("res://scripts/faceless.gd"))
+	entity.game = game
+	entity.player = player
+	entity.position = Vector3(0, 0.05, -10)
+	game.add_child(entity)
+	entity.set_physics_process(false)
+	var entity_scale: Vector3 = entity.visual.scale
+	check(absf((entity.visual.transform * AssetVisual.bounds(entity.visual)).size.y - 2.05) < 0.05, "Faceless model must match its intended game height")
+	entity.take_bullet(1, Vector3.ZERO)
+	for i in range(20): await process_frame
+	check(entity.visual.scale.is_equal_approx(entity_scale), "Faceless hit feedback must preserve imported scale")
+	entity.queue_free()
+	player.aiming = false
+	player.crouched = false
+	player.last_move_strength = 0
+	var hip_spread: float = player.get_shot_spread()
+	player.last_move_strength = 1
+	check(player.get_shot_spread() > hip_spread, "Moving hip fire must have greater spread")
+	player.aiming = true
+	check(player.get_shot_spread() < hip_spread * 0.4, "Aim must materially improve accuracy")
+	player.aiming = false
+	player.last_move_strength = 0
+	player.crouched = true
+	check(player.get_shot_spread() < hip_spread, "Crouching must improve accuracy")
+	player.crouched = false
+	game.world_detail.apply_quality(0)
+	check(game.world_detail.forest_batches[0].multimesh.visible_instance_count == 18 and not game.world_detail.relay_lights[0].visible, "Low quality must reduce forest density and secondary lights")
+	game.world_detail.apply_quality(3)
+	check(game.world_detail.forest_batches[0].multimesh.visible_instance_count == 72, "Ultra must enable the full instanced forest")
+	var effects_count: int = game.effects.get_child_count()
+	for i in range(100): game.effects.shot(Vector3(0, 1, 0), Vector3(0, 1, -4), Vector3.BACK)
+	check(game.effects.get_child_count() == effects_count, "Repeated fire must reuse effect pools without growing the scene")
+	game.effects.clear_effects()
+	game.effects.quality = 0
+	game.effects.shot(Vector3(0, 1, 0), Vector3(0, 1, -4), Vector3.BACK)
+	var visible_tracers := 0
+	for tracer in game.effects.tracers:
+		if tracer.visible: visible_tracers += 1
+	check(visible_tracers == 0, "Performance quality must suppress tracer effects")
+	game.effects.clear_effects()
 	# Stop deferred actions before destroying the scene.
 	player.restore_full()
 	touch = null

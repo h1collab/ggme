@@ -37,6 +37,9 @@ var health := 100.0
 var hit_time := 0.0
 var kill_time := 0.0
 var damage_time := 0.0
+var damage_bearing := 0.0
+var damage_direction_time := 0.0
+var critical_time := 0.0
 var shot_time := 0.0
 var radio_time := 0.0
 var notice_time := 0.0
@@ -457,6 +460,8 @@ func _process(delta: float) -> void:
 		kill_time = maxf(0, kill_time - delta)
 		damage_time = maxf(0, damage_time - delta)
 		shot_time = maxf(0, shot_time - delta)
+		damage_direction_time = maxf(0, damage_direction_time - delta)
+		critical_time = maxf(0, critical_time - delta)
 		radio_time = maxf(0, radio_time - delta)
 		radio_panel.visible = radio_time > 0
 		interaction_button.visible = not game.prompt_label.text.is_empty()
@@ -506,7 +511,7 @@ func _draw() -> void:
 		draw_line(Vector2(90, 792), Vector2(1500, 792), Color(0.18, 0.30, 0.32), 1)
 	if not combat_visible: return
 	var center := DESIGN * 0.5
-	var gap := (3.0 if reticle_aiming else 8.0) + shot_time * 65.0
+	var gap: float = (3.0 if reticle_aiming else 5.0 + game.player.current_spread * 280.0) + shot_time * 65.0
 	var color := WHITE if shot_time <= 0 else Color(1, 0.73, 0.38)
 	draw_circle(center, 1.6, color)
 	if not reticle_aiming:
@@ -514,9 +519,14 @@ func _draw() -> void:
 			draw_line(center + direction * gap, center + direction * (gap + 7), Color(0, 0, 0, 0.7), 4)
 			draw_line(center + direction * gap, center + direction * (gap + 7), color, 2)
 	if hit_time > 0 or kill_time > 0:
-		var hit_color := RED if kill_time > 0 else TEAL
+		var hit_color := RED if kill_time > 0 else (Color(1, 0.76, 0.34) if critical_time > 0 else TEAL)
 		for direction in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
 			draw_line(center + direction * 11, center + direction * 18, hit_color, 2.5)
+	if damage_direction_time > 0:
+		var tint := Color(0.98, 0.30, 0.19, minf(1, damage_direction_time * 2))
+		draw_arc(center, 80, damage_bearing - 0.22, damage_bearing + 0.22, 12, tint, 4, true)
+		var direction := Vector2.from_angle(damage_bearing)
+		draw_colored_polygon(PackedVector2Array([center + direction * 94, center + Vector2.from_angle(damage_bearing - 0.08) * 85, center + Vector2.from_angle(damage_bearing + 0.08) * 85]), tint)
 	if damage_time > 0 or health < 35:
 		var alpha := maxf(damage_time * 0.48, (35 - health) / 100.0 * (0.7 + sin(Time.get_ticks_msec() * 0.004) * 0.15))
 		for i in range(10):

@@ -43,6 +43,25 @@ root project is the older Escape Black Pine prototype.
 - Checkpoints preserve weapons, magazines/reserves, lateral position, collected
   evidence/pickups, story beats and final-wave state. New operations reset gear.
 
+## v7 atmosphere and combat
+
+- Static procedural moon/star sky with debanding, sky fog control, a cooler
+  distant forest and 18/32/52/72 trees per quality tier. Original pine meshes are
+  instanced into two shared batches rather than duplicated for each tree.
+- Instanced road reflector posts, nearby relay labels and pulsing status lamps
+  that turn green when restored. Secondary lamps are disabled in Performance.
+- Bounded pools for eight tracers, eight impact emitters and 24 bullet marks;
+  no growing lists of shot nodes/timers. First-person muzzle flash, smoother ADS,
+  sprint stance, aim walking speed, movement spread and crouch/aim accuracy.
+- Directional damage indicators and brief camera shake, plus headshot damage
+  and critical hit feedback. Soldier shots have a visible tell and target a
+  snapshot position: movement and cover can prevent damage. Hits interrupt tells.
+- Soldiers use sight, view direction, last-known positions and nearby gunfire
+  investigation. The Faceless entity also respects sight/cover and remembers a
+  last-known position. Character normalization uses posed bounds, both enemies
+  preserve their fitted scale after damage, and the imported Walk clip loops.
+- Android build output is `faceless-2-v7-zorix.apk`, version code 7 / name 0.7.0.
+
 ## Build and verification
 
 The workflow downloads the original licensed GLBs using the existing
@@ -56,7 +75,9 @@ godot --headless --path app --script scripts/rendering_checks.gd
 The checks cover road normals and collision alignment, visible weapon scale
 and axis, touch aiming, selected FOV, ammunition, reset during reload and
 soldier scale preservation, layout bounds, simultaneous touch input, off-screen
-release, pause/settings/cinematic transitions and settings/checkpoint round trips.
+release, pause/settings/cinematic transitions and settings/checkpoint round trips,
+cover/vision, snapshot-shot dodging, shot interruption, headshot damage, Faceless
+scale, stance accuracy, quality budgets and repeated-fire pool bounds.
 Local visual QA uses the original imported assets
 from the existing APK. Android hardware frame rate and touch ergonomics still
 need device testing; software renderer screenshots do not establish a phone
