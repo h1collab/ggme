@@ -390,7 +390,7 @@ func _play_reload_animation(mag_size: int) -> void:
 	tw.parallel().tween_property(hands_holder,"rotation_degrees",base_hands_rot,0.24)
 	tw.tween_callback(func():
 		reloading = false
-	aiming = false
+		aiming = false
 		if current_weapon == "PISTOL":
 			pistol_mag = ammo_in_mag
 			pistol_reserve = reserve_ammo
@@ -456,3 +456,8 @@ func restore_full() -> void:
 	alive = true
 	velocity = Vector3.ZERO
 	reloading = false
+	aiming = false
+	if camera:
+		camera.fov = 76.0
+	if viewmodel_root:
+		viewmodel_root.position = Vector3.ZERO
