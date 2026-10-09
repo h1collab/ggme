@@ -15,6 +15,7 @@ var viewmodel_camera: Camera3D
 var reload_tween: Tween
 var aim_touch := false
 var fire_touch := false
+var suppress_mouse_fire := true
 var base_fov := 76.0
 var recoil := 0.0
 var sway := Vector2.ZERO
@@ -179,10 +180,10 @@ func _process(delta: float) -> void:
 		return
 	viewmodel_layer.visible = alive and camera.current and controls_enabled
 	viewmodel_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if viewmodel_layer.visible else SubViewport.UPDATE_DISABLED
-	if reloading:
-		return
 	var blend := 1.0 - exp(-14.0 * delta)
 	camera.fov = lerpf(camera.fov, base_fov * 0.78 if aiming else base_fov, blend)
+	if reloading:
+		return
 	recoil = move_toward(recoil, 0.0, delta * 4.8)
 	sway = sway.lerp(Vector2.ZERO, blend)
 	var motion := 0.18 if aiming else 1.0
@@ -225,6 +226,7 @@ func set_firing(on: bool) -> void:
 
 func set_controls_enabled(on: bool) -> void:
 	controls_enabled = on
+	suppress_mouse_fire = true
 	if viewmodel_layer:
 		viewmodel_layer.visible = on and alive
 	if not on:
@@ -291,10 +293,12 @@ func _physics_process(delta: float) -> void:
 		if battery <= 0.0:
 			flashlight.visible = false
 
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT): suppress_mouse_fire = false
 	if controls_enabled:
-		if fire_touch or Input.is_key_pressed(KEY_SPACE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		var mouse_active := not OS.has_feature("mobile") and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+		if fire_touch or Input.is_key_pressed(KEY_SPACE) or (mouse_active and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and not suppress_mouse_fire):
 			fire_weapon()
-		set_aiming(aim_touch or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
+		set_aiming(aim_touch or (mouse_active and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)))
 
 	if game:
 		game.update_hud(health,stamina,battery,current_weapon,ammo_in_mag,reserve_ammo)
@@ -304,6 +308,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
+			KEY_E: game._interact()
 			KEY_Q: switch_weapon()
 			KEY_R: reload_weapon()
 			KEY_F: toggle_flashlight()
@@ -539,3 +544,14 @@ func restore_full() -> void:
 		camera.fov = base_fov
 	if viewmodel_root:
 		viewmodel_root.position = Vector3.ZERO
+
+func reset_loadout() -> void:
+	rifle_unlocked = false
+	current_weapon = "PISTOL"
+	pistol_mag = 12
+	pistol_reserve = 48
+	rifle_mag = 30
+	rifle_reserve = 90
+	ammo_in_mag = pistol_mag
+	reserve_ammo = pistol_reserve
+	if weapon_holder: _apply_weapon_pose()

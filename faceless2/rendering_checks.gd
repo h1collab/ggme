@@ -14,6 +14,7 @@ func check(condition: bool, message: String) -> void:
 func run_checks() -> void:
 	var game := load("res://scripts/game.gd").new() as Node3D
 	root.add_child(game)
+	check(not game.interface.combat.visible and not game.interface.touch_controls.is_visible_in_tree(), "Main menu must hide combat HUD and touch controls")
 	paused = false
 	game.set_process(false)
 	game.selected_mode = "EXPLORATION"
@@ -43,7 +44,10 @@ func run_checks() -> void:
 		check(model != null, "First-person asset must load")
 	player.unlock_rifle()
 	check(AssetVisual.bounds(player.weapon_holder).get_center().length() < 0.001, "Rifle's off-centre origin must be removed")
-	check(AssetVisual.bounds(player.hands_model.get_node("RightHand")).size.length() < 0.5 and AssetVisual.bounds(player.hands_model.get_node("LeftHand")).size.length() < 0.5, "Cropped hands must remain at first-person scale")
+	for side in ["RightHand", "LeftHand"]:
+		var hand: Node3D = player.hands_model.get_node(side)
+		for part in hand.get_children():
+			if part.name != "Sleeve": check(AssetVisual.bounds(part).size.length() < 0.5, "Cropped hands must remain at first-person scale")
 	var rifle_box := AssetVisual.bounds(player.weapon_holder)
 	check(rifle_box.size.z > rifle_box.size.y * 2.0, "Rifle barrel must run forward, not vertically")
 	player.set_touch_aiming(true)
@@ -68,6 +72,124 @@ func run_checks() -> void:
 	for i in range(30):
 		await process_frame
 	check(soldier.visual.scale.is_equal_approx(original_scale), "Hit feedback must preserve imported soldier scale")
+	# Exercise actual screen bounds and transitions, including multitouch capture.
+	game.main_menu.hide()
+	game.game_started = true
+	game.interface.force_touch = true
+	game.interface.refresh_state()
+	for resolution in [Vector2i(1280, 720), Vector2i(1920, 864), Vector2i(1024, 768), Vector2i(960, 540)]:
+		root.size = resolution
+		await process_frame
+		game.interface._fit_layout()
+		var canvas: Control = game.interface.design
+		var extent: Vector2 = canvas.position + canvas.size * canvas.scale
+		check(canvas.position.x >= -0.1 and canvas.position.y >= -0.1 and extent.x <= game.interface.get_viewport_rect().size.x + 0.1 and extent.y <= game.interface.get_viewport_rect().size.y + 0.1, "Interface must fit 16:9, ultrawide, tablet and small displays")
+	var joystick: Control = game.joystick
+	var touch := InputEventScreenTouch.new()
+	touch.index = 7
+	touch.pressed = true
+	touch.position = joystick.size * 0.5 + Vector2(50, 0)
+	joystick._gui_input(touch)
+	check(joystick.value.x > 0.5, "Joystick must use the visual centre")
+	touch.pressed = false
+	touch.position = Vector2(4000, 4000)
+	joystick._input(touch)
+	check(joystick.value == Vector2.ZERO and joystick.pointer_id == -1, "Releasing outside joystick must stop movement")
+	var fire: Button
+	var aim: Button
+	for button in game.interface.touch_controls.get_children():
+		if button is Button and button.text == "FIRE": fire = button
+		if button is Button and button.text == "AIM": aim = button
+	touch.pressed = true
+	touch.index = 1
+	touch.position = fire.get_global_transform_with_canvas() * (fire.size * 0.5)
+	fire._input(touch)
+	touch.index = 2
+	touch.position = aim.get_global_transform_with_canvas() * (aim.size * 0.5)
+	aim._input(touch)
+	check(player.fire_touch and player.aim_touch, "Separate fingers must be able to fire and aim together")
+	var before_pause: int = player.ammo_in_mag
+	game.toggle_pause()
+	check(paused and not player.controls_enabled and not game.interface.touch_controls.is_visible_in_tree(), "Pause must suspend the world and hide combat controls")
+	check(not player.fire_touch and not player.aim_touch and fire.pointer_id == -1 and aim.pointer_id == -1, "Pause must release all held touches")
+	player.fire_weapon()
+	check(player.ammo_in_mag == before_pause, "Paused player must not fire")
+	game.interface.open_settings(game.interface.pause_panel)
+	game.interface.close_settings()
+	check(paused and game.interface.pause_panel.visible, "Settings must return to pause without resuming combat")
+	game.toggle_pause()
+	check(not paused and player.controls_enabled and game.interface.touch_controls.is_visible_in_tree(), "Resume must restore gameplay controls")
+	game._set_cinematic_active(true)
+	check(not game.interface.combat.visible and not soldier.is_physics_processing() and not player.controls_enabled, "Cinematic must hide the full HUD and suspend hostile attacks")
+	game._set_cinematic_active(false)
+	check(game.interface.combat.visible and player.controls_enabled, "Cinematic ending must restore HUD")
+	game._start_cinematic_intro()
+	game.skip_cinematic()
+	await process_frame
+	await process_frame
+	check(not game.cinematic_running and player.controls_enabled and not game.cinematic_overlay.visible, "Skipping a shot must restore gameplay without starting the next shot")
+	player.set_touch_aiming(true)
+	player.camera.fov = 55
+	player.ammo_in_mag = 1
+	player.weapon_cooldown = 0
+	player.reload_weapon()
+	player._process(1.0)
+	check(absf(player.camera.fov - player.base_fov) < 0.01, "Reload from ADS must restore camera FOV")
+	var settings_path := "user://faceless2_settings.cfg"
+	var had_settings := FileAccess.file_exists(settings_path)
+	var original_settings := FileAccess.get_file_as_bytes(settings_path) if had_settings else PackedByteArray()
+	var saved_profile: Dictionary = game.settings.duplicate()
+	game.settings["fov"] = 84
+	game.settings["volume"] = 0.35
+	game._save_settings()
+	game.settings["fov"] = 60
+	game.settings["volume"] = 1
+	game._load_settings()
+	check(game.settings["fov"] == 84 and is_equal_approx(game.settings["volume"], 0.35), "Settings must survive saving and loading")
+	game.settings = saved_profile
+	if had_settings:
+		var original_file := FileAccess.open(settings_path, FileAccess.WRITE)
+		original_file.store_buffer(original_settings)
+		original_file.close()
+	else: DirAccess.remove_absolute(settings_path)
+	var checkpoint_path := "user://faceless2_save.cfg"
+	var had_checkpoint := FileAccess.file_exists(checkpoint_path)
+	var original_checkpoint := FileAccess.get_file_as_bytes(checkpoint_path) if had_checkpoint else PackedByteArray()
+	player.restore_full()
+	player.current_weapon = "RIFLE"
+	player.ammo_in_mag = 17
+	player.reserve_ammo = 62
+	player.global_position = Vector3(3.5, 0.9, -21)
+	game.evidence_nodes[0].visible = false
+	game.pickups[0].visible = false
+	game.evidence_collected = 1
+	game.story_flags = {"armed": true}
+	game._save_checkpoint()
+	player.reset_loadout()
+	game.evidence_nodes[0].visible = true
+	game.pickups[0].visible = true
+	game.story_flags = {}
+	game._continue_game()
+	check(player.rifle_unlocked and player.current_weapon == "RIFLE" and player.ammo_in_mag == 17 and player.reserve_ammo == 62, "Continue must restore weapon ownership and ammunition")
+	check(not game.evidence_nodes[0].visible and not game.pickups[0].visible and game.story_flags.has("armed"), "Continue must preserve collected items and completed story beats")
+	check(absf(player.global_position.x - 3.5) < 0.01, "Continue must restore lateral position")
+	if had_checkpoint:
+		var original_file := FileAccess.open(checkpoint_path, FileAccess.WRITE)
+		original_file.store_buffer(original_checkpoint)
+		original_file.close()
+	else: DirAccess.remove_absolute(checkpoint_path)
+	# Stop deferred actions before destroying the scene.
+	player.restore_full()
+	touch = null
+	for hostile in game.soldiers: hostile.set_physics_process(false)
+	if is_instance_valid(game.enemy): game.enemy.set_physics_process(false)
+	for sound in game.find_children("*", "AudioStreamPlayer", true, false):
+		sound.stop()
+		sound.stream = null
+	for sound in game.find_children("*", "AudioStreamPlayer3D", true, false):
+		sound.stop()
+		sound.stream = null
+	await create_timer(0.15).timeout
 	game.queue_free()
 	await process_frame
 	print("Rendering/gameplay checks: ", "PASS" if failures == 0 else "FAIL (%d)" % failures)

@@ -49,6 +49,29 @@ static func make_hands(source: Node3D) -> Node3D:
 		var fingertip_bone := skeleton.find_bone("f_middle.03.R_end_054" if side == "R" else "f_middle.03.L_end_061")
 		var fingertip := skeleton.global_transform * skeleton.get_bone_global_pose(fingertip_bone).origin
 		var frame := Transform3D(Basis.looking_at((fingertip - wrist).normalized(), Vector3.UP), wrist)
+		# Cover the cropped elbow with a tapered sleeve extending off screen.
+		# The wrist/fingers remain the original rig geometry.
+		var elbow_bone := skeleton.find_bone("forearm.R_04" if side == "R" else "forearm.L_08")
+		var elbow := (frame.affine_inverse() * (skeleton.global_transform * skeleton.get_bone_global_pose(elbow_bone).origin)) * 0.012
+		var sleeve_start := elbow * 0.65
+		var sleeve_end := elbow + elbow.normalized() * 0.52
+		var sleeve := MeshInstance3D.new()
+		sleeve.name = "Sleeve"
+		var cloth := CylinderMesh.new()
+		cloth.top_radius = 0.046
+		cloth.bottom_radius = 0.063
+		cloth.height = sleeve_start.distance_to(sleeve_end)
+		cloth.radial_segments = 20
+		cloth.rings = 3
+		sleeve.mesh = cloth
+		var cloth_material := StandardMaterial3D.new()
+		cloth_material.albedo_color = Color(0.042, 0.065, 0.075)
+		cloth_material.roughness = 0.95
+		sleeve.material_override = cloth_material
+		sleeve.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sleeve.position = (sleeve_start + sleeve_end) * 0.5
+		sleeve.basis = Basis.looking_at((sleeve_end - sleeve_start).normalized(), Vector3.UP) * Basis(Vector3.RIGHT, PI * 0.5)
+		holder.add_child(sleeve)
 		for node in source.find_children("*", "MeshInstance3D", true, false):
 			var mesh := node as MeshInstance3D
 			if mesh.skin == null:

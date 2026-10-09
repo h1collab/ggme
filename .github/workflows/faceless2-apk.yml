@@ -28,6 +28,8 @@ jobs:
       - name: Apply Faceless 2 v4 project
         shell: bash
         run: |
+          cp faceless2/interface.gd app/scripts/interface.gd
+          cp faceless2/touch_action.gd app/scripts/touch_action.gd
           cp faceless2/game.gd app/scripts/game.gd
           cp faceless2/player.gd app/scripts/player.gd
           cp faceless2/asset_visual.gd app/scripts/asset_visual.gd
@@ -181,8 +183,10 @@ jobs:
           godot --headless --path app --script scripts/player.gd --check-only
           godot --headless --path app --script scripts/faceless.gd --check-only
           godot --headless --path app --script scripts/soldier.gd --check-only
+          godot --headless --path app --script scripts/interface.gd --check-only
+          godot --headless --path app --script scripts/touch_action.gd --check-only
           godot --headless --path app --script scripts/game.gd --check-only
-          godot --headless --path app --script scripts/rendering_checks.gd
+          timeout 180 godot --headless --path app --script scripts/rendering_checks.gd
 
       - name: Create debug keystore
         shell: bash

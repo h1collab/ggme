@@ -23,6 +23,26 @@ root project is the older Escape Black Pine prototype.
 - Cooler moonlight, warm lamps, lower flashlight exposure, shadow quality
   tiers, distance-limited lights/meshes and throttled objective UI updates.
 
+## Interface and immersion pass
+
+- Fitted 1600×900 interface within Android display safe areas, with verified
+  16:9, ultrawide, 4:3 tablet and small-window bounds. The world fills the screen.
+- Separate mission, compass, vitals and weapon panels; projected objective
+  markers with distance and direction, contextual interaction and radio captions.
+- Styled campaign menu, six mode cards, incident archive, pause/resume and
+  settings that return to the correct menu. Brightness, visibility, FOV, look
+  sensitivity, volume, quality, frame cap and touch opacity persist on disk.
+- Touch controls hide during menus, death and cinematics. Independent touch IDs
+  support movement, aiming and firing together; off-control releases reset the
+  joystick. Emulated mouse input on phones cannot fire the weapon accidentally.
+- Aim-sensitive reticle, hit/kill markers, low-ammo indication and edge damage
+  feedback. Forearm sleeves cover cropped ends without replacing the hand rig.
+- Skip cinematics with the screen button or Escape; hostile attacks suspend
+  during shots. Footsteps and weapon tails use separate audio channels; enemy
+  shots have spatial sound. Reloading restores FOV after leaving aim.
+- Checkpoints preserve weapons, magazines/reserves, lateral position, collected
+  evidence/pickups, story beats and final-wave state. New operations reset gear.
+
 ## Build and verification
 
 The workflow downloads the original licensed GLBs using the existing
@@ -35,7 +55,9 @@ godot --headless --path app --script scripts/rendering_checks.gd
 
 The checks cover road normals and collision alignment, visible weapon scale
 and axis, touch aiming, selected FOV, ammunition, reset during reload and
-soldier scale preservation. Local visual QA uses the original imported assets
+soldier scale preservation, layout bounds, simultaneous touch input, off-screen
+release, pause/settings/cinematic transitions and settings/checkpoint round trips.
+Local visual QA uses the original imported assets
 from the existing APK. Android hardware frame rate and touch ergonomics still
 need device testing; software renderer screenshots do not establish a phone
 performance target. This is an improvement to a prototype, not a claim of

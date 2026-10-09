@@ -5,7 +5,8 @@ const AssetVisual = preload("res://scripts/asset_visual.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/faceless.gd")
 const SoldierScript = preload("res://scripts/soldier.gd")
-const JoystickScript = preload("res://scripts/virtual_joystick.gd")
+const InterfaceScript = preload("res://scripts/interface.gd")
+var interface: Control
 
 var player: CharacterBody3D
 var enemy: CharacterBody3D
@@ -47,6 +48,9 @@ var ambience_player: AudioStreamPlayer
 var static_player: AudioStreamPlayer
 var voice_player: AudioStreamPlayer
 var sfx_player: AudioStreamPlayer
+var step_player: AudioStreamPlayer
+var shot_players: Array[AudioStreamPlayer] = []
+var shot_cursor := 0
 var heartbeat_player: AudioStreamPlayer
 var current_zone := "BLACKWOOD CHECKPOINT"
 var chapter := 1
@@ -61,12 +65,14 @@ var settings := {
 	"sensitivity":1.0,
 	"brightness":1.35,
 	"night_visibility":1.0,
-	"volume":0.85
+	"volume":0.85,
+	"touch_opacity":0.65
 }
 
 func _ready() -> void:
 	if OS.has_feature("mobile"):
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
+	_load_settings()
 	_build_world()
 	_build_ui()
 	_build_audio()
@@ -74,7 +80,7 @@ func _ready() -> void:
 	get_tree().paused = true
 
 func _process(delta: float) -> void:
-	if not game_started or player == null:
+	if not game_started or player == null or cinematic_running:
 		return
 	prompt_timer -= delta
 	if prompt_timer <= 0.0:
@@ -295,6 +301,12 @@ func _build_audio() -> void:
 	sfx_player = AudioStreamPlayer.new()
 	sfx_player.volume_db = -2.0
 	add_child(sfx_player)
+	step_player = AudioStreamPlayer.new()
+	add_child(step_player)
+	for i in range(4):
+		var shot := AudioStreamPlayer.new()
+		add_child(shot)
+		shot_players.append(shot)
 	heartbeat_player = AudioStreamPlayer.new()
 	heartbeat_player.stream = load("res://audio/heartbeat.wav")
 	heartbeat_player.volume_db = -9.0
@@ -308,138 +320,46 @@ func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(layer)
+	interface = Control.new()
+	interface.set_script(InterfaceScript)
+	interface.game = self
+	layer.add_child(interface)
 
-	fade = ColorRect.new()
-	fade.color = Color(0.05,0.0,0.0,0.0)
-	fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(fade)
+func toggle_pause() -> void:
+	if not game_started or cinematic_running or player == null or not player.alive:
+		return
+	var suspend := not get_tree().paused
+	player.set_controls_enabled(not suspend)
+	joystick.reset()
+	get_tree().paused = suspend
+	interface.pause_panel.visible = suspend
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if suspend or OS.has_feature("mobile") else Input.MOUSE_MODE_CAPTURED
+	interface.refresh_state()
 
-	hud = Label.new()
-	hud.position = Vector2(24,18)
-	hud.size = Vector2(1380,42)
-	hud.add_theme_font_size_override("font_size",20)
-	layer.add_child(hud)
+func return_to_menu() -> void:
+	_save_checkpoint()
+	game_started = false
+	get_tree().paused = true
+	player.set_controls_enabled(false)
+	joystick.reset()
+	interface.pause_panel.hide()
+	main_menu.show()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	interface.refresh_state()
 
-	objective_label = Label.new()
-	objective_label.position = Vector2(24,54)
-	objective_label.size = Vector2(1250,66)
-	objective_label.add_theme_font_size_override("font_size",17)
-	objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_label.modulate = Color(0.75,0.88,0.92)
-	layer.add_child(objective_label)
-
-	prompt_label = Label.new()
-	prompt_label.position = Vector2(420,690)
-	prompt_label.size = Vector2(760,50)
-	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	prompt_label.add_theme_font_size_override("font_size",20)
-	layer.add_child(prompt_label)
-
-	notice = Label.new()
-	notice.position = Vector2(300,115)
-	notice.size = Vector2(1000,75)
-	notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	notice.add_theme_font_size_override("font_size",32)
-	layer.add_child(notice)
-
-	crosshair = Label.new()
-	crosshair.text = "+"
-	crosshair.set_anchors_preset(Control.PRESET_CENTER)
-	crosshair.position = Vector2(-20,-20)
-	crosshair.size = Vector2(40,40)
-	crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	crosshair.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	crosshair.add_theme_font_size_override("font_size",24)
-	crosshair.modulate = Color(0.9,0.94,0.95,0.86)
-	layer.add_child(crosshair)
-
-	joystick = Control.new()
-	joystick.set_script(JoystickScript)
-	joystick.position = Vector2(38,650)
-	joystick.size = Vector2(190,190)
-	layer.add_child(joystick)
-
-	var interact := _action_button("INTERACT",Vector2(1360,690),Vector2(180,66))
-	interact.pressed.connect(_interact)
-	layer.add_child(interact)
-	var fire := _action_button("FIRE",Vector2(1380,610),Vector2(160,66))
-	fire.button_down.connect(func(): if player: player.set_firing(true))
-	fire.button_up.connect(func(): if player: player.set_firing(false))
-	layer.add_child(fire)
-	var reload := _action_button("RELOAD",Vector2(1210,610),Vector2(150,58))
-	reload.pressed.connect(func(): if player: player.reload_weapon())
-	layer.add_child(reload)
-	var flashlight_btn := _action_button("LIGHT",Vector2(1220,680),Vector2(125,58))
-	flashlight_btn.pressed.connect(func(): if player: player.toggle_flashlight())
-	layer.add_child(flashlight_btn)
-	var crouch_btn := _action_button("CROUCH",Vector2(1380,770),Vector2(160,58))
-	crouch_btn.pressed.connect(func(): if player: player.toggle_crouch())
-	layer.add_child(crouch_btn)
-	var run_btn := _action_button("RUN",Vector2(1205,750),Vector2(150,58))
-	run_btn.button_down.connect(func(): if player: player.set_running(true))
-	run_btn.button_up.connect(func(): if player: player.set_running(false))
-	layer.add_child(run_btn)
-
-	var aim_btn := _action_button("AIM",Vector2(1380,525),Vector2(160,58))
-	aim_btn.button_down.connect(func(): if player: player.set_touch_aiming(true))
-	aim_btn.button_up.connect(func(): if player: player.set_touch_aiming(false))
-	layer.add_child(aim_btn)
-
-	var swap_btn := _action_button("SWAP",Vector2(1205,525),Vector2(150,58))
-	swap_btn.pressed.connect(func(): if player: player.switch_weapon())
-	layer.add_child(swap_btn)
-
-	main_menu = _build_main_menu()
-	layer.add_child(main_menu)
-	mode_panel = _build_mode_panel()
-	layer.add_child(mode_panel)
-	mode_panel.visible = false
-	settings_panel = _build_settings_panel()
-	layer.add_child(settings_panel)
-	settings_panel.visible = false
-	archive_panel = _build_archive_panel()
-	layer.add_child(archive_panel)
-	archive_panel.visible = false
-	_build_cinematic_ui(layer)
-
-func _build_cinematic_ui(layer: CanvasLayer) -> void:
-	cinematic_overlay = ColorRect.new()
-	cinematic_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cinematic_overlay.color = Color(0,0,0,0.0)
-	cinematic_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	cinematic_overlay.visible = false
-	layer.add_child(cinematic_overlay)
-
-	subtitle_box = ColorRect.new()
-	subtitle_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	subtitle_box.offset_left = 150
-	subtitle_box.offset_right = -150
-	subtitle_box.offset_top = -168
-	subtitle_box.offset_bottom = -30
-	subtitle_box.color = Color(0.008,0.012,0.018,0.84)
-	cinematic_overlay.add_child(subtitle_box)
-
-	subtitle_speaker = Label.new()
-	subtitle_speaker.position = Vector2(28,14)
-	subtitle_speaker.size = Vector2(1120,25)
-	subtitle_speaker.add_theme_font_size_override("font_size",15)
-	subtitle_speaker.modulate = Color(0.30,0.82,0.86)
-	subtitle_box.add_child(subtitle_speaker)
-
-	subtitle_label = Label.new()
-	subtitle_label.position = Vector2(28,43)
-	subtitle_label.size = Vector2(1120,80)
-	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	subtitle_label.add_theme_font_size_override("font_size",22)
-	subtitle_label.modulate = Color(0.94,0.95,0.96)
-	subtitle_box.add_child(subtitle_label)
-
-	cinematic_camera = Camera3D.new()
-	cinematic_camera.fov = 62.0
-	cinematic_camera.near = 0.08
-	add_child(cinematic_camera)
-	cinematic_camera.current = false
+func _set_cinematic_active(on: bool) -> void:
+	cinematic_running = on
+	cinematic_overlay.visible = on
+	cinematic_camera.current = on
+	if player:
+		player.camera.current = not on
+		player.set_controls_enabled(not on)
+	for soldier in soldiers:
+		if is_instance_valid(soldier): soldier.set_physics_process(not on)
+	if is_instance_valid(enemy): enemy.set_physics_process(not on)
+	joystick.reset()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if on or OS.has_feature("mobile") else Input.MOUSE_MODE_CAPTURED
+	interface.refresh_state()
 
 func _type_subtitle(speaker: String, text_value: String, voice_path := "", cps := 34.0) -> void:
 	subtitle_speaker.text = speaker
@@ -461,249 +381,80 @@ func _shot(from_pos: Vector3, to_pos: Vector3, look_target: Vector3, duration: f
 	var start_basis := Basis.looking_at((look_target-from_pos).normalized(),Vector3.UP)
 	var end_basis := Basis.looking_at((look_target-to_pos).normalized(),Vector3.UP)
 	cinematic_camera.global_transform = Transform3D(start_basis,from_pos)
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE)
-	tw.set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(cinematic_camera,"global_transform",Transform3D(end_basis,to_pos),duration)
-	await tw.finished
+	var elapsed := 0.0
+	while elapsed < duration and cinematic_running:
+		var fraction := 0.5 - cos(clampf(elapsed / duration, 0, 1) * PI) * 0.5
+		cinematic_camera.global_transform = Transform3D(start_basis, from_pos).interpolate_with(Transform3D(end_basis, to_pos), fraction)
+		await get_tree().process_frame
+		elapsed += get_process_delta_time()
+
+func skip_cinematic() -> void:
+	if not cinematic_running: return
+	if voice_player: voice_player.stop()
+	_set_cinematic_active(false)
+	_update_objective()
 
 func _start_cinematic_intro() -> void:
-	if cinematic_running:
-		return
-	cinematic_running = true
-	cinematic_overlay.visible = true
-	cinematic_camera.current = true
-	if player:
-		player.set_controls_enabled(false)
-		player.camera.current = false
-	hud.visible = false
-	objective_label.visible = false
-	prompt_label.visible = false
-	crosshair.visible = false
+	if cinematic_running: return
+	_set_cinematic_active(true)
 	_run_cinematic_intro()
 
 func _run_cinematic_intro() -> void:
 	await _shot(Vector3(0,4.2,18),Vector3(0,3.1,9.5),Vector3(0,1.2,0),3.6)
+	if not cinematic_running: return
 	await _type_subtitle("BLACKWOOD CONTROL","The checkpoint powered itself back on at 02:13. No utility crew is present. Proceed to Relay One and restore the grid.","res://audio/voice_intro_01.wav",32.0)
+	if not cinematic_running: return
 
 	await _shot(Vector3(0,4.6,-7),Vector3(0,4.3,-17),Vector3(-6.4,4.5,-20),3.4)
+	if not cinematic_running: return
 	await _type_subtitle("DISPATCH","Patrol Twelve stopped responding forty-eight hours ago. Armed security now holds the road. They will fire on sight.","res://audio/voice_intro_02.wav",32.0)
+	if not cinematic_running: return
 
 	await _shot(Vector3(0,3.2,-31),Vector3(0,3.0,-42),Vector3(3.0,1.8,-46),3.4)
+	if not cinematic_running: return
 	if enemy and is_instance_valid(enemy):
 		enemy.global_position = Vector3(4.3,0.9,-48)
 	await _type_subtitle("ARCHIVE","One impossible frame survived. A man without a face appears behind every lost patrol. Gunfire only delays it.","res://audio/voice_intro_03.wav",30.0)
+	if not cinematic_running: return
 
 	await _shot(Vector3(0,3.0,-54),Vector3(0,2.7,-65),Vector3(-5.0,1.0,-69),3.3)
+	if not cinematic_running: return
 	await _type_subtitle("BLACKWOOD CONTROL","Restore all three relays. Recover the evidence. Find the rifle at the ranger cabin. Then reach the dead-zone gate alive.","res://audio/voice_intro_04.wav",31.0)
+	if not cinematic_running: return
 
 	await _shot(Vector3(0,2.5,6),Vector3(0,1.75,4.5),Vector3(5.5,1.0,-13),2.4)
+	if not cinematic_running: return
 	await _type_subtitle("OBJECTIVE","First objective: follow the road to Relay One. Interact with the electrical cabinet when you reach it.","res://audio/voice_objective_01.wav",32.0)
+	if not cinematic_running: return
 	_finish_cinematic_intro()
 
+
 func _finish_cinematic_intro() -> void:
-	cinematic_running = false
-	cinematic_overlay.visible = false
-	cinematic_camera.current = false
-	if player:
-		player.camera.current = true
-		player.set_controls_enabled(true)
-	hud.visible = true
-	objective_label.visible = true
-	prompt_label.visible = true
-	crosshair.visible = true
+	_set_cinematic_active(false)
 	_show_notice("CHAPTER I // ENTER BLACKWOOD")
 	_update_objective()
 
-func _build_main_menu() -> Control:
-	var root := ColorRect.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.color = Color(0.004,0.007,0.011,0.94)
+func _load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load("user://faceless2_settings.cfg") != OK: return
+	var ranges := {"quality": Vector2(0, 3), "fps": Vector2(30, 120), "fov": Vector2(60, 95), "sensitivity": Vector2(0.5, 2), "brightness": Vector2(0.8, 2.2), "night_visibility": Vector2(0.5, 1.8), "volume": Vector2(0, 1), "touch_opacity": Vector2(0.3, 1)}
+	for key in settings:
+		var value = cfg.get_value("settings", key, settings[key])
+		if value is float or value is int:
+			settings[key] = clampf(float(value), ranges[key].x, ranges[key].y)
+	settings["quality"] = int(settings["quality"])
+	if not int(settings["fps"]) in [30, 60, 120]: settings["fps"] = 60
 
-	var rail := ColorRect.new()
-	rail.position = Vector2(0,0)
-	rail.size = Vector2(18,900)
-	rail.color = Color(0.72,0.025,0.035,0.92)
-	root.add_child(rail)
-
-	var brand := Label.new()
-	brand.text = "FACELESS"
-	brand.position = Vector2(82,72)
-	brand.size = Vector2(520,70)
-	brand.add_theme_font_size_override("font_size",56)
-	brand.modulate = Color(0.94,0.95,0.96)
-	root.add_child(brand)
-
-	var sequel := Label.new()
-	sequel.text = "02"
-	sequel.position = Vector2(460,58)
-	sequel.size = Vector2(120,80)
-	sequel.add_theme_font_size_override("font_size",64)
-	sequel.modulate = Color(0.78,0.04,0.05)
-	root.add_child(sequel)
-
-	var tagline := Label.new()
-	tagline.text = "BLACKWOOD INCIDENT // FIELD TERMINAL"
-	tagline.position = Vector2(87,145)
-	tagline.size = Vector2(570,34)
-	tagline.add_theme_font_size_override("font_size",16)
-	tagline.modulate = Color(0.28,0.72,0.76)
-	root.add_child(tagline)
-
-	var labels := ["CONTINUE","NEW GAME","GAME MODES","SETTINGS","ARCHIVE"]
-	for i in range(labels.size()):
-		var b := _menu_button(labels[i],Vector2(86,242+i*70),Vector2(390,54))
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.add_theme_constant_override("outline_size",0)
-		if i == 0:
-			b.pressed.connect(_continue_game)
-		elif i == 1:
-			b.pressed.connect(func(): root.visible=false; mode_panel.visible=true)
-		elif i == 2:
-			b.pressed.connect(func(): root.visible=false; mode_panel.visible=true)
-		elif i == 3:
-			b.pressed.connect(func(): root.visible=false; settings_panel.visible=true)
-		else:
-			b.pressed.connect(func(): root.visible=false; archive_panel.visible=true)
-		root.add_child(b)
-
-	var card := ColorRect.new()
-	card.position = Vector2(760,120)
-	card.size = Vector2(720,600)
-	card.color = Color(0.018,0.028,0.038,0.88)
-	root.add_child(card)
-
-	var status := Label.new()
-	status.text = "CASE STATUS  //  ACTIVE"
-	status.position = Vector2(38,34)
-	status.size = Vector2(620,34)
-	status.add_theme_font_size_override("font_size",16)
-	status.modulate = Color(0.78,0.07,0.08)
-	card.add_child(status)
-
-	var mission := Label.new()
-	mission.text = "BLACKWOOD RESPONSE"
-	mission.position = Vector2(38,82)
-	mission.size = Vector2(620,50)
-	mission.add_theme_font_size_override("font_size",32)
-	card.add_child(mission)
-
-	var summary := Label.new()
-	summary.position = Vector2(38,150)
-	summary.size = Vector2(630,260)
-	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	summary.add_theme_font_size_override("font_size",19)
-	summary.text = "Three relay stations are offline. Patrol Twelve is missing. Armed security controls the road.\n\nYour route is now guided step by step in the HUD. Follow the current objective marker, interact with highlighted equipment, and use checkpoints to continue."
-	summary.modulate = Color(0.78,0.83,0.88)
-	card.add_child(summary)
-
-	var hint := Label.new()
-	hint.text = "STORY MODE RECOMMENDED  •  HEADPHONES RECOMMENDED\nOriginal Sketchfab environment assets  •  made by zorix"
-	hint.position = Vector2(38,500)
-	hint.size = Vector2(630,70)
-	hint.add_theme_font_size_override("font_size",15)
-	hint.modulate = Color(0.40,0.58,0.64)
-	card.add_child(hint)
-	return root
-
-func _build_mode_panel() -> Control:
-	var p := _panel(Vector2(430,150),Vector2(740,590),Color(0.005,0.01,0.015,0.98))
-	var title := Label.new()
-	title.text = "CHOOSE YOUR NIGHT"
-	title.position = Vector2(50,32)
-	title.size = Vector2(640,50)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size",34)
-	p.add_child(title)
-	var modes := [["STORY","Campaign with gunfights and story beats."],["RUSH","Faster route and tougher patrols."],["NIGHTMARE","Stronger enemies, lower battery."],["ENDLESS","Relays reset after extraction."],["EXPLORATION","No Faceless hunter."],["BLACKOUT","Lower visibility and scarce power."]]
-	for i in range(modes.size()):
-		var b := _menu_button(modes[i][0]+" — "+modes[i][1],Vector2(80,105+i*62),Vector2(580,50))
-		var mode_name: String = modes[i][0]
-		b.pressed.connect(func(): selected_mode=mode_name; _start_new_game())
-		p.add_child(b)
-	var back := _menu_button("BACK",Vector2(220,500),Vector2(300,48))
-	back.pressed.connect(func(): p.visible=false; main_menu.visible=true)
-	p.add_child(back)
-	return p
-
-func _build_settings_panel() -> Control:
-	var p := _panel(Vector2(455,120),Vector2(700,650),Color(0.005,0.01,0.015,0.98))
-	var title := Label.new()
-	title.text = "SETTINGS"
-	title.position = Vector2(42,28)
-	title.add_theme_font_size_override("font_size",36)
-	p.add_child(title)
-
-	var quality := OptionButton.new()
-	quality.position = Vector2(330,95)
-	quality.size = Vector2(290,46)
-	for t in ["PERFORMANCE","BALANCED","HIGH","ULTRA"]: quality.add_item(t)
-	quality.select(settings["quality"])
-	quality.item_selected.connect(func(i): settings["quality"]=i; _apply_settings())
-	p.add_child(_setting_label("QUALITY",Vector2(52,107))); p.add_child(quality)
-
-	var fps := OptionButton.new()
-	fps.position = Vector2(330,155); fps.size=Vector2(290,46)
-	for t in ["30 FPS","60 FPS","120 FPS"]: fps.add_item(t)
-	fps.select(1)
-	fps.item_selected.connect(func(i): settings["fps"]=[30,60,120][i]; _apply_settings())
-	p.add_child(_setting_label("FPS LIMIT",Vector2(52,167))); p.add_child(fps)
-
-	var bright := HSlider.new()
-	bright.position=Vector2(330,220); bright.size=Vector2(290,40)
-	bright.min_value=0.8; bright.max_value=2.2; bright.step=0.05; bright.value=settings["brightness"]
-	bright.value_changed.connect(func(v): settings["brightness"]=v; _apply_settings())
-	p.add_child(_setting_label("BRIGHTNESS",Vector2(52,232))); p.add_child(bright)
-
-	var night := HSlider.new()
-	night.position=Vector2(330,280); night.size=Vector2(290,40)
-	night.min_value=0.5; night.max_value=1.8; night.step=0.05; night.value=settings["night_visibility"]
-	night.value_changed.connect(func(v): settings["night_visibility"]=v; _apply_settings())
-	p.add_child(_setting_label("NIGHT VISIBILITY",Vector2(52,292))); p.add_child(night)
-
-	var fov := HSlider.new()
-	fov.position=Vector2(330,340); fov.size=Vector2(290,40)
-	fov.min_value=60; fov.max_value=95; fov.value=settings["fov"]
-	fov.value_changed.connect(func(v): settings["fov"]=v; if player and player.camera: player.set_field_of_view(v))
-	p.add_child(_setting_label("FIELD OF VIEW",Vector2(52,352))); p.add_child(fov)
-
-	var sens := HSlider.new()
-	sens.position=Vector2(330,400); sens.size=Vector2(290,40)
-	sens.min_value=.5; sens.max_value=2.0; sens.step=.05; sens.value=settings["sensitivity"]
-	sens.value_changed.connect(func(v): settings["sensitivity"]=v)
-	p.add_child(_setting_label("LOOK SENSITIVITY",Vector2(52,412))); p.add_child(sens)
-
-	var back := _menu_button("BACK",Vector2(200,535),Vector2(300,52))
-	back.pressed.connect(func(): p.visible=false; main_menu.visible=true)
-	p.add_child(back)
-	return p
-
-func _build_archive_panel() -> Control:
-	var p := _panel(Vector2(340,140),Vector2(920,610),Color(0.005,0.01,0.015,0.98))
-	var title := Label.new()
-	title.text = "BLACKWOOD INCIDENT // PHASE TWO"
-	title.position=Vector2(45,36); title.size=Vector2(830,52); title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; title.add_theme_font_size_override("font_size",31)
-	p.add_child(title)
-	var body := Label.new()
-	body.position=Vector2(70,110); body.size=Vector2(780,360); body.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; body.add_theme_font_size_override("font_size",19)
-	body.text="CHAPTER I — REOPENING\nRestore the checkpoint relay.\n\nCHAPTER II — ARMED RESPONSE\nBlackwood Security has orders to stop you. Recover ammunition and clear the tower route.\n\nCHAPTER III — THE CABIN\nFind the rifle inside the ranger sector.\n\nCHAPTER IV — DEAD SIGNAL\nRestore the final relay while the Faceless entity closes in.\n\nCHAPTER V — EXTRACTION\nReach the dead-zone gate with the archive evidence."
-	p.add_child(body)
-	var back := _menu_button("BACK",Vector2(310,500),Vector2(300,52))
-	back.pressed.connect(func(): p.visible=false; main_menu.visible=true)
-	p.add_child(back)
-	return p
-
-func _setting_label(t:String,pos:Vector2)->Label:
-	var l:=Label.new(); l.text=t; l.position=pos; l.add_theme_font_size_override("font_size",18); return l
-func _panel(pos:Vector2,size2:Vector2,color:Color)->ColorRect:
-	var p:=ColorRect.new(); p.position=pos; p.size=size2; p.color=color; return p
-func _menu_button(t:String,pos:Vector2,size2:Vector2)->Button:
-	var b:=Button.new(); b.text=t; b.position=pos; b.size=size2; b.add_theme_font_size_override("font_size",19); return b
-func _action_button(t:String,pos:Vector2,size2:Vector2)->Button:
-	var b:=Button.new(); b.text=t; b.position=pos; b.size=size2; b.add_theme_font_size_override("font_size",18); return b
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	for key in settings: cfg.set_value("settings", key, settings[key])
+	if cfg.save("user://faceless2_settings.cfg") != OK: _show_notice("SETTINGS COULD NOT BE SAVED")
 
 func _apply_settings() -> void:
 	Engine.max_fps=int(settings["fps"])
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(float(settings["volume"]), 0.001)))
+	AudioServer.set_bus_mute(0, float(settings["volume"]) == 0.0)
+	if interface: interface.touch_controls.modulate.a = float(settings["touch_opacity"])
 	var q:=int(settings["quality"])
 	get_viewport().scaling_3d_scale=[0.66,0.82,1.0,1.0][q]
 	get_viewport().msaa_3d=[Viewport.MSAA_DISABLED,Viewport.MSAA_2X,Viewport.MSAA_4X,Viewport.MSAA_4X][q]
@@ -722,45 +473,37 @@ func _apply_settings() -> void:
 func _run_mid_cinematic(beat: String) -> void:
 	if cinematic_running or player == null:
 		return
-	cinematic_running=true
-	cinematic_overlay.visible=true
-	cinematic_camera.current=true
-	player.set_controls_enabled(false)
-	player.camera.current=false
-	hud.visible=false
-	objective_label.visible=false
-	prompt_label.visible=false
-	crosshair.visible=false
+	_set_cinematic_active(true)
 
 	if beat=="tower":
 		await _shot(Vector3(0,3.2,-15),Vector3(0,2.8,-22),Vector3(-6.4,3.8,-20),2.5)
+		if not cinematic_running: return
 		await _type_subtitle("DISPATCH","Movement confirmed around the surveillance tower. Armed personnel are searching the road ahead.","res://audio/voice_chapter_02.wav",32.0)
 	elif beat=="cabin":
 		await _shot(Vector3(0,3.0,-59),Vector3(-1.5,2.4,-66),Vector3(-6.0,1.6,-69),2.7)
+		if not cinematic_running: return
 		await _type_subtitle("BLACKWOOD CONTROL","The ranger cabin is close. Recover the rifle and resupply before continuing.","res://audio/voice_chapter_03.wav",32.0)
 	elif beat=="dead_signal":
 		await _shot(Vector3(0,3.0,-81),Vector3(0,2.6,-89),Vector3(5.3,1.2,-84),2.6)
+		if not cinematic_running: return
 		await _type_subtitle("ARCHIVE","All three relays are synchronized. The Faceless signal is now moving with you instead of behind you.","res://audio/voice_chapter_04.wav",30.0)
 
-	cinematic_running=false
-	cinematic_overlay.visible=false
-	cinematic_camera.current=false
-	player.camera.current=true
-	player.set_controls_enabled(true)
-	hud.visible=true
-	objective_label.visible=true
-	prompt_label.visible=true
-	crosshair.visible=true
+	_set_cinematic_active(false)
 	_update_objective()
+
 
 func _start_new_game() -> void:
 	mode_panel.visible=false; main_menu.visible=false; get_tree().paused=false; game_started=true
 	chapter=1; story_flags={}; kills=0; final_wave_started=false; final_wave_cleared=false
 	for i in range(relay_active.size()): relay_active[i]=false
 	evidence_collected=0
+	for item in evidence_nodes + pickups: item.visible = true
+	if rifle_pickup: rifle_pickup.visible = true
+	if player: player.reset_loadout()
 	_spawn_player_and_enemies(false)
 	_update_objective()
 	_start_cinematic_intro()
+	interface.refresh_state()
 	if ambience_player: ambience_player.play()
 
 func _continue_game() -> void:
@@ -772,10 +515,20 @@ func _continue_game() -> void:
 	main_menu.visible=false; get_tree().paused=false; game_started=true
 	for i in range(relay_active.size()): relay_active[i]=bool(cfg.get_value("save","relay_"+str(i),false))
 	evidence_collected=int(cfg.get_value("save","evidence",0))
+	kills = int(cfg.get_value("save", "kills", 0))
+	story_flags = cfg.get_value("save", "story_flags", {})
+	final_wave_started = bool(cfg.get_value("save", "final_wave_started", false))
+	final_wave_cleared = bool(cfg.get_value("save", "final_wave_cleared", false))
+	for i in range(evidence_nodes.size()):
+		evidence_nodes[i].visible = not bool(cfg.get_value("save", "evidence_taken_" + str(i), i < evidence_collected))
+	for i in range(pickups.size()):
+		pickups[i].visible = not bool(cfg.get_value("save", "pickup_taken_" + str(i), false))
 	_spawn_player_and_enemies(true)
 	if player: player.set_controls_enabled(true)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if OS.has_feature("mobile") else Input.MOUSE_MODE_CAPTURED
 	_update_objective()
 	_show_notice("CHECKPOINT RESTORED")
+	interface.refresh_state()
 	if ambience_player: ambience_player.play()
 
 func _spawn_player_and_enemies(from_save:bool)->void:
@@ -785,7 +538,18 @@ func _spawn_player_and_enemies(from_save:bool)->void:
 	var pos:=Vector3(0,0.9,5)
 	if from_save:
 		var cfg:=ConfigFile.new()
-		if cfg.load("user://faceless2_save.cfg")==OK: pos=Vector3(0,0.9,float(cfg.get_value("save","z",5.0)))
+		if cfg.load("user://faceless2_save.cfg")==OK:
+			pos=Vector3(float(cfg.get_value("save", "x", 0)), 0.9, float(cfg.get_value("save","z",5.0)))
+			player.reset_loadout()
+			if bool(cfg.get_value("save", "rifle_unlocked", false)):
+				player.unlock_rifle()
+				if rifle_pickup: rifle_pickup.visible = false
+			for key in ["pistol_mag", "pistol_reserve", "rifle_mag", "rifle_reserve"]:
+				player.set(key, int(cfg.get_value("save", key, player.get(key))))
+			player.current_weapon = str(cfg.get_value("save", "weapon", "PISTOL")) if player.rifle_unlocked else "PISTOL"
+			player.ammo_in_mag = player.rifle_mag if player.current_weapon == "RIFLE" else player.pistol_mag
+			player.reserve_ammo = player.rifle_reserve if player.current_weapon == "RIFLE" else player.pistol_reserve
+			player._apply_weapon_pose()
 	player.global_position=pos
 	player.set_field_of_view(float(settings["fov"]))
 	_apply_settings()
@@ -805,7 +569,9 @@ func _spawn_player_and_enemies(from_save:bool)->void:
 
 	var positions=[Vector3(4.5,0.9,-25),Vector3(-5.0,0.9,-55),Vector3(4.2,0.9,-79)]
 	for p in positions:
-		_spawn_soldier(p)
+		if not from_save or not final_wave_cleared: _spawn_soldier(p)
+	if from_save and final_wave_started and not final_wave_cleared:
+		for p in [Vector3(-5.2,0.9,-96),Vector3(5.2,0.9,-98),Vector3(-4,0.9,-102),Vector3(4,0.9,-104)]: _spawn_soldier(p, true)
 
 func _spawn_soldier(pos: Vector3, hard := false) -> void:
 	var s:=CharacterBody3D.new()
@@ -844,13 +610,13 @@ func _start_final_wave() -> void:
 	_play_radio_line("DISPATCH","The gate is powered, but a security counterattack is inbound. Hold the dead zone until the road is clear.","res://audio/voice_final_wave.wav")
 
 func _play_radio_line(speaker: String, text_value: String, voice_path: String) -> void:
-	_show_notice(speaker+" // RADIO")
+	interface.show_radio(speaker, text_value)
 	if voice_path != "" and ResourceLoader.exists(voice_path):
 		voice_player.stream=load(voice_path)
 		voice_player.play()
 
 func _interact()->void:
-	if not game_started or player==null: return
+	if not game_started or player==null or cinematic_running or get_tree().paused: return
 	if rifle_pickup and rifle_pickup.visible and player.global_position.distance_to(rifle_pickup.global_position)<2.2:
 		rifle_pickup.visible=false; player.unlock_rifle(); chapter=maxi(chapter,3); _show_notice("RIFLE ACQUIRED // CHAPTER III"); _save_checkpoint(); _update_objective(); return
 	for p in pickups:
@@ -939,8 +705,7 @@ func _update_zone()->void:
 	else: current_zone="DEAD ZONE"
 
 func update_hud(h:float,s:float,b:float,weapon:String,mag:int,reserve:int)->void:
-	if hud:
-		hud.text="HP %03d  STA %03d  BAT %03d  %s %02d/%03d  KILLS %02d  CH.%d  %s"%[int(h),int(s),int(b),weapon,mag,reserve,kills,chapter,current_zone]
+	if interface: interface.update_vitals(h, s, b, weapon, mag, reserve)
 
 func _current_objective() -> Dictionary:
 	if relay_active.size() >= 1 and not relay_active[0] and relays.size() > 0:
@@ -969,53 +734,73 @@ func _update_objective()->void:
 	if objective_label == null or player == null:
 		return
 	var obj: Dictionary = _current_objective()
-	var target: Node3D = obj.get("target") as Node3D
-	var distance: float = 0.0
-	if target != null:
-		distance = player.global_position.distance_to(target.global_position)
-	objective_label.text = "NEXT // %s   •   %.0f m" % [str(obj.get("text","")),distance]
+	objective_label.text = str(obj.get("text", ""))
 
 func _save_checkpoint()->void:
 	if player==null:return
 	var cfg:=ConfigFile.new()
 	cfg.set_value("save","mode",selected_mode); cfg.set_value("save","evidence",evidence_collected); cfg.set_value("save","z",player.global_position.z); cfg.set_value("save","chapter",chapter)
 	for i in range(relay_active.size()): cfg.set_value("save","relay_"+str(i),relay_active[i])
+	for i in range(evidence_nodes.size()): cfg.set_value("save", "evidence_taken_" + str(i), not evidence_nodes[i].visible)
+	for i in range(pickups.size()): cfg.set_value("save", "pickup_taken_" + str(i), not pickups[i].visible)
+	cfg.set_value("save", "x", player.global_position.x)
+	cfg.set_value("save", "rifle_unlocked", player.rifle_unlocked)
+	cfg.set_value("save", "weapon", player.current_weapon)
+	player.pistol_mag = player.ammo_in_mag if player.current_weapon == "PISTOL" else player.pistol_mag
+	player.pistol_reserve = player.reserve_ammo if player.current_weapon == "PISTOL" else player.pistol_reserve
+	player.rifle_mag = player.ammo_in_mag if player.current_weapon == "RIFLE" else player.rifle_mag
+	player.rifle_reserve = player.reserve_ammo if player.current_weapon == "RIFLE" else player.rifle_reserve
+	for key in ["pistol_mag", "pistol_reserve", "rifle_mag", "rifle_reserve", "kills", "story_flags", "final_wave_started", "final_wave_cleared"]:
+		cfg.set_value("save", key, player.get(key) if key.begins_with("pistol_") or key.begins_with("rifle_") else get(key))
 	cfg.save("user://faceless2_save.cfg")
 
 func set_crosshair_aiming(on: bool) -> void:
-	if crosshair:
-		crosshair.text = "·" if on else "+"
-		crosshair.add_theme_font_size_override("font_size",18 if on else 24)
+	if interface: interface.reticle_aiming = on
 
 func _play_sfx(path: String, volume_db := -2.0) -> void:
-	if sfx_player and ResourceLoader.exists(path):
-		sfx_player.stop()
-		sfx_player.stream=load(path)
-		sfx_player.volume_db=volume_db
-		sfx_player.play()
+	if not ResourceLoader.exists(path): return
+	var channel := sfx_player
+	if "footstep" in path:
+		channel = step_player
+	elif "_shot.wav" in path:
+		channel = shot_players[shot_cursor]
+		shot_cursor = (shot_cursor + 1) % shot_players.size()
+	channel.stop()
+	channel.stream = load(path)
+	channel.volume_db = volume_db
+	channel.play()
 
 func play_footstep(running: bool) -> void:
 	_play_sfx("res://audio/footstep_run.wav" if running else "res://audio/footstep.wav",-10.0)
 
 func on_player_shot(weapon:String)->void:
-	crosshair.modulate=Color(1.0,0.65,0.3,1.0)
-	create_tween().tween_property(crosshair,"modulate",Color(0.9,0.94,0.95,0.86),0.10)
+	interface.shot_time = 0.09
 	_play_sfx("res://audio/rifle_shot.wav" if weapon=="RIFLE" else "res://audio/pistol_shot.wav",-1.0)
 
 func weapon_event(t:String)->void:
-	_show_notice(t)
+	if t == "HIT":
+		interface.confirm_hit()
+	elif t not in ["RELOADING", "READY"]:
+		_show_notice(t)
 	if t=="RELOADING":
 		_play_sfx("res://audio/reload_click.wav",-4.0)
 
 func soldier_fired(_s:Node)->void:
-	fade.color=Color(0.5,0.06,0.02,0.18)
-	create_tween().tween_property(fade,"color",Color(0,0,0,0),0.16)
+	var sound := _s.get_node_or_null("Gunfire") as AudioStreamPlayer3D
+	if sound == null:
+		sound = AudioStreamPlayer3D.new()
+		sound.name = "Gunfire"
+		sound.stream = load("res://audio/rifle_shot.wav")
+		sound.volume_db = -14
+		sound.max_distance = 55
+		_s.add_child(sound)
+	sound.play()
 
 func soldier_down(s:CharacterBody3D)->void:
 	soldiers.erase(s)
 	kills+=1
 	var tw:=create_tween(); tw.tween_property(s,"rotation:z",1.35,0.24); tw.tween_interval(.2); tw.tween_callback(s.queue_free)
-	_show_notice("HOSTILE DOWN")
+	interface.confirm_hit(true)
 	if final_wave_started and soldiers.is_empty():
 		final_wave_cleared=true
 		_show_notice("ROAD CLEAR // EXTRACTION AVAILABLE")
@@ -1027,8 +812,7 @@ func faceless_down(e:CharacterBody3D)->void:
 	var tw:=create_tween(); tw.tween_property(e,"position:y",-2.0,0.55); tw.tween_interval(4.0); tw.tween_callback(func(): if is_instance_valid(e): e.position=Vector3(0,0.9,-96); e.health=160.0; e.dead=false)
 
 func player_hurt()->void:
-	fade.color=Color(0.50,0.0,0.0,0.30)
-	create_tween().tween_property(fade,"color",Color(0,0,0,0),0.24)
+	interface.damage_time = 0.65
 	if player and player.health < 35.0 and heartbeat_player and not heartbeat_player.playing:
 		heartbeat_player.play()
 func on_enemy_attack()->void:
@@ -1039,8 +823,13 @@ func player_dead()->void:
 func _restart_from_checkpoint()->void:
 	fade.color=Color(0,0,0,0); _continue_game()
 func _finish_game()->void:
-	game_started=false; get_tree().paused=true; objective_label.text="ARCHIVE COMPLETE // BLACKWOOD RESPONSE ENDED"; _show_notice("EXTRACTION COMPLETE // FACELESS 2"); main_menu.visible=true
+	game_started=false
+	get_tree().paused=true
+	player.set_controls_enabled(false)
+	_show_notice("EXTRACTION COMPLETE // FACELESS 2")
+	main_menu.visible=true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	interface.refresh_state()
+
 func _show_notice(t:String)->void:
-	if notice==null:return
-	notice.text=t
-	var tw:=create_tween(); tw.tween_interval(1.25); tw.tween_callback(func(): if notice.text==t: notice.text="")
+	if interface: interface.show_notice(t)
