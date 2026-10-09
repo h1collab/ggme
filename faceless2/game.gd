@@ -40,9 +40,14 @@ var camera_terminal_open := false
 var ambience_player: AudioStreamPlayer
 var static_player: AudioStreamPlayer
 var voice_player: AudioStreamPlayer
+var sfx_player: AudioStreamPlayer
+var heartbeat_player: AudioStreamPlayer
 var current_zone := "BLACKWOOD CHECKPOINT"
 var chapter := 1
 var story_flags := {}
+var kills := 0
+var final_wave_started := false
+var final_wave_cleared := false
 var settings := {
 	"quality":2,
 	"fps":60,
@@ -234,6 +239,17 @@ func _build_audio() -> void:
 	voice_player = AudioStreamPlayer.new()
 	voice_player.volume_db = -1.0
 	add_child(voice_player)
+	sfx_player = AudioStreamPlayer.new()
+	sfx_player.volume_db = -2.0
+	add_child(sfx_player)
+	heartbeat_player = AudioStreamPlayer.new()
+	heartbeat_player.stream = load("res://audio/heartbeat.wav")
+	heartbeat_player.volume_db = -9.0
+	heartbeat_player.finished.connect(func():
+		if game_started and player and player.health < 35.0:
+			heartbeat_player.play()
+	)
+	add_child(heartbeat_player)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -306,10 +322,19 @@ func _build_ui() -> void:
 	var crouch_btn := _action_button("CROUCH",Vector2(1210,750),Vector2(140,58))
 	crouch_btn.pressed.connect(func(): if player: player.toggle_crouch())
 	layer.add_child(crouch_btn)
-	var run_btn := _action_button("RUN",Vector2(1055,730),Vector2(120,58))
+	var run_btn := _action_button("RUN",Vector2(1045,748),Vector2(115,56))
 	run_btn.button_down.connect(func(): if player: player.set_running(true))
 	run_btn.button_up.connect(func(): if player: player.set_running(false))
 	layer.add_child(run_btn)
+
+	var aim_btn := _action_button("AIM",Vector2(1050,675),Vector2(110,56))
+	aim_btn.button_down.connect(func(): if player: player.set_aiming(true))
+	aim_btn.button_up.connect(func(): if player: player.set_aiming(false))
+	layer.add_child(aim_btn)
+
+	var swap_btn := _action_button("SWAP",Vector2(920,748),Vector2(115,56))
+	swap_btn.pressed.connect(func(): if player: player.switch_weapon())
+	layer.add_child(swap_btn)
 
 	main_menu = _build_main_menu()
 	layer.add_child(main_menu)
@@ -633,7 +658,7 @@ func _apply_settings() -> void:
 
 func _start_new_game() -> void:
 	mode_panel.visible=false; main_menu.visible=false; get_tree().paused=false; game_started=true
-	chapter=1; story_flags={}
+	chapter=1; story_flags={}; kills=0; final_wave_started=false; final_wave_cleared=false
 	for i in range(relay_active.size()): relay_active[i]=false
 	evidence_collected=0
 	_spawn_player_and_enemies(false)
@@ -681,12 +706,50 @@ func _spawn_player_and_enemies(from_save:bool)->void:
 		add_child(enemy)
 
 	var positions=[Vector3(4.5,0.9,-25),Vector3(-5.0,0.9,-55),Vector3(4.2,0.9,-79)]
-	for i in range(positions.size()):
-		var s:=CharacterBody3D.new()
-		s.set_script(SoldierScript); s.game=self; s.player=player; s.position=positions[i]
-		s.patrol_points=[positions[i]+Vector3(-3,0,0),positions[i]+Vector3(3,0,-4)]
-		s.difficulty=1.25 if selected_mode=="NIGHTMARE" else 1.0
-		add_child(s); soldiers.append(s)
+	for p in positions:
+		_spawn_soldier(p)
+
+func _spawn_soldier(pos: Vector3, hard := false) -> void:
+	var s:=CharacterBody3D.new()
+	s.set_script(SoldierScript)
+	s.game=self
+	s.player=player
+	s.position=pos
+	s.patrol_points=[pos+Vector3(-3,0,0),pos+Vector3(3,0,-4)]
+	s.difficulty=1.35 if hard or selected_mode=="NIGHTMARE" else 1.0
+	add_child(s)
+	soldiers.append(s)
+
+func _spawn_reinforcements(stage: int) -> void:
+	if stage == 1:
+		_spawn_soldier(Vector3(-4.8,0.9,-35))
+		_spawn_soldier(Vector3(4.8,0.9,-39))
+		_play_radio_line("BLACKWOOD CONTROL","Security reinforcements are moving toward the abandoned stop. Stay off the centerline.","res://audio/voice_relay_01.wav")
+	elif stage == 2:
+		_spawn_soldier(Vector3(-4.6,0.9,-72),true)
+		_spawn_soldier(Vector3(4.5,0.9,-75),true)
+		_play_radio_line("BLACKWOOD CONTROL","Relay Two exposed your position. Reach the ranger cabin and recover the rifle before the next team arrives.","res://audio/voice_relay_02.wav")
+
+func _start_final_wave() -> void:
+	if final_wave_started:
+		return
+	final_wave_started=true
+	chapter=6
+	_show_notice("CHAPTER VI // LAST SIGNAL")
+	for p in [Vector3(-5.2,0.9,-96),Vector3(5.2,0.9,-98),Vector3(-4.0,0.9,-102),Vector3(4.0,0.9,-104)]:
+		_spawn_soldier(p,true)
+	if enemy and is_instance_valid(enemy):
+		enemy.health=320.0
+		enemy.dead=false
+		enemy.global_position=Vector3(0,0.9,-101)
+		enemy.difficulty=1.45
+	_play_radio_line("DISPATCH","The gate is powered, but a security counterattack is inbound. Hold the dead zone until the road is clear.","res://audio/voice_final_wave.wav")
+
+func _play_radio_line(speaker: String, text_value: String, voice_path: String) -> void:
+	_show_notice(speaker+" // RADIO")
+	if voice_path != "" and ResourceLoader.exists(voice_path):
+		voice_player.stream=load(voice_path)
+		voice_player.play()
 
 func _interact()->void:
 	if not game_started or player==null: return
@@ -703,15 +766,27 @@ func _interact()->void:
 		if not relay_active[i] and player.global_position.distance_to(relays[i].global_position)<2.4:
 			relay_active[i]=true
 			chapter=maxi(chapter,i+1)
-			_show_notice("RELAY %d ONLINE"%(i+1)); _save_checkpoint(); _update_objective(); return
+			_show_notice("RELAY %d ONLINE"%(i+1))
+			if i == 0: _spawn_reinforcements(1)
+			elif i == 1: _spawn_reinforcements(2)
+			elif i == 2: _play_radio_line("BLACKWOOD CONTROL","All relays are online. Move to the dead-zone gate. Expect one final response.","res://audio/voice_relay_03.wav")
+			_save_checkpoint()
+			_update_objective()
+			return
 	for e in evidence_nodes:
 		if is_instance_valid(e) and e.visible and player.global_position.distance_to(e.global_position)<2.1:
 			e.visible=false; evidence_collected+=1; _show_notice("EVIDENCE %d/3"%evidence_collected); _save_checkpoint(); _update_objective(); return
 	if terminal and player.global_position.distance_to(terminal.global_position)<2.5:
 		camera_terminal_open=not camera_terminal_open; _show_notice("CAMERA GRID "+("ONLINE" if camera_terminal_open else "CLOSED")); return
 	if extraction_gate and player.global_position.distance_to(extraction_gate.global_position)<3.2:
-		if _relay_count()>=3 and evidence_collected>=2: _finish_game()
-		else: _show_notice("GATE LOCKED // NEED POWER 3/3 AND EVIDENCE 2/3")
+		if _relay_count()<3 or evidence_collected<2:
+			_show_notice("GATE LOCKED // NEED POWER 3/3 AND EVIDENCE 2/3")
+		elif not final_wave_started:
+			_start_final_wave()
+		elif final_wave_cleared:
+			_finish_game()
+		else:
+			_show_notice("CLEAR THE COUNTERATTACK BEFORE EXTRACTION")
 
 func _update_nearby_prompt()->void:
 	prompt_label.text=""
@@ -728,13 +803,28 @@ func _update_nearby_prompt()->void:
 func _update_story()->void:
 	var z:=player.global_position.z
 	if z<-20 and not story_flags.has("armed"):
-		story_flags["armed"]=true; chapter=2; _show_notice("CHAPTER II // ARMED RESPONSE DETECTED")
+		story_flags["armed"]=true
+		chapter=2
+		_show_notice("CHAPTER II // ARMED RESPONSE")
+		_play_radio_line("DISPATCH","Movement confirmed around the surveillance tower. Armed personnel are searching the road ahead.","res://audio/voice_chapter_02.wav")
+	if z<-43 and not story_flags.has("stop"):
+		story_flags["stop"]=true
+		_show_notice("CHECKPOINT // ABANDONED STOP")
+		_save_checkpoint()
 	if z<-64 and not story_flags.has("cabin"):
-		story_flags["cabin"]=true; chapter=maxi(chapter,3); _show_notice("CHAPTER III // SEARCH THE RANGER CABIN")
+		story_flags["cabin"]=true
+		chapter=maxi(chapter,3)
+		_show_notice("CHAPTER III // RANGER WOODS")
+		_play_radio_line("BLACKWOOD CONTROL","The ranger cabin is close. Recover the rifle and resupply before continuing.","res://audio/voice_chapter_03.wav")
 	if _relay_count()>=3 and not story_flags.has("dead_signal"):
-		story_flags["dead_signal"]=true; chapter=4; _show_notice("CHAPTER IV // DEAD SIGNAL")
-	if z<-96 and not story_flags.has("extract"):
-		story_flags["extract"]=true; chapter=5; _show_notice("CHAPTER V // EXTRACTION")
+		story_flags["dead_signal"]=true
+		chapter=4
+		_show_notice("CHAPTER IV // DEAD SIGNAL")
+		_play_radio_line("ARCHIVE","All three relays are synchronized. The Faceless signal is now moving with you instead of behind you.","res://audio/voice_chapter_04.wav")
+	if z<-92 and not story_flags.has("extract"):
+		story_flags["extract"]=true
+		chapter=5
+		_show_notice("CHAPTER V // DEAD ZONE")
 
 func _relay_count()->int:
 	var n:=0
@@ -751,7 +841,8 @@ func _update_zone()->void:
 	else: current_zone="DEAD ZONE"
 
 func update_hud(h:float,s:float,b:float,weapon:String,mag:int,reserve:int)->void:
-	if hud: hud.text="HP %03d  STA %03d  BAT %03d  %s %02d/%03d  CH.%d  %s"%[int(h),int(s),int(b),weapon,mag,reserve,chapter,current_zone]
+	if hud:
+		hud.text="HP %03d  STA %03d  BAT %03d  %s %02d/%03d  KILLS %02d  CH.%d  %s"%[int(h),int(s),int(b),weapon,mag,reserve,kills,chapter,current_zone]
 
 func _current_objective() -> Dictionary:
 	if relay_active.size() >= 1 and not relay_active[0] and relays.size() > 0:
@@ -770,7 +861,11 @@ func _current_objective() -> Dictionary:
 		for e in evidence_nodes:
 			if is_instance_valid(e) and e.visible:
 				return {"text":"RECOVER ANOTHER EVIDENCE CASE","target":e}
-	return {"text":"REACH THE DEAD-ZONE GATE — extraction","target":extraction_gate}
+	if final_wave_started and not final_wave_cleared:
+		return {"text":"SURVIVE THE SECURITY COUNTERATTACK","target":extraction_gate}
+	if final_wave_cleared:
+		return {"text":"EXTRACT — interact with the dead-zone gate","target":extraction_gate}
+	return {"text":"REACH THE DEAD-ZONE GATE — trigger final response","target":extraction_gate}
 
 func _update_objective()->void:
 	if objective_label == null or player == null:
@@ -789,12 +884,30 @@ func _save_checkpoint()->void:
 	for i in range(relay_active.size()): cfg.set_value("save","relay_"+str(i),relay_active[i])
 	cfg.save("user://faceless2_save.cfg")
 
-func on_player_shot(_weapon:String)->void:
+func set_crosshair_aiming(on: bool) -> void:
+	if crosshair:
+		crosshair.text = "·" if on else "+"
+		crosshair.add_theme_font_size_override("font_size",18 if on else 24)
+
+func _play_sfx(path: String, volume_db := -2.0) -> void:
+	if sfx_player and ResourceLoader.exists(path):
+		sfx_player.stop()
+		sfx_player.stream=load(path)
+		sfx_player.volume_db=volume_db
+		sfx_player.play()
+
+func play_footstep(running: bool) -> void:
+	_play_sfx("res://audio/footstep_run.wav" if running else "res://audio/footstep.wav",-10.0)
+
+func on_player_shot(weapon:String)->void:
 	crosshair.modulate=Color(1.0,0.65,0.3,1.0)
 	create_tween().tween_property(crosshair,"modulate",Color(0.9,0.94,0.95,0.86),0.10)
+	_play_sfx("res://audio/rifle_shot.wav" if weapon=="RIFLE" else "res://audio/pistol_shot.wav",-1.0)
 
 func weapon_event(t:String)->void:
 	_show_notice(t)
+	if t=="RELOADING":
+		_play_sfx("res://audio/reload_click.wav",-4.0)
 
 func soldier_fired(_s:Node)->void:
 	fade.color=Color(0.5,0.06,0.02,0.18)
@@ -802,15 +915,24 @@ func soldier_fired(_s:Node)->void:
 
 func soldier_down(s:CharacterBody3D)->void:
 	soldiers.erase(s)
+	kills+=1
 	var tw:=create_tween(); tw.tween_property(s,"rotation:z",1.35,0.24); tw.tween_interval(.2); tw.tween_callback(s.queue_free)
 	_show_notice("HOSTILE DOWN")
+	if final_wave_started and soldiers.is_empty():
+		final_wave_cleared=true
+		_show_notice("ROAD CLEAR // EXTRACTION AVAILABLE")
+		_play_radio_line("BLACKWOOD CONTROL","Counterattack neutralized. The dead-zone gate is clear. Extract now.","res://audio/voice_final_clear.wav")
+		_save_checkpoint()
 
 func faceless_down(e:CharacterBody3D)->void:
 	_show_notice("FACELESS DISRUPTED // IT WILL RETURN")
 	var tw:=create_tween(); tw.tween_property(e,"position:y",-2.0,0.55); tw.tween_interval(4.0); tw.tween_callback(func(): if is_instance_valid(e): e.position=Vector3(0,0.9,-96); e.health=160.0; e.dead=false)
 
 func player_hurt()->void:
-	fade.color=Color(0.50,0.0,0.0,0.30); create_tween().tween_property(fade,"color",Color(0,0,0,0),0.24)
+	fade.color=Color(0.50,0.0,0.0,0.30)
+	create_tween().tween_property(fade,"color",Color(0,0,0,0),0.24)
+	if player and player.health < 35.0 and heartbeat_player and not heartbeat_player.playing:
+		heartbeat_player.play()
 func on_enemy_attack()->void:
 	_show_notice("SIGNAL LOST // MOVE"); if static_player: static_player.play()
 func player_dead()->void:
