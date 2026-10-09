@@ -33,6 +33,12 @@ var reserve_ammo := 48
 var weapon_cooldown := 0.0
 var reload_cooldown := 0.0
 var reloading := false
+var aiming := false
+var step_timer := 0.0
+var pistol_mag := 12
+var pistol_reserve := 48
+var rifle_mag := 30
+var rifle_reserve := 90
 
 func _ready() -> void:
 	var shape := CollisionShape3D.new()
@@ -185,6 +191,15 @@ func _physics_process(delta: float) -> void:
 		bob_time += delta*2.0
 	_update_viewmodel_motion(running)
 
+	if controls_enabled and mv.length() > 0.15 and is_on_floor():
+		step_timer -= delta
+		if step_timer <= 0.0:
+			step_timer = 0.32 if running else 0.48
+			if game:
+				game.play_footstep(running)
+	else:
+		step_timer = 0.0
+
 	if flashlight.visible:
 		battery = max(0.0,battery-delta*0.72)
 		if battery <= 0.0:
@@ -195,6 +210,9 @@ func _physics_process(delta: float) -> void:
 			fire_weapon()
 		if Input.is_key_pressed(KEY_R):
 			reload_weapon()
+		if Input.is_key_pressed(KEY_Q):
+			switch_weapon()
+		set_aiming(Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
 
 	if game:
 		game.update_hud(health,stamina,battery,current_weapon,ammo_in_mag,reserve_ammo)
@@ -225,6 +243,42 @@ func _unhandled_input(event: InputEvent) -> void:
 		if sd.index == look_touch:
 			_look(sd.relative*0.0040)
 
+func set_aiming(on: bool) -> void:
+	if not controls_enabled or reloading:
+		on = false
+	if aiming == on:
+		return
+	aiming = on
+	var target_fov := 58.0 if aiming else 76.0
+	var target_pos := Vector3(0,0,-0.10) if aiming else Vector3.ZERO
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_QUAD)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_property(camera,"fov",target_fov,0.13)
+	tw.parallel().tween_property(viewmodel_root,"position",target_pos,0.13)
+	if game:
+		game.set_crosshair_aiming(aiming)
+
+func switch_weapon() -> void:
+	if not rifle_unlocked or reloading or weapon_cooldown > 0.0:
+		return
+	if current_weapon == "PISTOL":
+		pistol_mag = ammo_in_mag
+		pistol_reserve = reserve_ammo
+		current_weapon = "RIFLE"
+		ammo_in_mag = rifle_mag
+		reserve_ammo = rifle_reserve
+	else:
+		rifle_mag = ammo_in_mag
+		rifle_reserve = reserve_ammo
+		current_weapon = "PISTOL"
+		ammo_in_mag = pistol_mag
+		reserve_ammo = pistol_reserve
+	set_aiming(false)
+	_apply_weapon_pose()
+	if game:
+		game.weapon_event("SWITCHED TO "+current_weapon)
+
 func _look(v: Vector2) -> void:
 	var sens := 1.0
 	if game:
@@ -248,6 +302,8 @@ func fire_weapon() -> void:
 	if current_weapon == "RIFLE":
 		damage = 23.0
 		fire_delay = 0.105
+	if aiming:
+		damage *= 1.08
 	weapon_cooldown = fire_delay
 	_play_fire_animation()
 
@@ -262,6 +318,12 @@ func fire_weapon() -> void:
 		if collider != null and collider.has_method("take_bullet"):
 			collider.take_bullet(damage,result.get("position",to))
 			if game: game.weapon_event("HIT")
+	if current_weapon == "PISTOL":
+		pistol_mag = ammo_in_mag
+		pistol_reserve = reserve_ammo
+	else:
+		rifle_mag = ammo_in_mag
+		rifle_reserve = reserve_ammo
 	if game:
 		game.on_player_shot(current_weapon)
 
@@ -290,6 +352,7 @@ func reload_weapon() -> void:
 	if not controls_enabled or reloading or reload_cooldown > 0.0 or weapon_cooldown > 0.0:
 		return
 	var mag_size := 12 if current_weapon == "PISTOL" else 30
+	set_aiming(false)
 	if ammo_in_mag >= mag_size or reserve_ammo <= 0:
 		return
 	reloading = true
@@ -327,20 +390,36 @@ func _play_reload_animation(mag_size: int) -> void:
 	tw.parallel().tween_property(hands_holder,"rotation_degrees",base_hands_rot,0.24)
 	tw.tween_callback(func():
 		reloading = false
+	aiming = false
+		if current_weapon == "PISTOL":
+			pistol_mag = ammo_in_mag
+			pistol_reserve = reserve_ammo
+		else:
+			rifle_mag = ammo_in_mag
+			rifle_reserve = reserve_ammo
 		_apply_weapon_pose()
 	)
 
 func unlock_rifle() -> void:
+	pistol_mag = ammo_in_mag
+	pistol_reserve = reserve_ammo
 	rifle_unlocked = true
 	current_weapon = "RIFLE"
-	ammo_in_mag = 30
-	reserve_ammo += 90
+	rifle_mag = 30
+	rifle_reserve = max(rifle_reserve,90)
+	ammo_in_mag = rifle_mag
+	reserve_ammo = rifle_reserve
 	reloading = false
+	set_aiming(false)
 	_apply_weapon_pose()
-	if game: game.weapon_event("RIFLE ACQUIRED")
+	if game: game.weapon_event("RIFLE ACQUIRED // Q OR SWAP TO SWITCH")
 
 func add_ammo(amount: int) -> void:
 	reserve_ammo = mini(reserve_ammo+amount,240)
+	if current_weapon == "PISTOL":
+		pistol_reserve = reserve_ammo
+	else:
+		rifle_reserve = reserve_ammo
 	if game: game.weapon_event("AMMO +%d" % amount)
 
 func add_health(amount: float) -> void:
