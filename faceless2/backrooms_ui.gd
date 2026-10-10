@@ -120,36 +120,38 @@ func _image(parent: Node, path: String, rect: Rect2, crop: bool = false) -> Text
 	return img
 
 func _build_hud() -> void:
+	# A restrained exploration HUD: story and direction, not fake recording
+	# indicators or FNAF-style camera-control overlays.
 	hud = Control.new()
 	hud.size = Vector2(1600, 900)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(hud)
-	_card(hud, Rect2(28, 22, 500, 102), Color(0.013, 0.028, 0.028, 0.80))
-	status_label = _label(hud, "", Vector2(48, 40), 457, 22, ACCENT)
-	goal_label = _label(hud, "", Vector2(48, 79), 457, 18)
-	_card(hud, Rect2(1120, 24, 266, 100), Color(0.013, 0.028, 0.028, 0.80))
-	notice_label = _label(hud, "", Vector2(1135, 42), 242, 18, MUTED)
-	_button(hud, "II", Rect2(1410, 32, 135, 72), open_pause, true)
-	_card(hud, Rect2(28, 138, 585, 95), Color(0.013, 0.028, 0.028, 0.73))
-	objective_label = _label(hud, "", Vector2(48, 154), 551, 21, ACCENT)
-	prompt_label = _label(hud, "", Vector2(470, 685), 660, 25, ACCENT)
+	_card(hud, Rect2(30, 24, 495, 105), Color(0.012, 0.025, 0.026, 0.72))
+	status_label = _label(hud, "", Vector2(49, 38), 465, 22, ACCENT)
+	goal_label = _label(hud, "", Vector2(49, 81), 462, 18)
+	_card(hud, Rect2(30, 139, 536, 105), Color(0.013, 0.028, 0.025, 0.65))
+	objective_label = _label(hud, "", Vector2(50, 151), 508, 21, PAPER)
+	_card(hud, Rect2(1203, 25, 183, 78), Color(0.013, 0.025, 0.025, 0.72))
+	notice_label = _label(hud, "", Vector2(1217, 43), 168, 18, MUTED)
+	_button(hud, "日志 / J", Rect2(996, 30, 190, 69), open_journal, true)
+	_button(hud, "Ⅱ", Rect2(1410, 30, 135, 69), open_pause, true)
+	prompt_label = _label(hud, "", Vector2(468, 689), 665, 24, ACCENT)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle_backdrop = _card(hud, Rect2(360, 585, 880, 83), Color(0.018, 0.026, 0.029, 0.70))
-	subtitle_label = _label(hud, "", Vector2(382, 598), 836, 22, PAPER)
+	subtitle_backdrop = _card(hud, Rect2(340, 764, 920, 80), Color(0.014, 0.028, 0.027, 0.72))
+	subtitle_label = _label(hud, "", Vector2(358, 777), 882, 20)
 	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var cross := _label(hud, "·", Vector2(786, 429), 30, 27)
+	var cross := _label(hud, "+", Vector2(780, 425), 42, 21, Color(0.80,0.86,0.82,0.65))
 	cross.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	joystick = Joystick.new()
-	joystick.position = Vector2(68, 642)
-	joystick.size = Vector2(195, 195)
+	joystick.position = Vector2(66, 640)
+	joystick.size = Vector2(186, 186)
 	hud.add_child(joystick)
-	_button(hud, "USE / E", Rect2(1340, 667, 205, 79), func(): game.interact(), true)
-	_button(hud, "LIGHT / F", Rect2(1340, 770, 205, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
-	_button(hud, "REPLAY VOICE", Rect2(1060, 770, 255, 73), _replay_generated_voice, true)
-	var run := _button(hud, "RUN", Rect2(305, 755, 155, 75), func(): pass, true)
+	_button(hud, "调查 / E", Rect2(1352, 637, 195, 77), func(): game.interact(), true)
+	_button(hud, "手电 / F", Rect2(1352, 734, 195, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
+	_button(hud, "重播语音", Rect2(1060, 840, 220, 50), _replay_generated_voice, true)
+	var run := _button(hud, "RUN", Rect2(290, 784, 136, 67), func(): pass, true)
 	run.button_down.connect(func(): run_held = true)
 	run.button_up.connect(func(): run_held = false)
-	_label(hud, "DRAG RIGHT TO LOOK", Vector2(1010, 846), 320, 17, MUTED)
 
 func _replay_generated_voice() -> void:
 	if game.story.last_voice_key.is_empty():
@@ -194,17 +196,17 @@ func menu() -> void:
 	_image(panels, _brand_file("game_icon.png"), Rect2(70, 50, 90, 90))
 	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
-	_label(panels, "THE SIGNAL BELOW", Vector2(73, 323), 640, 31, ACCENT)
-	_label(panels, "搭档在一栋已拆除的楼里失联。\n出口消失了，黑暗里有东西正在模仿脚步。", Vector2(72, 411), 600, 26, MUTED)
+	_label(panels, "THE SIGNAL BELOW  /  THE RETURN", Vector2(73, 323), 640, 27, ACCENT)
+	_label(panels, "一栋已经拆除的楼，记录着你从未经历过的出勤。\n找到林岚失踪的真相。水正在向每一层蔓延。", Vector2(72, 411), 600, 26, MUTED)
 	_button(panels, "开始探索     →", Rect2(72, 538, 600, 76), func(): game.start_solo())
 	_button(panels, "DIRECT CO-OP / 1–4", Rect2(72, 631, 600, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
-	_label(panels, "录音线索  /  环境恐怖  /  偶发黑暗目击", Vector2(73, 843), 640, 18, MUTED)
+	_label(panels, "现场调查  /  动态积水  /  非线性真相  /  偶发黑暗目击", Vector2(73, 843), 640, 18, MUTED)
 	_card(panels, Rect2(1050, 655, 460, 154), Color(0.02, 0.038, 0.036, 0.82))
-	_label(panels, "00 / THE DISAPPEARED OFFICES", Vector2(1072, 681), 420, 21, ACCENT)
-	_label(panels, "它早已被拆除。\n可灯仍然亮着。", Vector2(1072, 727), 420, 22)
+	_label(panels, "00 / THE BUILDING THAT RETURNED", Vector2(1072, 681), 420, 19, ACCENT)
+	_label(panels, "这不是录像修复任务。\n是一次不会被记住的调查。", Vector2(1072, 727), 420, 22)
 
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
@@ -215,12 +217,12 @@ func _page(title: String, kind: String) -> void:
 
 func open_briefing() -> void:
 	_page(game.story.BRIEFINGS[game.stage][0], "briefing")
-	var message := _label(panels, game.story.BRIEFINGS[game.stage][1], Vector2(76, 226), 1430, 30)
-	message.size.y = 235
-	_card(panels, Rect2(76, 487, 1400, 134), Color(0.065, 0.089, 0.073))
-	_label(panels, "下一步", Vector2(98, 502), 1200, 25, ACCENT)
-	_label(panels, game.story.BRIEFINGS[game.stage][2], Vector2(98, 554), 1300, 23)
-	_label(panels, "WASD / 左摇杆移动  ·  E / USE拾取录音  ·  F / LIGHT手电\n右侧拖动观察。镜头永远可以手动控制。", Vector2(76, 653), 1390, 22, MUTED)
+	var message := _label(panels, game.story.BRIEFINGS[game.stage][1], Vector2(76, 215), 1430, 28)
+	message.size.y = 256
+	_card(panels, Rect2(76, 492, 1400, 145), Color(0.065, 0.089, 0.073))
+	_label(panels, "调查目标 / 你的行动会留下证据", Vector2(98, 508), 1200, 23, ACCENT)
+	_label(panels, game.story.BRIEFINGS[game.stage][2], Vector2(98, 555), 1310, 22)
+	_label(panels, "WASD / 左摇杆移动  ·  E / 调查  ·  J / 日志  ·  F / 手电\n右侧拖动观察，低头能看到双脚。剧情镜头永远可打断。", Vector2(76, 653), 1390, 22, MUTED)
 	_button(panels, "进入黑暗 / CONTINUE", Rect2(76, 764, 1380, 80), close_panels)
 	game.story.play_voice("brief_%d" % game.stage)
 
@@ -233,15 +235,47 @@ func close_panels() -> void:
 	hud.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if OS.has_feature("android") else Input.MOUSE_MODE_CAPTURED
 
+func open_journal() -> void:
+	_page("调查日志 / EVIDENCE JOURNAL", "journal")
+	_label(panels, game.story.BRIEFINGS[game.stage][0] + "  /  " + game.level.subtitle, Vector2(78, 190), 1370, 26, ACCENT)
+	for i in range(3):
+		var found: bool = game.repaired[i]
+		var y := 248 + i * 153
+		_card(panels, Rect2(76, y, 1437, 139), Color(0.055, 0.082, 0.076, 0.93) if found else Color(0.022, 0.039, 0.038, 0.94))
+		_label(panels, game.story.EVIDENCE_TITLES[game.stage][i] + ("  /  已发现" if found else "  /  未调查"), Vector2(102, y+17), 1370, 24, ACCENT if found else MUTED)
+		var content: String = game.story.MEMORY_TEXT[game.stage][i] if found else "未知位置：请沿目标方向寻找现场物件。靠近后按 E / 调查。"
+		var body := _label(panels, content, Vector2(102, y+65), 1350, 20, PAPER if found else MUTED)
+		body.size.y = 67
+	if game.repaired.count(true) >= 2:
+		_label(panels, "新的发现 / " + game.story.INTERLUDES[game.stage], Vector2(78, 749), 1370, 18, ACCENT)
+	else:
+		_label(panels, "观察：地面上的积水也许比墙上标记更可靠。", Vector2(78, 749), 1370, 20, MUTED)
+	_button(panels, "返回现场", Rect2(1215, 820, 295, 65), close_panels)
+
+func open_final_choice() -> void:
+	if game.stage != 2 or not game.transfer_ready() or game.lift_active: return
+	_page("终章 / 信号的归属", "ending_choice")
+	_label(panels, "你已找到三份原始证据。失联并非偶然。\n林岚没有请求救援：她试图阻止另一侧的东西通过这条线。", Vector2(85, 220), 1370, 30)
+	_card(panels, Rect2(80, 415, 690, 264), Color(0.045,0.078,0.07,0.94))
+	_card(panels, Rect2(805, 415, 690, 264), Color(0.072,0.054,0.046,0.94))
+	_label(panels, "结局 A / 传回证据", Vector2(106, 446), 610, 30, ACCENT)
+	_label(panels, "让外界知道真相，但那个信号也可能\n搭上你的电梯。", Vector2(106, 505), 622, 25)
+	_label(panels, "结局 B / 封存信号", Vector2(834, 446), 608, 30, ACCENT)
+	_label(panels, "放弃公开档案。切断通道，让楼层\n连同未知的人一起消失。", Vector2(834, 505), 618, 25)
+	_button(panels, "带证据出去", Rect2(116, 699, 612, 84), func(): game.net.request("transfer", 0); close_panels())
+	_button(panels, "关闭信号", Rect2(834, 699, 612, 84), func(): game.net.request("transfer", 1); close_panels())
+	_label(panels, "共同游戏：由第一个成功进入电梯并提交选择的玩家决定房间结局。", Vector2(114, 817), 1400, 19, MUTED)
+
 func open_guide() -> void:
 	_page("探索方式", "guide")
 	var entries := [
-		["真实空间", "三层办公室、地下机房和静水大厅。找到三份录音才能解锁电梯。"],
-		["恐惧来自环境", "观察昏暗的墙角、听水声与远处的脚步。怪物不会追杀你。"],
+		["真实空间", "三个沉没楼层，各有不同的证据与现场疑点。调查完成才能解锁电梯。"],
+		["恐惧来自环境", "水会渗进每一层。听脚步和电机，注意偶尔出现在暗处的脸。"],
 		["自由视角", "剧情自动转头默认关闭；即使启用，手动滑动也能立刻打断。"],
-		["直接联机", "最多四人 P2P。线索共享，但每个人的惊吓和镜头独立。"]]
+		["调查日志", "按 J 或触摸日志按钮查看证据原文。最后一层可决定送出或封存真相。"],
+		["直接联机", "最多四人 P2P。证据与结局共享，各自的惊吓和镜头独立。"]]
 	for i in range(entries.size()):
-		var y := 225 + i * 132
+		var y := 210 + i * 121
 		_label(panels, entries[i][0], Vector2(77, y), 450, 26, ACCENT)
 		_label(panels, entries[i][1], Vector2(526, y), 945, 24)
 
@@ -253,7 +287,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / THE SIGNAL BELOW\nExploration-driven atmospheric horror.\nLicensed real GLB architecture, local animated sightings and P2P co-op.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.14.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.15.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page("授权素材 / CREDITS", "credits")
@@ -327,25 +361,26 @@ func _join() -> void:
 	game.net.join(address_field.text, int(port_field.value), key_field.text)
 
 func open_result() -> void:
-	_page("录音已送出" if game.completed else "探索中断", "result")
+	_page("你决定了真相的去向" if game.completed else "探索中断", "result")
 	result_shown = true
 	_label(panels, game.notice, Vector2(76, 260), 1410, 33, ACCENT)
-	_label(panels, "已发现录音 / %d of 3\n抵达层级 / %d of 3" % [game.repaired.count(true), game.stage + 1], Vector2(76, 388), 1360, 29)
+	_label(panels, "已确认现场证据 / %d of 3\n抵达层级 / %d of 3" % [game.repaired.count(true), game.stage + 1], Vector2(76, 388), 1360, 29)
 	if game.net.mode != "client": _button(panels, "RESTART THIS LAYER", Rect2(76, 666, 625, 82), func(): game.start_shift(game.stage); close_panels())
 	_button(panels, "MAIN MENU", Rect2(790, 666, 620, 82), func(): game.net.leave(); game.running = false; menu())
 
 func refresh() -> void:
 	if not is_instance_valid(game.level): return
 	status_label.text = game.level.title
-	goal_label.text = "RECORDINGS %d/3  ·  %s" % [game.repaired.count(true), "SOLO" if game.net.mode == "solo" else "CREW %d/4" % max(1, game.net.poses.size())]
-	notice_label.text = "耐力 %d%%\n线索 %d/3" % [int(game.player.stamina), game.repaired.count(true)]
+	goal_label.text = "EVIDENCE %d/3  ·  %s" % [game.repaired.count(true), "SOLO" if game.net.mode == "solo" else "CREW %d/4" % max(1, game.net.poses.size())]
+	notice_label.text = "耐力 %d%%\n调查 %d/3" % [int(game.player.stamina), game.repaired.count(true)]
 	prompt_label.text = game.prompt()
 	var objective: Dictionary = game.next_objective()
 	var offset: Vector3 = objective.position - game.player.position
 	var facing := Vector3(0, 0, -1).rotated(Vector3.UP, game.player.yaw)
 	var angle := facing.signed_angle_to(Vector3(offset.x, 0, offset.z).normalized(), Vector3.UP)
 	var direction := "前方" if absf(angle) < 0.65 else ("后方" if absf(angle) > 2.5 else ("左侧" if angle > 0 else "右侧"))
-	objective_label.text = "电梯正在运行，请保持安静。" if game.lift_active else "下一步：%s\n%s / %dm" % [objective.text, direction, int(offset.length())]
+	var next_title: String = objective.text.split(" / ")[0] if not objective.text.contains("已解锁") else "前往电梯"
+	objective_label.text = "正在下降 / 不要回答声音" if game.lift_active else "调查目标：%s\n%s · 约 %d 米" % [next_title, direction, int(offset.length())]
 	subtitle_label.text = game.story.subtitle
 	subtitle_backdrop.visible = not game.story.subtitle.is_empty()
 	if is_instance_valid(room_status): room_status.text = game.net.status

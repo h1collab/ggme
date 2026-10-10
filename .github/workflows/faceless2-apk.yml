@@ -1,4 +1,4 @@
-name: Build Faceless 2 v0.14 Android APK
+name: Build Faceless 2 v0.15 Android APK
 
 on:
   workflow_dispatch:
@@ -77,8 +77,8 @@ jobs:
           p=Path('app/export_presets.cfg'); s=p.read_text()
           s=s.replace('Escape Black Pine','Faceless 2').replace('School Brawl','Faceless 2')
           s=s.replace('res://ui/icon.svg','res://ui/game_icon.png')
-          s=re.sub(r'(?m)^version/code=.*','version/code=14',s)
-          s=re.sub(r'(?m)^version/name=.*','version/name="0.14.0"',s)
+          s=re.sub(r'(?m)^version/code=.*','version/code=15',s)
+          s=re.sub(r'(?m)^version/name=.*','version/name="0.15.0"',s)
           # Export all resources: scripts load imported GLBs, audio and textures by path.
           # A resource-only selection is unsafe for dynamic ResourceLoader paths.
           s=re.sub(r'(?m)^export_filter=.*', 'export_filter="all_resources"', s)
@@ -96,7 +96,8 @@ jobs:
           PYCODE
           python faceless2/backrooms_audio.py app/audio
           python faceless2/fetch_backrooms_assets.py app/assets/vendor
-          python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb
+          python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
+          python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio
           npx --yes @gltf-transform/cli@4.5.1 cp app/assets/vendor/huuxloc_backroom.draco.glb app/assets/vendor/huuxloc_backroom.glb
           test -s app/assets/vendor/huuxloc_backroom.glb
@@ -115,7 +116,7 @@ jobs:
           export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 HF_HUB_DISABLE_XET=1
           python faceless2/generate_voice.py app/audio/voice | tee qa/neural-voice-generation.log
           cp /usr/share/common-licenses/Apache-2.0 app/KOKORO_APACHE_2.txt
-          test "$(find app/audio/voice -maxdepth 1 -name '*.ogg' | wc -l)" = 15
+          test "$(find app/audio/voice -maxdepth 1 -name '*.ogg' | wc -l)" = 19
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -165,9 +166,18 @@ jobs:
           python - <<'PYCODE'
           from pathlib import Path
           root=Path('app')
-          required=['assets/entity.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','audio/voice/brief_0.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
+          required=['assets/entity.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','assets/vendor/first_person_legs.glb','audio/voice/brief_0.ogg','audio/voice/turn_2.ogg','audio/voice/ending_seal.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
           for f in required: assert (root/f).is_file() and (root/f).stat().st_size > 100, f
-          print('Build-time source asset inventory: PASS')
+          level_source=Path('faceless2/backrooms_level.gd').read_text()
+          player_source=Path('faceless2/backrooms_player.gd').read_text()
+          for constructor in ('BoxMesh.new(', 'SphereMesh.new(', 'CylinderMesh.new(', 'ArrayMesh.new(', 'PlaneMesh.new(', 'CapsuleMesh.new('):
+              assert constructor not in level_source and constructor not in player_source, 'Visible procedural geometry forbidden: '+constructor
+          from fontTools.ttLib import TTFont
+          cmap=TTFont(root/'assets/vendor/story_font.otf').getBestCmap()
+          story=''.join(file.read_text() for file in Path('faceless2').glob('backrooms*.gd'))
+          missing=sorted({c for c in story if 0x3400 <= ord(c) <= 0x9fff and ord(c) not in cmap})
+          assert not missing, f'Chinese story font missing glyphs: {missing}'
+          print('Build-time source asset inventory, all-GLB geometry and Chinese font: PASS')
           PYCODE
           for script in backrooms backrooms_level backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks virtual_joystick touch_action; do
             godot --headless --path app --script "scripts/$script.gd" --check-only
@@ -188,7 +198,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v0.14 APK
+      - name: Export Faceless 2 v0.15 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -196,21 +206,21 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless2-v014-zorix.apk
-          test -s app/build/faceless2-v014-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless2-v015-zorix.apk
+          test -s app/build/faceless2-v015-zorix.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v014-zorix-apk
-          path: app/build/faceless2-v014-zorix.apk
+          name: faceless2-v015-zorix-apk
+          path: app/build/faceless2-v015-zorix.apk
           if-no-files-found: error
 
       - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v014-headless-qa
+          name: faceless2-v015-headless-qa
           path: qa
           if-no-files-found: error

@@ -16,6 +16,8 @@ var wall_material: ShaderMaterial
 var floor_material: ShaderMaterial
 var pool_water: MeshInstance3D
 var water_material: ShaderMaterial
+var water_materials: Array[ShaderMaterial] = []
+var wet_regions: Array[Rect2] = []
 var water_clock := 0.0
 var ripple_buffer: Array[Vector4] = []
 var splash_particles: CPUParticles3D
@@ -77,6 +79,7 @@ func build(level: int) -> void:
 	if index == 1: _service_details()
 	elif index == 2: _pool_details()
 	else: _office_details()
+	_water_details()
 	_external_props()
 
 func _load_architecture() -> void:
@@ -92,12 +95,18 @@ func _load_architecture() -> void:
 	source.free()
 
 func _architectural_mesh(label: String, dimensions: Vector3) -> MeshInstance3D:
-	var source_name := "Object_4" if label == "Floor" else ("Object_53" if label == "Ceiling" else ("Object_9" if label == "Skirting" else "Object_10"))
-	if not architecture_meshes.has(source_name): return null
+	# Every visible static surface is a mesh authored in Huuxloc's CC BY 4.0
+	# architecture GLB. No runtime BoxMesh, PlaneMesh or CylinderMesh.
+	# Primitive boxes remain ONLY as invisible broad-phase collision shapes.
+	var source_name := "Object_4" if label in ["Floor", "ShallowWater", "LiftThreshold", "AudioFrequencyDisplay", "Diffuser"] else ("Object_53" if label == "Ceiling" else ("Object_9" if label == "Skirting" else ("Object_10" if label in ["Wall", "LiftDoorLeft", "LiftDoorRight", "LiftBack"] else "Object_68")))
+	if not architecture_meshes.has(source_name):
+		push_error("Required licensed GLB mesh missing: " + source_name)
+		return null
 	var view := MeshInstance3D.new()
 	view.name = "LicensedGLB_%s" % label
 	view.mesh = architecture_meshes[source_name]
-	var bound := view.mesh.get_aabb()
+	view.set_meta("visual_source", "Huuxloc_CC_BY_4.0_" + source_name)
+	var bound: AABB = view.mesh.get_aabb()
 	var extent: Vector3 = bound.size
 	var horizontal := label in ["Wall", "Skirting"] and dimensions.x > dimensions.z
 	view.rotation.y = PI * 0.5 if horizontal else 0.0
@@ -106,11 +115,8 @@ func _architectural_mesh(label: String, dimensions: Vector3) -> MeshInstance3D:
 		var along := maxf(dimensions.x, dimensions.z)
 		view.scale = Vector3(thick / maxf(0.01, extent.x), dimensions.y / maxf(0.01, extent.y), along / maxf(0.01, extent.z))
 	else:
-		view.scale = Vector3(dimensions.x / maxf(0.01, extent.x), 1.0, dimensions.z / maxf(0.01, extent.z))
-	var local_center := -bound.get_center() * view.scale
-	view.position = local_center.rotated(Vector3.UP, view.rotation.y)
-	if label == "Floor": view.position.y += dimensions.y * 0.5
-	if label == "Ceiling": view.position.y -= dimensions.y * 0.5
+		view.scale = Vector3(dimensions.x / maxf(0.01, extent.x), dimensions.y / maxf(0.01, extent.y), dimensions.z / maxf(0.01, extent.z))
+	view.position = (-bound.get_center() * view.scale).rotated(Vector3.UP, view.rotation.y)
 	return view
 
 func _surface(kind: int) -> ShaderMaterial:
@@ -206,19 +212,13 @@ func _box(label: String, pos: Vector3, dimensions: Vector3, material: Material, 
 	body.name = label
 	body.position = pos
 	add_child(body)
-	var mesh: MeshInstance3D = null
-	if label in ["Floor", "Ceiling", "Wall", "Skirting"]: mesh = _architectural_mesh(label, dimensions)
-	if mesh == null:
-		mesh = MeshInstance3D.new()
-		var box := BoxMesh.new()
-		box.size = dimensions
-		mesh.mesh = box
-	mesh.material_override = material
-	body.add_child(mesh)
+	var mesh := _architectural_mesh(label, dimensions)
+	if mesh != null:
+		mesh.material_override = material
+		body.add_child(mesh)
 	if solid:
-		# Single primitive collision proxy, not a per-triangle mesh: cheap on phones.
 		var collision := CollisionShape3D.new()
-		var shape := BoxShape3D.new()
+		var shape := BoxShape3D.new() # Invisible collision proxy, not a visible mesh.
 		shape.size = dimensions
 		collision.shape = shape
 		body.add_child(collision)
@@ -263,26 +263,38 @@ func _sign(text: String, pos: Vector3, scale_size: float = 0.019, render_layer: 
 	return sign
 
 func _console() -> void:
-	var enamel := _plain(Color(0.11, 0.17, 0.18), 0.85)
-	_box("AbandonedReceiver", Vector3(0, 0.48, 6), Vector3(1.15, 0.95, 0.6), enamel, true)
-	var glass := _plain(Color(0.08, 0.22, 0.17), 0.48)
-	glass.emission_enabled = true
-	glass.emission = Color(0.04, 0.13, 0.09)
-	_box("AudioFrequencyDisplay", Vector3(0, 0.9, 5.67), Vector3(0.72, 0.25, 0.02), glass, false)
-	_sign("RECORDINGS / SIGNAL LOST", Vector3(0, 1.6, 5.78), 0.008)
+	# Authored CC0 desk and cabinet instead of a hand-built cuboid terminal.
+	var desk := Assets.fitted("vendor/schooldesk.glb", 0.89)
+	desk.name = "LicensedInvestigationDesk"
+	desk.position = console_position
+	desk.rotation.y = PI
+	add_child(desk)
+	var monitor := Assets.fitted("vendor/cabinet.glb", 0.65)
+	monitor.name = "LicensedFieldArchive"
+	monitor.position = console_position + Vector3(1.2, 0, -0.3)
+	add_child(monitor)
+	_sign("INVESTIGATION / EVIDENCE LOG", Vector3(0, 1.53, 5.7), 0.008)
 
 func _relay(i: int) -> void:
+	# Each objective is a *different physical investigation object*, never
+	# three identical phone-repair boxes. All meshes are licensed external GLBs.
 	var p := relays[i]
-	var cabinet := _box("MemoryRecorder", p + Vector3(0, 0.95, 0), Vector3(0.65, 1.45, 0.4), _plain(Color(0.22, 0.27, 0.27), 0.65), true)
-	for y in [0.4, 0.7, 1.0]:
-		_box("VentSlot", p + Vector3(0, y + 0.4, 0.208), Vector3(0.42, 0.025, 0.015), _plain(Color(0.05, 0.07, 0.07)), false)
-	var status := _plain(Color(0.68, 0.31, 0.1))
+	var files := ["schooldesk.glb", "cabinet.glb", "barrel.glb"]
+	var heights := [0.86, 1.31, 1.06]
+	var body := Node3D.new()
+	body.name = "LicensedEvidence_%d" % i
+	body.position = p
+	add_child(body)
+	var object: Node3D = Assets.fitted("vendor/" + files[i], heights[i])
+	object.name = "OriginalGLB_%s" % files[i]
+	body.add_child(object)
+	var status := _plain(Color(0.73, 0.33, 0.11))
 	status.emission_enabled = true
 	status.emission = status.albedo_color
-	var led := _box("BreakerStatus", p + Vector3(0.18, 1.4, 0.21), Vector3(0.05, 0.06, 0.02), status, false)
-	relay_visuals.append(led.get_child(0))
-	_sign("TAPE %02d" % (i + 1), p + Vector3(0, 1.8, 0), 0.008)
-	cabinet.set_meta("relay", i)
+	status.emission_energy_multiplier = 0.75
+	var lamp: Node3D = _box("EvidenceIndicator", p + Vector3(0, heights[i] + 0.08, 0), Vector3(0.16, 0.025, 0.11), status, false)
+	relay_visuals.append(lamp.get_child(0))
+	_sign(["EVIDENCE / ARCHIVE", "EVIDENCE / WATERMARK", "EVIDENCE / SIGNAL"][i], p + Vector3(0, heights[i] + 0.45, 0), 0.007)
 
 func _exit() -> void:
 	# A real six-second lift scene is shared by host/client state; player camera
@@ -384,102 +396,133 @@ func _office_details() -> void:
 		_box("WallpaperPeel", Vector3(x, 0.48, -2.0 - i * 1.7), Vector3(0.01, 0.11 + i % 3 * 0.05, 0.32), dirt, false)
 
 func _service_details() -> void:
-	var pipe_mat := _plain(Color(0.23, 0.28, 0.26), 0.7)
-	for x in [-13.8, -13.3, 13.6]:
-		var pipe := MeshInstance3D.new()
-		var cylinder := CylinderMesh.new()
-		cylinder.top_radius = 0.09
-		cylinder.bottom_radius = 0.09
-		cylinder.height = 39
-		cylinder.radial_segments = 12
-		pipe.mesh = cylinder
-		pipe.material_override = pipe_mat
-		pipe.position = Vector3(x, 2.8, -9)
-		pipe.rotation.x = PI / 2
-		add_child(pipe)
-		for z in range(-27, 9, 4):
-			_box("PipeClamp", Vector3(x, 2.8, z), Vector3(0.22, 0.25, 0.045), _plain(Color(0.12, 0.16, 0.16)), false)
+	# Real CC0 industrial furniture replaces procedural cylinder pipes and clamps.
+	for k in range(3):
+		var side := -12.0 if k % 2 == 0 else 12.0
+		var z := -5.0 - float(k) * 9.5
+		var storage := Assets.fitted("vendor/shelf.glb", 2.25)
+		storage.name = "LicensedServiceRacking_%d" % k
+		storage.position = Vector3(side, 0, z)
+		storage.rotation.y = PI * 0.5 if side < 0 else -PI * 0.5
+		add_child(storage)
 	for z in [-5.0, -16.0, -27.0]:
-		_box("CableTray", Vector3(0, 3.1, z), Vector3(1.2, 0.15, 5.0), pipe_mat, false)
 		_sign("HIGH VOLTAGE / KEEP CLEAR", Vector3(9.0, 2.4, z + 7.16), 0.007)
 
 func _pool_details() -> void:
-	# Conservative PBR-style fresnel and two scrolling normal octaves, with
-	# finite footfall disturbances. No expensive screen-space reflections,
-	# refraction buffers or tessellation required by the Android mobile path.
+	# The pools still have real wall-collider rims, now with authored GLB geometry.
+	for x in [-8.0, 8.0]:
+		for side in [-1.0, 1.0]:
+			_box("PoolEdge", Vector3(x + side * 3.6, 0.10, -14.6), Vector3(0.18, 0.2, 7.8), wall_material, true)
+		_sign("SHALLOW / 0.1m", Vector3(x, 2.5, -19.8), 0.012)
+
+func _water_details() -> void:
+	# Shallow flooding exists on ALL three floors. Each pool is an actual
+	# GLB-authored plane with a per-zone irregular alpha edge; no new mesh.
+	water_materials.clear()
+	wet_regions.clear()
+	ripple_buffer.clear()
+	water_clock = 0.0
 	water_material = ShaderMaterial.new()
 	var shader := Shader.new()
 	shader.code = """shader_type spatial;
 render_mode cull_disabled, depth_prepass_alpha;
 uniform float water_seconds = 0.0;
 uniform vec4 impulses[8];
+uniform vec2 zone_center = vec2(0.0,0.0);
+uniform vec2 zone_size = vec2(1.0,1.0);
+uniform float flood_depth = 0.55;
 varying vec3 world_point;
-float wave(vec2 p, float t) {
- return sin(p.x*13.0+t*2.9)*0.45+sin(dot(p,vec2(5.6,8.3))-t*3.4)*0.30+sin(dot(p,vec2(-13.1,2.9))+t*1.7)*0.25;
-}
-float rings(vec2 p) {
- float sum=0.0;
- for(int i=0; i<8; i++) {
-  vec4 e=impulses[i]; float age=water_seconds-e.z;
-  if(age<0.0 || age>2.5) continue;
-  float radius=length(p-e.xy);
-  float front=radius-age*1.55;
-  sum+=e.w*sin(front*17.0)*exp(-abs(front)*7.0)*exp(-age*1.35);
- }
- return sum;
-}
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p), f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+float wave(vec2 p,float t){return sin(p.x*13.0+t*2.9)*0.45+sin(dot(p,vec2(5.6,8.3))-t*3.4)*0.30+sin(dot(p,vec2(-13.1,2.9))+t*1.7)*0.25;}
+float rings(vec2 p){float sum=0.0;for(int i=0;i<8;i++){vec4 e=impulses[i];float age=water_seconds-e.z;if(age<0.0||age>2.5)continue;float r=length(p-e.xy);float front=r-age*1.55;sum+=e.w*sin(front*17.0)*exp(-abs(front)*7.0)*exp(-age*1.35);}return sum;}
 void vertex(){world_point=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;}
 void fragment(){
  vec2 p=world_point.xz;
- float small=wave(p,water_seconds)*0.035;
+ vec2 q=(p-zone_center)/max(zone_size,vec2(0.01));
+ float irregular=(noise(p*3.2)-0.5)*0.09 + (noise(p*9.1)-0.5)*0.025;
+ float shoreline=max(abs(q.x),abs(q.y))+irregular;
+ float coverage=1.0-smoothstep(0.36,0.51,shoreline);
  float ring=rings(p);
- float h=small+ring*0.075;
- float hx=wave(p+vec2(0.015,0.0),water_seconds)*0.035+rings(p+vec2(0.015,0.0))*0.075;
- float hz=wave(p+vec2(0.0,0.015),water_seconds)*0.035+rings(p+vec2(0.0,0.015))*0.075;
- vec3 n=normalize(vec3((h-hx)*33.0, 1.0,(h-hz)*33.0));
- vec3 to_eye=normalize(CAMERA_POSITION_WORLD-world_point);
- float fresnel=pow(1.0-max(dot(n,to_eye),0.0),4.0);
- vec3 deep=vec3(0.055,0.16,0.16), sky=vec3(0.24,0.36,0.35);
- ALBEDO=mix(deep,sky,fresnel*0.58)+abs(ring)*vec3(0.06,0.10,0.09);
- ROUGHNESS=0.095+clamp(abs(ring)*0.22,0.0,0.24);
- METALLIC=0.0; SPECULAR=0.85;
+ float h=wave(p,water_seconds)*0.027+ring*0.065;
+ float hx=wave(p+vec2(0.016,0.0),water_seconds)*0.027+rings(p+vec2(0.016,0.0))*0.065;
+ float hz=wave(p+vec2(0.0,0.016),water_seconds)*0.027+rings(p+vec2(0.0,0.016))*0.065;
+ vec3 n=normalize(vec3((h-hx)*30.0,1.0,(h-hz)*30.0));
+ vec3 eye=normalize(CAMERA_POSITION_WORLD-world_point);
+ float fresnel=pow(1.0-max(dot(n,eye),0.0),4.0);
+ float wet=noise(p*0.9)*0.12;
+ ALBEDO=mix(vec3(0.047,0.09,0.08),vec3(0.22,0.28,0.29),fresnel*0.64+wet)+abs(ring)*vec3(0.06,0.08,0.075);
+ ROUGHNESS=mix(0.24,0.065,fresnel)+clamp(abs(ring)*0.20,0.0,0.22);
+ SPECULAR=0.85;METALLIC=0.0;
  NORMAL=normalize(mat3(VIEW_MATRIX)*n);
- ALPHA=0.84+fresnel*0.1;
-}"""
+ ALPHA=(0.46+0.40*flood_depth+0.12*fresnel)*coverage;
+} """
 	water_material.shader = shader
 	var empty := PackedVector4Array()
-	for i in range(8): empty.push_back(Vector4(-100, -100, -100, 0))
-	water_material.set_shader_parameter("impulses", empty)
-	for x in [-8.0, 8.0]:
-		_vault(x)
-		var basin := _box("ShallowWater", Vector3(x, 0.057, -14.6), Vector3(7, 0.025, 7.4), water_material, false)
-		pool_water = basin.get_child(0)
-		for side in [-1.0, 1.0]:
-			_box("PoolEdge", Vector3(x + side * 3.6, 0.10, -14.6), Vector3(0.18, 0.2, 7.8), wall_material, true)
-		_sign("SHALLOW / 0.1m", Vector3(x, 2.5, -19.8), 0.012)
-	# A single bounded CPU particle emitter is reused for every local splash.
-	splash_particles = CPUParticles3D.new()
-	splash_particles.name = "FootfallSpray"
-	splash_particles.one_shot = true
-	splash_particles.emitting = false
-	splash_particles.amount = 7
-	splash_particles.lifetime = 0.32
-	splash_particles.explosiveness = 1.0
-	splash_particles.direction = Vector3.UP
-	splash_particles.spread = 53.0
-	splash_particles.initial_velocity_min = 0.5
-	splash_particles.initial_velocity_max = 1.3
-	splash_particles.gravity = Vector3(0,-6.0,0)
-	splash_particles.scale_amount_min = 0.008
-	splash_particles.scale_amount_max = 0.023
-	splash_particles.color = Color(0.62,0.81,0.80,0.63)
-	var drop := SphereMesh.new()
-	drop.radius = 0.029
-	drop.height = 0.058
-	drop.radial_segments = 5
-	drop.rings = 2
-	splash_particles.mesh = drop
+	for i in range(8): empty.push_back(Vector4(-100,-100,-100,0))
+	water_material.set_shader_parameter("impulses",empty)
+	var pools: Array = []
+	match index:
+		0: pools = [Vector4(0.0,-3.2,5.4,7.0),Vector4(-8.0,-12.3,7.7,5.4),Vector4(0.0,-21.2,5.2,9.1),Vector4(8.3,6.2,8.4,5.0)]
+		1: pools = [Vector4(0.0,-5.8,5.8,10.5),Vector4(8.0,-17.0,10.8,7.8),Vector4(-9.0,-24.1,9.0,8.4),Vector4(0.0,7.6,5.6,5.8)]
+		2: pools = [Vector4(-8.0,-14.6,7.0,7.4),Vector4(8.0,-14.6,7.0,7.4),Vector4(0.0,-22.0,5.6,13.1),Vector4(0.0,4.0,6.4,10.3)]
+	for i in range(pools.size()):
+		var pool: Vector4 = pools[i]
+		var mat := water_material.duplicate() as ShaderMaterial
+		mat.set_shader_parameter("impulses",empty)
+		mat.set_shader_parameter("zone_center",Vector2(pool.x,pool.y))
+		mat.set_shader_parameter("zone_size",Vector2(pool.z,pool.w))
+		mat.set_shader_parameter("flood_depth",0.58 if index==0 else (0.81 if index==1 else 1.0))
+		var panel: Node3D = _box("ShallowWater",Vector3(pool.x,0.075,pool.y),Vector3(pool.z,0.012,pool.w),mat,false)
+		if i==0: pool_water=panel.get_child(0) as MeshInstance3D
+		water_materials.append(mat)
+		wet_regions.append(Rect2(Vector2(pool.x-pool.z*0.5,pool.y-pool.w*0.5),Vector2(pool.z,pool.w)))
+	water_material = water_materials[0]
+	# Only one emitter is used across ALL pools. Its droplet mesh comes from
+	# a Huuxloc-authored GLB support detail, never SphereMesh-generated geometry.
+	splash_particles=CPUParticles3D.new()
+	splash_particles.name="PuddleFootfallSpray"
+	splash_particles.one_shot=true
+	splash_particles.emitting=false
+	splash_particles.amount=7
+	splash_particles.lifetime=0.31
+	splash_particles.explosiveness=1.0
+	splash_particles.direction=Vector3.UP
+	splash_particles.spread=50.0
+	splash_particles.initial_velocity_min=0.45
+	splash_particles.initial_velocity_max=1.1
+	splash_particles.gravity=Vector3(0,-6.0,0)
+	splash_particles.scale_amount_min=0.007
+	splash_particles.scale_amount_max=0.015
+	splash_particles.color=Color(0.61,0.79,0.81,0.55)
+	splash_particles.mesh=architecture_meshes["Object_68"]
 	add_child(splash_particles)
+
+func add_water_step(at: Vector3) -> bool:
+	if wet_regions.is_empty(): return false
+	var wet := false
+	for zone in wet_regions:
+		if zone.has_point(Vector2(at.x,at.z)):
+			wet=true
+			break
+	if not wet: return false
+	ripple_buffer.push_front(Vector4(at.x,at.z,water_clock,0.86))
+	if ripple_buffer.size()>8: ripple_buffer.resize(8)
+	if is_instance_valid(splash_particles):
+		splash_particles.position=Vector3(at.x,0.09,at.z)
+		splash_particles.restart()
+	return true
+
+func update_water(delta: float) -> void:
+	if water_materials.is_empty(): return
+	water_clock+=delta
+	for i in range(ripple_buffer.size()-1,-1,-1):
+		if water_clock-ripple_buffer[i].z>=2.5: ripple_buffer.remove_at(i)
+	var uniforms := PackedVector4Array()
+	for i in range(8): uniforms.push_back(ripple_buffer[i] if i<ripple_buffer.size() else Vector4(-100,-100,-100,0))
+	for mat in water_materials:
+		mat.set_shader_parameter("impulses",uniforms)
+		mat.set_shader_parameter("water_seconds",water_clock)
 
 func update_state(closed: Array, lights_on: bool, anomaly: int, repaired: Array, time: float, focus: Vector3 = Vector3.ZERO, shadow_budget: int = 2) -> void:
 	shadow_refresh += get_process_delta_time()
@@ -506,33 +549,3 @@ func update_state(closed: Array, lights_on: bool, anomaly: int, repaired: Array,
 		mat.albedo_color = Color(0.18, 0.63, 0.40) if repaired[i] else Color(0.68, 0.31, 0.1)
 		mat.emission = mat.albedo_color
 
-func _vault(center_x: float) -> void:
-	var vertices := PackedVector3Array()
-	var normals := PackedVector3Array()
-	for i in range(24):
-		var a := float(i) / 24 * PI
-		var b := float(i + 1) / 24 * PI
-		var left := Vector3(center_x - cos(a) * 4.0, 2.65 + sin(a) * 0.65, -10.2)
-		var right := Vector3(center_x - cos(b) * 4.0, 2.65 + sin(b) * 0.65, -10.2)
-		var back := Vector3(0, 0, -9.5)
-		var na := Vector3(cos(a) * 0.65, -sin(a) * 4.0, 0).normalized()
-		var nb := Vector3(cos(b) * 0.65, -sin(b) * 4.0, 0).normalized()
-		vertices.append_array(PackedVector3Array([left, right + back, right, left, left + back, right + back]))
-		normals.append_array(PackedVector3Array([na, nb, nb, na, na, nb]))
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var vault := MeshInstance3D.new()
-	vault.name = "TiledBarrelVault"
-	vault.mesh = mesh
-	var double_sided := wall_material.duplicate() as ShaderMaterial
-	var vault_shader := Shader.new()
-	vault_shader.code = wall_material.shader.code.replace("shader_type spatial;", "shader_type spatial; render_mode cull_disabled;")
-	double_sided.shader = vault_shader
-	double_sided.set_shader_parameter("theme", index)
-	double_sided.set_shader_parameter("surface", 0)
-	vault.material_override = double_sided
-	add_child(vault)

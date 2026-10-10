@@ -4,6 +4,8 @@ const Assets = preload("backrooms_assets.gd")
 var game: Node
 var viewmodel_root: Node3D
 var walk_animation: AnimationPlayer
+var leg_root: Node3D
+var leg_animation: AnimationPlayer
 var stride_spring := Vector2.ZERO
 var viewmodel_motion := Vector3.ZERO
 var lift_riding := false
@@ -69,6 +71,29 @@ func _ready() -> void:
 				anim.speed_scale = 0
 				break
 			if is_instance_valid(walk_animation): break
+	# Camera-attached arms are for a natural near-field view; independently
+	# rigged, licensed Cesium legs sit at the true foot position. Both preserve
+	# the original animation skin, UV and source triangles (no capsule avatar).
+	var feet_path := Assets.path("vendor/first_person_legs.glb")
+	if ResourceLoader.exists(feet_path):
+		leg_root = Node3D.new()
+		leg_root.name = "CesiumFirstPersonFeet"
+		leg_root.position = Vector3(0.0, 0.02, 0.0)
+		leg_root.rotation.y = PI
+		add_child(leg_root)
+		var feet: Node3D = load(feet_path).instantiate()
+		leg_root.add_child(feet)
+		for limb in feet.find_children("*", "MeshInstance3D", true, false):
+			limb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for animator in feet.find_children("*", "AnimationPlayer", true, false):
+			for clip in animator.get_animation_list():
+				if clip == "RESET": continue
+				leg_animation = animator
+				animator.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+				animator.play(clip)
+				animator.speed_scale = 0.0
+				break
+			if is_instance_valid(leg_animation): break
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -77,6 +102,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_E: game.interact()
+			KEY_J: game.ui.open_journal()
 			KEY_F: torch.visible = not torch.visible
 			KEY_ESCAPE: game.ui.open_pause()
 	if event is InputEventScreenTouch:
@@ -145,6 +171,14 @@ func _physics_process(delta: float) -> void:
 		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.028, minf(delta*5.0,1.0))
 		viewmodel_root.visible = not lift_riding or lift_clock < 3.0
 		if is_instance_valid(walk_animation): walk_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
+	if is_instance_valid(leg_root):
+		# Low-angle downward looks show actual skinned knees, boots and steps;
+		# arms remain in the lower field of view. Keep the body unobtrusive when
+		# the player looks forward to avoid visual clipping.
+		leg_root.visible = not lift_riding and pitch < -0.16
+		leg_root.position.y = lerpf(leg_root.position.y, 0.02 + bob*0.18, minf(delta*6.0, 1.0))
+		if is_instance_valid(leg_animation):
+			leg_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
 	step_clock -= delta
 	if moving and is_on_floor() and step_clock <= 0:
 		step_clock = 0.34 if sprinting else 0.52

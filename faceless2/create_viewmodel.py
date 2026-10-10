@@ -21,7 +21,7 @@ def unpack_accessor(gltf, bin_chunk, accessor_index):
             for i in range(acc['count'])]
 
 
-def convert(source: Path, target: Path) -> tuple[int, int]:
+def convert(source: Path, target: Path, part: str = "arm") -> tuple[int, int]:
     blob = source.read_bytes()
     assert blob[:4] == b'glTF' and struct.unpack_from('<I', blob, 4)[0] == 2
     length, label = struct.unpack_from('<I4s', blob, 12)
@@ -36,15 +36,15 @@ def convert(source: Path, target: Path) -> tuple[int, int]:
     weights = unpack_accessor(gltf, chunk, primitive['attributes']['WEIGHTS_0'])
     indices = [i[0] for i in unpack_accessor(gltf, chunk, primitive['indices'])]
     joint_names = [gltf['nodes'][n].get('name', '') for n in gltf['skins'][0]['joints']]
-    arms = {idx for idx, name in enumerate(joint_names) if 'arm_joint_' in name}
-    assert len(arms) >= 6, 'Expected authored arm joints'
-    arm_weights = [sum(w for j, w in zip(js, ws) if j in arms) for js, ws in zip(joints, weights)]
+    limb_joints = {idx for idx, name in enumerate(joint_names) if part + '_joint_' in name}
+    assert len(limb_joints) >= 6, f'Expected authored {part} joints'
+    limb_weights = [sum(w for j, w in zip(js, ws) if j in limb_joints) for js, ws in zip(joints, weights)]
     retained = []
     for t in range(0, len(indices), 3):
         triangle = indices[t:t + 3]
-        if min(arm_weights[i] for i in triangle) > 0.52:
+        if min(limb_weights[i] for i in triangle) > 0.52:
             retained.extend(triangle)
-    assert len(retained) >= 300, f'Insufficient original arm triangles: {len(retained)}'
+    assert len(retained) >= 300, f'Insufficient original {part} triangles: {len(retained)}'
     while len(chunk) % 4:
         chunk.append(0)
     offset = len(chunk)
@@ -57,7 +57,7 @@ def convert(source: Path, target: Path) -> tuple[int, int]:
                               'min': [min(retained)], 'max': [max(retained)]})
     primitive['indices'] = len(gltf['accessors']) - 1
     gltf['buffers'][0]['byteLength'] = len(chunk)
-    gltf.setdefault('asset', {}).setdefault('extras', {})['attribution'] = 'Cesium Man (CC BY 4.0), arm triangles only; animation and skin retained'
+    gltf.setdefault('asset', {}).setdefault('extras', {})['attribution'] = f'Cesium Man (CC BY 4.0), {part} triangles only; animation and skin retained'
     data = json.dumps(gltf, ensure_ascii=True, separators=(',', ':')).encode()
     data += b' ' * (-len(data) % 4)
     result = b'glTF' + struct.pack('<II', 2, 12 + 8 + len(data) + 8 + len(chunk))
@@ -72,6 +72,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('source', type=Path)
     parser.add_argument('target', type=Path)
+    parser.add_argument('--part', choices=['arm','leg'], default='arm')
     args = parser.parse_args()
-    kept, original = convert(args.source, args.target)
-    print(f'Original skinned Cesium arm triangles: {kept} / {original}; viewmodel={args.target.stat().st_size} bytes')
+    kept, original = convert(args.source, args.target, args.part)
+    print(f'Original skinned Cesium {args.part} triangles: {kept} / {original}; viewmodel={args.target.stat().st_size} bytes')

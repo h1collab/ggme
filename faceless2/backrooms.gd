@@ -31,6 +31,7 @@ var mistakes := 0
 var generator_ready := 0.0
 var revision := 0
 var completed := false
+var ending_variant := 0  # 0 send evidence; 1 seal the liminal signal
 var failed := false
 var notice := "寻找林岚留下的三段录音，跟随电梯信号离开。"
 var crew: Dictionary = {}
@@ -47,6 +48,7 @@ var voice_enabled := true
 var splash_audio: AudioStreamPlayer3D
 var lift_door_audio: AudioStreamPlayer3D
 var lift_motor_audio: AudioStreamPlayer3D
+var flooded_ambience: AudioStreamPlayer3D
 const LIFT_RIDE_DURATION := 6.2
 var lift_active := false
 var lift_elapsed := 0.0
@@ -125,6 +127,11 @@ func _audio() -> void:
 	lift_motor_audio = _spatial_foley("elevator_move.wav", -15)
 	lift_door_audio.position = Vector3(0, 1.2, -28.5)
 	lift_motor_audio.position = Vector3(0, 1.3, -28.5)
+	flooded_ambience = _spatial_foley("water.mp3", -22.0)
+	if flooded_ambience.stream == null and ResourceLoader.exists(Assets.path("vendor/water.mp3")):
+		flooded_ambience.stream = load(Assets.path("vendor/water.mp3"))
+	flooded_ambience.position = Vector3(0, 0.1, -13)
+	flooded_ambience.max_distance = 33.0
 
 func _spatial_foley(filename: String, volume: float) -> AudioStreamPlayer3D:
 	var sound := AudioStreamPlayer3D.new()
@@ -168,6 +175,9 @@ func _load_level(index: int) -> void:
 		var ambient_file := Assets.path("vendor/water.mp3" if stage == 2 else "vendor/hum.mp3")
 		if ResourceLoader.exists(ambient_file): ambience.stream = load(ambient_file)
 		if ambience.stream != null: ambience.play()
+	if is_instance_valid(flooded_ambience):
+		flooded_ambience.stop()
+		if flooded_ambience.stream != null: flooded_ambience.play()
 	clear_crew()
 
 func start_solo() -> void:
@@ -192,9 +202,10 @@ func start_shift(index: int) -> void:
 	mistakes = 0
 	generator_ready = 0
 	completed = false
+	ending_variant = 0
 	failed = false
 	running = true
-	notice = "寻找三段录音。每次找到线索，电梯信号都会更清晰。"
+	notice = "从现场调查开始 / 每一项证据都会改变真相。按 JOURNAL 回看线索。"
 	revision += 1
 	if is_instance_valid(net) and net.mode == "host":
 		for id in net.members:
@@ -222,6 +233,8 @@ func _process(delta: float) -> void:
 	if running:
 		level.update_state(doors, true, anomaly, repaired, elapsed, player.position, [0, 1, 2][quality])
 		if ambience.stream != null and not ambience.playing: ambience.play()
+		if is_instance_valid(flooded_ambience) and flooded_ambience.stream != null and not flooded_ambience.playing:
+			flooded_ambience.play()
 		story.update(delta)
 		level.update_water(delta)
 	for id in crew:
@@ -256,8 +269,8 @@ func _tick(delta: float) -> void:
 				if net.mode == "solo": ui.open_briefing()
 			else:
 				completed = true
-				notice = "记录已传回地面，但回声里的第二个人仍没有离开。"
-				story.say("[终末录音] 你已经离开了那里。可是有人和你一起上来了。", 9.0, "ending")
+				notice = story.ENDINGS[ending_variant]
+				story.say("[终章] " + notice, 15.0, "ending_seal" if ending_variant == 1 else "ending")
 				revision += 1
 		return
 	if elapsed >= next_anomaly:
@@ -274,22 +287,25 @@ func transfer_ready() -> bool:
 func prompt() -> String:
 	for i in range(3):
 		if player.position.distance_to(level.relays[i]) < 2.5:
-			return "录音 %02d / 已记录" % (i + 1) if repaired[i] else "E / 拾取录音 %02d" % (i + 1)
-	if player.position.distance_to(level.console_position) < 2.9: return "E / 收听调查终端"
+			return "证据已记录 / 查看日志" if repaired[i] else "E / 调查 " + story.EVIDENCE_TITLES[stage][i]
+	if player.position.distance_to(level.console_position) < 2.9: return "E / 打开调查日志"
 	if player.position.distance_to(level.exit_position) < 2.8:
-		return "正在下降 / 电梯门已关闭" if lift_active else ("E / 进入电梯" if transfer_ready() else "电梯无信号 / 仍有失联录音未找到")
+		return "电梯正在下降" if lift_active else ("E / 决定真相的去向" if stage == 2 and transfer_ready() else ("E / 进入电梯" if transfer_ready() else "电梯封锁 / 尚有证据未查清"))
 	return ""
 
 func interact() -> void:
 	if not running or failed or completed or lift_active: return
 	for i in range(3):
 		if player.position.distance_to(level.relays[i]) < 2.5:
-			net.request("collect", i)
+			if repaired[i]: ui.open_journal()
+			else: net.request("collect", i)
 			return
 	if player.position.distance_to(level.console_position) < 2.9:
-		story.say("[调查终端] 这里没有摄像机控制功能。林岚的记录散落在走廊和侧室。", 8)
+		ui.open_journal()
 		return
-	if player.position.distance_to(level.exit_position) < 2.8: net.request("transfer")
+	if player.position.distance_to(level.exit_position) < 2.8:
+		if stage == 2 and transfer_ready(): ui.open_final_choice()
+		else: net.request("transfer", 0)
 
 func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) -> void:
 	if not net.authoritative() or not running or failed or completed: return
@@ -297,10 +313,14 @@ func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) ->
 		"collect":
 			if index < 0 or index >= 3 or pos.distance_to(level.relays[index]) >= 2.5 or repaired[index]: return
 			repaired[index] = true
-			notice = "录音 %02d 已保存 / %d of 3。" % [index + 1, repaired.count(true)]
-			story.say(story.MEMORY_TEXT[stage][index], 9, "tape_%d_%d" % [stage, index])
+			notice = "新证据 / " + story.EVIDENCE_TITLES[stage][index] + "，调查进度 %d/3。" % repaired.count(true)
+			story.on_discovery(stage, index, repaired.count(true))
+			anomaly = (index + stage) % 3
+			anomaly_until = elapsed + 1.3
 		"transfer":
 			if not transfer_ready() or lift_active or pos.distance_to(level.exit_position) >= 2.8: return
+			if stage == 2 and index not in [0, 1]: return
+			ending_variant = index if stage == 2 else 0
 			lift_active = true
 			lift_elapsed = 0.0
 			lift_epoch += 1
@@ -317,7 +337,7 @@ func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) ->
 	if hum.stream != null: hum.play()
 
 func snapshot() -> Dictionary:
-	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running,"lift_active":lift_active,"lift_elapsed":lift_elapsed,"lift_epoch":lift_epoch}
+	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running,"lift_active":lift_active,"lift_elapsed":lift_elapsed,"lift_epoch":lift_epoch,"ending_variant":ending_variant}
 
 func receive_state(state: Dictionary) -> void:
 	if net.authoritative(): return
@@ -345,6 +365,7 @@ func receive_state(state: Dictionary) -> void:
 	notice = state.notice
 	revision = state.revision
 	running = state.running
+	ending_variant = int(state.get("ending_variant", 0))
 	lift_epoch = int(state.get("lift_epoch", 0))
 	lift_active = bool(state.get("lift_active", false))
 	lift_elapsed = float(state.get("lift_elapsed", 0.0))
@@ -367,7 +388,7 @@ func receive_state(state: Dictionary) -> void:
 		player.end_lift_ride()
 	if running and not was_running: story.say("[无线电] 如果听见不属于你的脚步，别追。先找齐三段录音。", 10)
 	for i in range(3):
-		if repaired[i] and not previous_repaired[i]: story.say(story.MEMORY_TEXT[stage][i], 9, "tape_%d_%d" % [stage, i])
+		if repaired[i] and not previous_repaired[i]: story.on_discovery(stage, i, repaired.count(true))
 
 func update_crew(poses: Dictionary) -> void:
 	var local_id := multiplayer.get_unique_id()
@@ -377,14 +398,13 @@ func update_crew(poses: Dictionary) -> void:
 		if id == local_id: continue
 		# Reconstruct remote footsteps from validated ENet position updates;
 		# never mirror their camera or call another peer's controls.
-		if stage == 2:
-			var step_position: Vector3 = poses[id].p
-			if remote_water_steps.has(id):
-				if step_position.distance_to(remote_water_steps[id]) > 0.95:
-					level.add_water_step(step_position)
-					remote_water_steps[id] = step_position
-			else:
+		var step_position: Vector3 = poses[id].p
+		if remote_water_steps.has(id):
+			if step_position.distance_to(remote_water_steps[id]) > 0.95:
+				level.add_water_step(step_position)
 				remote_water_steps[id] = step_position
+		else:
+			remote_water_steps[id] = step_position
 		if not crew.has(id):
 			crew[id] = _crew_avatar(id)
 			crew[id].position = poses[id].p
@@ -414,7 +434,7 @@ func clear_crew() -> void:
 	for id in crew.keys(): remove_crew(id)
 
 func _exit_tree() -> void:
-	for audio in [ambience, footsteps, hum, splash_audio, lift_door_audio, lift_motor_audio]:
+	for audio in [ambience, footsteps, hum, splash_audio, lift_door_audio, lift_motor_audio, flooded_ambience]:
 		if is_instance_valid(audio):
 			audio.stop()
 			audio.stream = null
@@ -445,5 +465,5 @@ func set_audio_volume(value: float) -> void:
 
 func next_objective() -> Dictionary:
 	for i in range(3):
-		if not repaired[i]: return {"text":"寻找录音 %02d / %d of 3" % [i + 1, repaired.count(true)], "position":level.relays[i]}
-	return {"text":"将林岚的录音带回电梯", "position":level.exit_position}
+		if not repaired[i]: return {"text":story.EVIDENCE_TITLES[stage][i] + " / " + story.EVIDENCE_WHY[stage][i], "position":level.relays[i]}
+	return {"text":"进入电梯 / 选择真相的去向" if stage == 2 else "电梯已解锁 / 前往下一层", "position":level.exit_position}

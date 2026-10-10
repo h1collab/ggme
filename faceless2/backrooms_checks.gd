@@ -30,8 +30,11 @@ func run() -> void:
 		var sourced := 0
 		for node in game.level.find_children("*", "MeshInstance3D", true, false):
 			if String(node.name).begins_with("LicensedGLB_"): sourced += 1
-		check(sourced >= 30, "Imported authored meshes render the room instead of cuboid wall art")
-		check(game.level.relays.size() == 3 and game.level.doors.is_empty(), "Three explorable recordings, no surveillance shutters")
+		check(sourced >= 70, "Licensed GLB meshes render architecture, fixtures and elevator instead of primitives")
+		check(game.level.splash_particles.mesh == game.level.architecture_meshes["Object_68"], "Even splash droplets reuse authored GLB geometry")
+		check(game.level.add_water_step(Vector3(game.level.wet_regions[0].get_center().x, 0, game.level.wet_regions[0].get_center().y)), "Every floor has interactive water")
+		check(game.level.relays.size() == 3 and game.level.doors.is_empty(), "Three distinct investigation objects, no surveillance shutters")
+		check(game.level.find_children("LicensedEvidence_*", "", true, false).size() == 3, "All evidence uses authored GLB furniture and props")
 		check(game.level.find_children("ScannedProp_*", "", true, false).size() >= 6, "Licensed prop GLBs remain present")
 		var ray := PhysicsRayQueryParameters3D.create(Vector3(0, 1, -15), Vector3(0, -1, -15))
 		check(not game.get_world_3d().direct_space_state.intersect_ray(ray).is_empty(), "Cheap matching floor collision / layer %d" % layer)
@@ -39,11 +42,14 @@ func run() -> void:
 		check(not game.repaired[0], "Out-of-range pickup rejected")
 		for i in range(3):
 			game.apply_action("collect", i, game.level.relays[i] + Vector3(0, 0, 1), false)
-			check(game.repaired[i], "Recording %d can be found" % i)
+			check(game.repaired[i], "Evidence %d can be inspected" % i)
 			var revision: int = game.revision
 			game.apply_action("collect", i, game.level.relays[i] + Vector3(0, 0, 1), false)
 			check(game.revision == revision, "Same recording cannot be farmed")
-		check(game.transfer_ready(), "Exit unlocked by three story memories without survival timer")
+		check(game.transfer_ready(), "Exit unlocked by three distinct pieces of evidence without survival timer")
+		game.ui.open_journal()
+		check(game.ui.panel_kind == "journal", "Collected evidence is available as readable story journal")
+		game.ui.close_panels()
 		game._tick(700)
 		check(not game.failed and game.transfer_ready(), "No timed power or CCTV failure gameplay")
 		game.apply_action("transfer", 0, game.level.spawn, false)
@@ -52,6 +58,16 @@ func run() -> void:
 		check(game.lift_active and game.stage == layer, "Transfer plays elevator rather than teleporting instantly")
 		game._tick(game.LIFT_RIDE_DURATION + 0.15)
 		check(game.completed if layer == 2 else game.stage == layer + 1, "Three-layer exit progression after descent")
+	game.start_shift(2)
+	game.ui.close_panels()
+	game.repaired = [true,true,true]
+	game.ui.open_final_choice()
+	check(game.ui.panel_kind == "ending_choice", "Final level offers two endings instead of auto-uploading a repaired tape")
+	game.ui.close_panels()
+	game.apply_action("transfer", 1, game.level.exit_position, false)
+	check(game.ending_variant == 1 and game.snapshot().ending_variant == 1, "Host-authoritative seal-the-signal ending is replicated")
+	game._tick(game.LIFT_RIDE_DURATION + 0.2)
+	check(game.completed and game.notice == game.story.ENDINGS[1], "Alternative ending survives elevator ride")
 	game.start_shift(0)
 	game.ui.close_panels()
 	game.player.set_physics_process(true)
