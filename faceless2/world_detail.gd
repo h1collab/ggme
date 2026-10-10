@@ -174,8 +174,8 @@ void fragment() {
 	var stone := SphereMesh.new()
 	stone.radius = 0.5
 	stone.height = 0.65
-	stone.radial_segments = 9
-	stone.rings = 5
+	stone.radial_segments = 16
+	stone.rings = 9
 	var arrays := stone.surface_get_arrays(0)
 	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	for i in range(vertices.size()):
@@ -194,12 +194,14 @@ void fragment() {
 shader_type spatial;
 varying vec3 world;
 varying float shade;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}
 void vertex(){world=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;shade=INSTANCE_CUSTOM.y;}
 void fragment(){
- float grain=sin(world.x*83.0+world.z*57.0)*sin(world.y*71.0+world.z*39.0);
- float moss=smoothstep(0.2,0.85,sin(world.x*4.0)*cos(world.z*3.0));
- ALBEDO=mix(vec3(0.19,0.18,0.16),vec3(0.09,0.105,0.055),moss*0.55)*(0.8+shade*0.25+grain*0.08);
- ROUGHNESS=0.96;SPECULAR=0.15;
+ float grain=noise(world.xz*12.0);
+ float moss=smoothstep(0.3,0.8,noise(world.xz*3.2));
+ ALBEDO=mix(vec3(0.13,0.115,0.095),vec3(0.055,0.067,0.035),moss*0.55)*(0.8+shade*0.25+grain*0.08);
+ ROUGHNESS=0.98;METALLIC=0.0;SPECULAR=0.0;
 }
 """
 	var rock_material := ShaderMaterial.new()
@@ -217,13 +219,14 @@ void fragment(){
 			var placements: Array[Transform3D] = []
 			for i in range(batch.multimesh.instance_count):
 				var side := -1.0 if i % 2 == 0 else 1.0
-				var x := side * random.randf_range(9.3, 17.0)
+				var x := side * random.randf_range(9.3 if batch == grass_batch else 9.8, 17.0)
 				var z := 25.0 - float(sector) * 37.0 - random.randf_range(0, 37)
 				var is_grass: bool = batch == grass_batch
 				var factor := random.randf_range(0.6, 1.1) if is_grass else random.randf_range(0.35, 1.3)
 				var position := Vector3(x, game.GroundSurface.forest_height(x, z) - 0.035, z)
 				if not is_grass: position.y += factor * 0.18
-				var basis := Basis(Vector3.UP, random.randf_range(-PI, PI)).scaled(Vector3(factor, factor, factor))
+				var proportions := Vector3.ONE if is_grass else Vector3(random.randf_range(0.75,1.35),1.0,random.randf_range(0.75,1.35))
+				var basis := Basis(Vector3.UP, random.randf_range(-PI, PI)).scaled(proportions * factor)
 				var placement := Transform3D(basis, position)
 				placements.append(placement)
 				batch.multimesh.set_instance_transform(i, placement)
@@ -286,8 +289,10 @@ func _build_field_signs() -> void:
 		sign.add_child(support)
 		var label := Label3D.new()
 		label.text = specification.text
-		label.font_size = 28
-		label.pixel_size = 0.0019
+		label.font_size = 32
+		label.pixel_size = 0.0022
+		label.shaded = true
+		label.outline_size = 0
 		label.modulate = Color(0.74,0.73,0.61)
 		label.no_depth_test = false
 		label.position = Vector3(0,1.75,0.022)

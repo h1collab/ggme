@@ -71,6 +71,8 @@ func run() -> void:
 		for placement in batch.get_meta("placements"):
 			var position: Vector3 = placement.origin
 			check(absf(position.x) >= 9.3, "Decorative scatter must not obstruct the walkable shoulder or objectives")
+			var extent: AABB = placement * batch.multimesh.mesh.get_aabb()
+			check(extent.position.x > 8.55 or extent.end.x < -8.55, "Full decorative mesh extents must stay beyond the collision boundary")
 			var soil: float = game.GroundSurface.forest_height(position.x, position.z) - 0.035
 			check(position.y >= soil - 0.01 and position.y < soil + 0.3, "Scatter must follow terrain rather than float or sink")
 	check(game.world_detail.undergrowth_batches.size() == 4 and game.world_detail.rock_batches.size() == 4, "Detail must be divided into independently culled sectors")
