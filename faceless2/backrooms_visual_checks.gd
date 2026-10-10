@@ -13,7 +13,9 @@ func _initialize() -> void:
 func shot(filename: String) -> void:
 	game.ui.refresh()
 	game.level.update_state(game.doors, game.lights_on, game.anomaly, game.repaired, 0.2, game.ui.monitor_camera.position if game.ui.monitoring else game.player.position, 3)
-	for i in range(8): await process_frame
+	for i in range(12):
+		game.ui.refresh()
+		await process_frame
 	await RenderingServer.frame_post_draw
 	var picture := root.get_texture().get_image()
 	var result := picture.save_png(output.path_join(filename + ".png"))

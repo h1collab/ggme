@@ -113,6 +113,7 @@ func run() -> void:
 		root.content_scale_size = extent
 		game.ui._fit()
 		var bounds: Rect2 = game.ui.canvas.get_global_rect()
+		check(bounds.end.x <= root.get_visible_rect().size.x + 0.01 and bounds.end.y <= root.get_visible_rect().size.y + 0.01, "Responsive canvas fits both viewport edges")
 		check(bounds.position.x >= -0.01 and bounds.position.y >= -0.01, "Responsive layout stays inside viewport")
 	game.ui.open_about()
 	check(game.ui.panel_kind == "about", "About page available")

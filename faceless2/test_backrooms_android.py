@@ -19,7 +19,7 @@ manifest = ET.fromstring((out / 'android-manifest.xml').read_text())
 ns = '{http://schemas.android.com/apk/res/android}'
 package = manifest.get('package')
 activity = None
-for candidate in manifest.findall('application/activity'):
+for candidate in manifest.findall('application/activity') + manifest.findall('application/activity-alias'):
     for intent in candidate.findall('intent-filter'):
         if any(a.get(ns + 'name') == 'android.intent.action.MAIN' for a in intent.findall('action')):
             activity = candidate.get(ns + 'name')
@@ -119,6 +119,12 @@ try:
     text = logs()
     assert not any(x in text for x in ['FATAL EXCEPTION', 'SCRIPT ERROR', 'Parse Error', 'ERROR:', 'Fatal signal']), text
     print('Android APK checks: PASS / install, launch, landscape, touch movement, live monitor, actual P2P join, shutter replication, disconnect')
+except Exception:
+    try:
+        (out / 'android-failure.png').write_bytes(adb('exec-out', 'screencap', '-p', binary=True))
+        (out / 'android-window.txt').write_text(adb('shell', 'dumpsys', 'window'))
+    except Exception: pass
+    raise
 finally:
     (out / 'android-logcat.log').write_text(logs())
     if host is not None and host.poll() is None:

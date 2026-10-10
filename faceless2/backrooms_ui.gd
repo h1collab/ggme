@@ -70,8 +70,12 @@ func _fit() -> void:
 	var factor := minf(extent.x / 1600, extent.y / 900)
 	var safe := DisplayServer.get_display_safe_area()
 	if OS.has_feature("android") and safe.size.x > 0:
-		factor = minf(float(safe.size.x) / 1600, float(safe.size.y) / 900)
-		canvas.position = Vector2(safe.position) + (Vector2(safe.size) - Vector2(1600, 900) * factor) * 0.5
+		var physical_to_canvas := extent / Vector2(get_window().size)
+		var safe_size := Vector2(safe.size) * physical_to_canvas
+		var safe_position := Vector2(safe.position) * physical_to_canvas
+		factor = minf(safe_size.x / 1600, safe_size.y / 900)
+		canvas.position = safe_position + (safe_size - Vector2(1600, 900) * factor) * 0.5
+		print("ANDROID_LAYOUT / logical=", extent, " physical=", get_window().size, " safe=", safe)
 	else: canvas.position = (extent - Vector2(1600, 900) * factor) * 0.5
 	canvas.scale = Vector2.ONE * factor
 
@@ -340,13 +344,13 @@ func open_monitor() -> void:
 	for i in range(3):
 		camera_buttons.append(_button(panels, "CAM / %02d" % (i + 1), Rect2(55 + i * 340, 716, 320, 72), func(): select_camera(i)))
 	_button(panels, "REPORT FAULT ON SELECTED FEED", Rect2(55, 811, 1000, 60), func(): game.net.request("report", selected_camera))
-	console_status = _label(panels, "", Vector2(1095, 116), 450, 24)
+	console_status = _label(panels, _monitor_status(), Vector2(1095, 116), 450, 24)
 	door_buttons.clear()
 	for i in range(2):
-		door_buttons.append(_button(panels, "", Rect2(1090, 295 + i * 85, 455, 66), func(): game.net.request("door", i)))
-	light_button = _button(panels, "", Rect2(1090, 470, 455, 66), func(): game.net.request("lights"))
-	fan_button = _button(panels, "", Rect2(1090, 555, 455, 66), func(): game.net.request("fan"))
-	generator_button = _button(panels, "", Rect2(1090, 640, 455, 66), func(): game.net.request("generator"))
+		door_buttons.append(_button(panels, "%s SHUTTER / %s" % ["LEFT" if i == 0 else "RIGHT", "CLOSED" if game.doors[i] else "OPEN"], Rect2(1090, 295 + i * 85, 455, 66), func(): game.net.request("door", i)))
+	light_button = _button(panels, "HALL LIGHTS / " + ("ON" if game.lights_on else "OFF"), Rect2(1090, 470, 455, 66), func(): game.net.request("lights"))
+	fan_button = _button(panels, "VENTILATION / " + ("ON" if game.fan_on else "OFF"), Rect2(1090, 555, 455, 66), func(): game.net.request("fan"))
+	generator_button = _button(panels, "BACKUP CHARGE +12%", Rect2(1090, 640, 455, 66), func(): game.net.request("generator"))
 	_label(panels, "Shutters slow interference.\nClosed shutters consume more power.\nFan cools; backup charge adds heat.", Vector2(1100, 745), 435, 21, MUTED)
 	retarget_camera()
 	monitor_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -379,8 +383,11 @@ func refresh() -> void:
 	notice_label.text = game.notice
 	if is_instance_valid(monitor_notice): monitor_notice.text = game.notice
 	if is_instance_valid(room_status): room_status.text = game.net.status
+	if panel_kind == "monitor":
+		for child in panels.get_children():
+			if child is Label or child is Button: child.queue_redraw()
 	if is_instance_valid(console_status):
-		console_status.text = "%02d:%02d / SHIFT\nPOWER %d%%\nSIGNAL %d%% / HEAT %d%%\nREPORTS %d/3" % [2 + int(game.elapsed / 45), int(fmod(game.elapsed / 45, 1.0) * 60), int(game.power), int(game.signal_pressure), int(game.heat), game.reports]
+		console_status.text = _monitor_status()
 		for i in range(2): door_buttons[i].text = "%s SHUTTER / %s" % ["LEFT" if i == 0 else "RIGHT", "CLOSED" if game.doors[i] else "OPEN"]
 		light_button.text = "HALL LIGHTS / " + ("ON" if game.lights_on else "OFF")
 		fan_button.text = "VENTILATION / " + ("ON" if game.fan_on else "OFF")
@@ -407,3 +414,6 @@ func open_settings() -> void:
 	sensitivity.value_changed.connect(func(value: float): game.sensitivity = value; game.save_settings())
 	panels.add_child(sensitivity)
 	_label(panels, "Keyboard: WASD / Shift / E / F / Escape. Touch: left stick, right-side look, USE and TORCH.", Vector2(75, 792), 1400, 23, MUTED)
+
+func _monitor_status() -> String:
+	return "%02d:%02d / SHIFT\nPOWER %d%%\nSIGNAL %d%% / HEAT %d%%\nREPORTS %d/3" % [2 + int(game.elapsed / 45), int(fmod(game.elapsed / 45, 1.0) * 60), int(game.power), int(game.signal_pressure), int(game.heat), game.reports]
