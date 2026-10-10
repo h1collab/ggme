@@ -1,0 +1,154 @@
+{
+  "assets": [
+    {
+      "file": "carpet.jpg",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/textures/carpet.jpg",
+      "sha256": "e59e16f99e013f43eb49f6e5273924bb2f4f0e9e097b7d21f8c637a5211471d1",
+      "source": "https://ambientcg.com/view?id=Carpet009",
+      "license": "CC0-1.0",
+      "author": "ambientCG"
+    },
+    {
+      "file": "ceiling.jpg",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/textures/ceiling.jpg",
+      "sha256": "65fc441afe3ec51ff57077df46a94e5620465aa1acd8ade32a93d6e20c6c6044",
+      "source": "https://ambientcg.com/view?id=OfficeCeiling005",
+      "license": "CC0-1.0",
+      "author": "ambientCG"
+    },
+    {
+      "file": "wallpaper.jpg",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/textures/wallpaper.jpg",
+      "sha256": "b6fafea09c4c8467825224d3d696ea994e80752d0ef0ed364408e3b06b24fe7d",
+      "source": "https://ambientcg.com/view?id=Wallpaper001A",
+      "license": "CC0-1.0",
+      "author": "ambientCG"
+    },
+    {
+      "file": "poolfloor.jpg",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/textures/poolfloor.jpg",
+      "sha256": "bb44a8807b82222376fcd1ab221dcfd65d7e712e0f11e76db86d4c0b6e5cd277",
+      "source": "https://ambientcg.com/view?id=Tiles132A",
+      "license": "CC0-1.0",
+      "author": "ambientCG"
+    },
+    {
+      "file": "pooltile.jpg",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/textures/pooltile.jpg",
+      "sha256": "09bc9cf6e08dc4a58df668df0f2cb30fea54eee48ece77263419222497a05d66",
+      "source": "https://ambientcg.com/view?id=Tiles107",
+      "license": "CC0-1.0",
+      "author": "ambientCG"
+    },
+    {
+      "file": "schoolchair.glb",
+      "url": "https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/77343cac874f06b73d16ad0063339df7c9ca254c/packs/polyhaven-furniture/models/schoolchair_01/schoolchair_01.glb",
+      "sha256": "437171ba6616fb3ca8c954b9e0b2540409950528c8ca0972bf78ceef52b91cc7",
+      "source": "https://polyhaven.com/a/schoolchair_01",
+      "license": "CC0-1.0",
+      "author": "Poly Haven / see source page"
+    },
+    {
+      "file": "schooldesk.glb",
+      "url": "https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/77343cac874f06b73d16ad0063339df7c9ca254c/packs/polyhaven-furniture/models/schooldesk_01/schooldesk_01.glb",
+      "sha256": "61e9f826a5eee183591a5d0a737b3cb38af6c1f0ffdbe698b91e645a7267b888",
+      "source": "https://polyhaven.com/a/schooldesk_01",
+      "license": "CC0-1.0",
+      "author": "Poly Haven / see source page"
+    },
+    {
+      "file": "cabinet.glb",
+      "url": "https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/77343cac874f06b73d16ad0063339df7c9ca254c/packs/polyhaven-furniture/models/drawer_cabinet/drawer_cabinet.glb",
+      "sha256": "814d7306fe763fccbf074df18411c1606ff0a9c615db7a156f291743094a8bfe",
+      "source": "https://polyhaven.com/a/drawer_cabinet",
+      "license": "CC0-1.0",
+      "author": "Poly Haven / see source page"
+    },
+    {
+      "file": "shelf.glb",
+      "url": "https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/77343cac874f06b73d16ad0063339df7c9ca254c/packs/polyhaven-furniture/models/steel_frame_shelves_03/steel_frame_shelves_03.glb",
+      "sha256": "4c9ab88855665250c5baab013c4fc421b19d3e1a91ec85f377026c5a50110072",
+      "source": "https://polyhaven.com/a/steel_frame_shelves_03",
+      "license": "CC0-1.0",
+      "author": "Poly Haven / see source page"
+    },
+    {
+      "file": "barrel.glb",
+      "url": "https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/77343cac874f06b73d16ad0063339df7c9ca254c/packs/polyhaven-industrial-containers/models/barrel_01/barrel_01.glb",
+      "sha256": "c03de6a6a13545a2e11a5c6a3b2311335fede3eec33400dba2e3ec01c737168d",
+      "source": "https://polyhaven.com/a/barrel_01",
+      "license": "CC0-1.0",
+      "author": "Poly Haven / see source page"
+    },
+    {
+      "file": "concrete.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor/concrete_floor_diff_1k.jpg",
+      "sha256": "5e06d0fb226f671470f59bf7798954b6965c9ed56dd45084dfd012e15737e444",
+      "source": "https://polyhaven.com/a/concrete_floor",
+      "license": "CC0-1.0",
+      "author": "Poly Haven"
+    },
+    {
+      "file": "concrete_normal.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor/concrete_floor_nor_gl_1k.jpg",
+      "sha256": "5a403c176361193b785198ab363d3dc3755773ca5b023f19e05874e50caea302",
+      "source": "https://polyhaven.com/a/concrete_floor",
+      "license": "CC0-1.0",
+      "author": "Poly Haven"
+    },
+    {
+      "file": "concrete_rough.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_floor/concrete_floor_rough_1k.jpg",
+      "sha256": "342110e685c07af2c56194662a796b2ab4f2a4d992a9745b8fc55943414faead",
+      "source": "https://polyhaven.com/a/concrete_floor",
+      "license": "CC0-1.0",
+      "author": "Poly Haven"
+    },
+    {
+      "file": "breathing.mp3",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/audio/breathing.mp3",
+      "sha256": "c8a68c2f35fc98d7be542cc2c53800ecfc1047cddf2d2d9dd95b4ca0b4018d09",
+      "source": "https://freesound.org/s/574208/",
+      "license": "CC0-1.0",
+      "author": "Freesound contributor / source ID"
+    },
+    {
+      "file": "hum.mp3",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/audio/hum.mp3",
+      "sha256": "57d5b0f2903d6f5fd7054bb81f1201c4f720aa53b9d5e1ad5c179809a8fdcc48",
+      "source": "https://freesound.org/s/777053/",
+      "license": "CC0-1.0",
+      "author": "Freesound contributor / source ID"
+    },
+    {
+      "file": "water.mp3",
+      "url": "https://raw.githubusercontent.com/yerdaulet-damir/liminal/ff9ee5b57e2531b4f8841d6e7564283f943f6d34/client/public/audio/water.mp3",
+      "sha256": "d2e1764160160ecde0c2e14d9f2ead1f28cc6b339fbd102be675da8df9fdde30",
+      "source": "https://freesound.org/s/861351/",
+      "license": "CC0-1.0",
+      "author": "Freesound contributor / source ID"
+    },
+    {
+      "file": "monster_step.ogg",
+      "url": "https://opengameart.org/sites/default/files/03-footstep.ogg",
+      "sha256": "9817cc93897ed1de5da87675b26be4196bfda3daa6f1de9dc4398a68d250cdb9",
+      "source": "https://opengameart.org/content/footsteps-0",
+      "license": "CC0-1.0",
+      "author": "GboxMikeFozzy"
+    },
+    {
+      "file": "crew.glb",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/edc7c9e67c639d230715049ee31f9a96a6babbbe/Models/CesiumMan/glTF-Binary/CesiumMan.glb",
+      "sha256": "b7001eaeea8254bd44773bcd247e78696d94169388fbb2a1800fc69434e777d9",
+      "source": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/edc7c9e67c639d230715049ee31f9a96a6babbbe/Models/CesiumMan",
+      "license": "CC-BY-4.0",
+      "author": "Cesium (2017)"
+    }
+  ],
+  "font": {
+    "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf",
+    "sha256": "faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9",
+    "source": "https://github.com/notofonts/noto-cjk",
+    "license": "OFL-1.1"
+  }
+}
