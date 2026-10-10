@@ -4,7 +4,7 @@ extends Control
 # safe area, including tablets and ultrawide phones. The 3D world stays full size.
 const JoystickScript = preload("res://scripts/virtual_joystick.gd")
 const TouchActionScript = preload("res://scripts/touch_action.gd")
-const INK := Color(0.018, 0.033, 0.041, 0.88)
+const INK := Color(0.018, 0.033, 0.041, 0.72)
 const WHITE := Color(0.89, 0.94, 0.94)
 const MUTED := Color(0.48, 0.62, 0.66)
 const TEAL := Color(0.36, 0.88, 0.83)
@@ -52,6 +52,12 @@ var marker_visible := false
 var marker_offscreen := false
 var settings_return: Control
 var settings_snapshot := {}
+var about_panel: Control
+var website_button: Button
+var brand_panel: Control
+var brand_credit: Label
+var brand_remaining := 0.0
+const OFFICIAL_WEBSITE := "https://zorix.it"
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -64,6 +70,8 @@ func _ready() -> void:
 	_build_hud()
 	_build_menus()
 	_build_cinema()
+	_build_brand()
+	show_brand_intro()
 	get_viewport().size_changed.connect(_fit_layout)
 	_fit_layout()
 	refresh_state()
@@ -150,14 +158,14 @@ func _build_hud() -> void:
 	combat.size = DESIGN
 	combat.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	design.add_child(combat)
-	var mission := _card(combat, Vector2(38, 36), Vector2(480, 160))
+	var mission := _card(combat, Vector2(38, 36), Vector2(480, 144))
 	_label(mission, "FIELD OBJECTIVE", Vector2(22, 14), Vector2(430, 24), 14, TEAL)
-	game.objective_label = _label(mission, "RESTORE THE CHECKPOINT", Vector2(22, 44), Vector2(435, 65), 21)
+	game.objective_label = _label(mission, "RESTORE THE CHECKPOINT", Vector2(22, 44), Vector2(435, 55), 20)
 	game.objective_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	progress_label = _label(mission, "GRID 0/3    EVIDENCE 0/2", Vector2(22, 124), Vector2(430, 22), 15, MUTED)
+	progress_label = _label(mission, "GRID 0/3    EVIDENCE 0/2", Vector2(22, 110), Vector2(430, 22), 15, MUTED)
 	compass_label = _label(combat, "N    000°", Vector2(670, 32), Vector2(260, 36), 22)
 	compass_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	game.hud = _label(combat, "BLACKWOOD CHECKPOINT", Vector2(38, 210), Vector2(490, 26), 14, MUTED)
+	game.hud = _label(combat, "BLACKWOOD CHECKPOINT", Vector2(38, 194), Vector2(490, 26), 14, MUTED)
 	var vitals := _card(combat, Vector2(288, 782), Vector2(380, 80))
 	health_value = _label(vitals, "100", Vector2(20, 8), Vector2(64, 34), 28)
 	_label(vitals, "VITALS", Vector2(86, 18), Vector2(80, 22), 13, MUTED)
@@ -166,7 +174,7 @@ func _build_hud() -> void:
 	stamina_bar = _bar(vitals, Vector2(250, 22), Vector2(108, 4), WHITE)
 	_label(vitals, "BAT", Vector2(207, 44), Vector2(40, 18), 12, MUTED)
 	battery_bar = _bar(vitals, Vector2(250, 52), Vector2(108, 4), Color(0.88, 0.69, 0.36))
-	var ammo := _card(combat, Vector2(1232, 782), Vector2(330, 80))
+	var ammo := _card(combat, Vector2(1232, 112), Vector2(330, 80))
 	weapon_label = _label(ammo, "G19 / PISTOL", Vector2(22, 12), Vector2(174, 20), 14, MUTED)
 	ammo_value = _label(ammo, "12 / 048", Vector2(22, 32), Vector2(202, 38), 31)
 	status_label = _label(ammo, "READY", Vector2(222, 24), Vector2(90, 36), 13, TEAL)
@@ -198,17 +206,17 @@ func _build_hud() -> void:
 	var aim := _button(touch_controls, "AIM", Vector2(1474, 350), Vector2(88, 88), false, 44)
 	aim.button_down.connect(func(): if game.player: game.player.set_touch_aiming(true))
 	aim.button_up.connect(func(): if game.player: game.player.set_touch_aiming(false))
-	var reload := _button(touch_controls, "LOAD", Vector2(1474, 592), Vector2(88, 70))
+	var reload := _button(touch_controls, "RELOAD", Vector2(1434, 592), Vector2(128, 70))
 	reload.pressed.connect(func(): if game.player: game.player.reload_weapon())
 	var light := _button(touch_controls, "LIGHT", Vector2(1240, 700), Vector2(96, 58))
 	light.pressed.connect(func(): if game.player: game.player.toggle_flashlight())
-	var swap := _button(touch_controls, "SWAP", Vector2(1352, 700), Vector2(96, 58))
+	var swap := _button(touch_controls, "SWAP", Vector2(1344, 700), Vector2(88, 58))
 	swap.pressed.connect(func(): if game.player: game.player.switch_weapon())
-	var crouch := _button(touch_controls, "LOW", Vector2(1464, 700), Vector2(98, 58))
+	var crouch := _button(touch_controls, "CROUCH", Vector2(1442, 700), Vector2(120, 58))
 	crouch.pressed.connect(func(): if game.player: game.player.toggle_crouch())
 	interaction_button = _button(touch_controls, "USE", Vector2(1058, 690), Vector2(128, 68), true)
 	interaction_button.pressed.connect(game._interact)
-	radio_panel = _card(combat, Vector2(572, 100), Vector2(456, 136))
+	radio_panel = _card(combat, Vector2(38, 246), Vector2(456, 136))
 	radio_speaker = _label(radio_panel, "RADIO / DISPATCH", Vector2(20, 12), Vector2(416, 20), 14, TEAL)
 	radio_text = _label(radio_panel, "", Vector2(20, 42), Vector2(416, 82), 17)
 	radio_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -247,7 +255,12 @@ func _build_menus() -> void:
 	options.pressed.connect(func(): open_settings(game.main_menu))
 	var archive := _button(game.main_menu, "INCIDENT ARCHIVE", Vector2(90, 560), Vector2(440, 64))
 	archive.pressed.connect(func(): game.main_menu.hide(); game.archive_panel.show(); queue_redraw())
-	var briefing := _card(game.main_menu, Vector2(698, 142), Vector2(804, 544), Color(0.026, 0.06, 0.07, 0.74))
+	var about := _button(game.main_menu, "ABOUT US", Vector2(90, 642), Vector2(440, 64))
+	about.pressed.connect(open_about)
+	_picture(game.main_menu, "res://ui/game_icon.png", Vector2(1434, 54), Vector2(68, 68))
+	_picture(game.main_menu, "res://ui/team_logo.jpg", Vector2(1200, 790), Vector2(72, 64))
+	_label(game.main_menu, "Zorix GAme Team\nzorix.it", Vector2(1290, 792), Vector2(250, 62), 16, WHITE)
+	var briefing := _card(game.main_menu, Vector2(698, 142), Vector2(804, 544), Color(0.026, 0.045, 0.055, 0.68))
 	_label(briefing, "MISSION FILE  /  0213-BW", Vector2(34, 26), Vector2(700, 24), 14, TEAL)
 	_label(briefing, "THE LAST SIGNAL", Vector2(34, 70), Vector2(690, 56), 38)
 	var desc := _label(briefing, "A silent checkpoint. An armed response.\nSomething that follows the signal.", Vector2(34, 144), Vector2(650, 90), 22)
@@ -258,6 +271,7 @@ func _build_menus() -> void:
 	_label(briefing, "6 MODES     /     OFFLINE CAMPAIGN", Vector2(34, 492), Vector2(700, 24), 13, TEAL)
 	_label(game.main_menu, "RECOMMENDED: HEADPHONES  /  LANDSCAPE", Vector2(90, 736), Vector2(650, 28), 14, MUTED)
 	_label(game.main_menu, "BLACKWOOD SECURITY   •   RESTRICTED ACCESS", Vector2(90, 824), Vector2(900, 24), 12, MUTED)
+	_build_about()
 	_build_modes()
 	_build_settings()
 	game.archive_panel = _page()
@@ -281,6 +295,79 @@ func _build_menus() -> void:
 	exit.pressed.connect(game.return_to_menu)
 	var controls := _label(pause_panel, "FIELD CONTROLS\n\nWASD / joystick   Move\nMouse / right-screen drag   Look\nLMB / FIRE   Shoot       RMB / AIM   Aim\nR   Reload       Q   Switch weapon\nF   Flashlight       C   Crouch\nShift / RUN   Sprint       E / USE   Interact", Vector2(766, 294), Vector2(670, 354), 21)
 	controls.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+func _picture(parent: Control, path: String, pos: Vector2, extent: Vector2) -> TextureRect:
+	var picture := TextureRect.new()
+	# Remove native-image minimum size before assigning texture and layout size.
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	var source: Texture2D = load(path)
+	if path.ends_with("team_logo.jpg"):
+		var logo := AtlasTexture.new()
+		logo.atlas = source
+		logo.region = Rect2(291, 297, 769, 767)
+		picture.texture = logo
+	else:
+		picture.texture = source
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.position = pos
+	picture.size = extent
+	picture.set_meta("layout_extent", extent)
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(picture)
+	return picture
+
+func _build_about() -> void:
+	about_panel = _page()
+	_page_title(about_panel, "THE TEAM BEHIND FACELESS 2", "ABOUT US")
+	_picture(about_panel, "res://ui/team_logo.jpg", Vector2(120, 232), Vector2(330, 296))
+	_label(about_panel, "Zorix GAme Team", Vector2(514, 248), Vector2(904, 70), 42)
+	_label(about_panel, "Made By Zorix GAme Team", Vector2(518, 334), Vector2(900, 42), 24, MUTED)
+	_label(about_panel, "OFFICIAL WEBSITE", Vector2(518, 422), Vector2(850, 26), 14, TEAL)
+	website_button = _button(about_panel, "zorix.it   ↗", Vector2(514, 468), Vector2(624, 70), true)
+	website_button.pressed.connect(func(): OS.shell_open(OFFICIAL_WEBSITE))
+	_label(about_panel, "FACELESS 2\nA Blackwood survival operation.", Vector2(518, 590), Vector2(900, 100), 20, MUTED)
+	var back := _button(about_panel, "BACK", Vector2(100, 754), Vector2(280, 62))
+	back.pressed.connect(close_about)
+
+func open_about() -> void:
+	game.main_menu.hide()
+	about_panel.show()
+	website_button.grab_focus()
+	refresh_state()
+
+func close_about() -> void:
+	about_panel.hide()
+	game.main_menu.show()
+	continue_button.grab_focus()
+	refresh_state()
+
+func _build_brand() -> void:
+	brand_panel = _page()
+	var background := ColorRect.new()
+	background.size = DESIGN
+	background.color = Color.WHITE
+	background.mouse_filter = Control.MOUSE_FILTER_STOP
+	brand_panel.add_child(background)
+	_picture(brand_panel, "res://ui/team_logo.jpg", Vector2(640, 220), Vector2(320, 320))
+	brand_credit = _label(brand_panel, "Made By Zorix GAme Team", Vector2(350, 628), Vector2(900, 70), 32, Color(0.04, 0.08, 0.16))
+	brand_credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	brand_credit.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+	var presents := _label(brand_panel, "P R E S E N T S", Vector2(600, 732), Vector2(400, 32), 14, Color(0.3, 0.36, 0.43))
+	presents.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	presents.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
+	var skip := _button(brand_panel, "CONTINUE  >", Vector2(1292, 790), Vector2(240, 60))
+	skip.pressed.connect(finish_brand_intro)
+
+func show_brand_intro(autoplay := true) -> void:
+	brand_panel.show()
+	brand_remaining = 3.2 if autoplay else -1.0
+	refresh_state()
+
+func finish_brand_intro() -> void:
+	if not is_instance_valid(brand_panel): return
+	brand_panel.hide()
+	brand_remaining = 0
+	refresh_state()
 
 func _build_modes() -> void:
 	game.mode_panel = _page()
@@ -363,7 +450,11 @@ func close_settings() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_ESCAPE:
-		if game.cinematic_running:
+		if brand_panel.visible:
+			finish_brand_intro()
+		elif about_panel.visible:
+			close_about()
+		elif game.cinematic_running:
 			game.skip_cinematic()
 		elif game.settings_panel.visible:
 			close_settings()
@@ -409,7 +500,7 @@ func _build_cinema() -> void:
 	game.cinematic_camera.current = false
 
 func refresh_state() -> void:
-	combat_visible = game.game_started and not game.cinematic_running and not get_tree().paused and game.player != null and game.player.alive
+	combat_visible = not brand_panel.visible and game.game_started and not game.cinematic_running and not get_tree().paused and game.player != null and game.player.alive
 	combat.visible = combat_visible
 	game.notice.visible = combat_visible or game.main_menu.visible
 	touch_controls.visible = combat_visible and (OS.has_feature("mobile") or force_touch)
@@ -419,6 +510,10 @@ func refresh_state() -> void:
 	interaction_button.visible = not game.prompt_label.text.is_empty()
 	var save := ConfigFile.new()
 	continue_button.disabled = save.load("user://faceless2_save.cfg") != OK
+	if not game.game_started:
+		game.cinematic_camera.position = Vector3(1.8, 1.9, 12)
+		game.cinematic_camera.look_at(Vector3(-1, 1.3, -14), Vector3.UP)
+		game.cinematic_camera.current = true
 	queue_redraw()
 
 func update_vitals(h: float, s: float, b: float, weapon: String, mag: int, reserve: int) -> void:
@@ -428,7 +523,7 @@ func update_vitals(h: float, s: float, b: float, weapon: String, mag: int, reser
 	stamina_bar.value = s
 	battery_bar.value = b
 	health_value.modulate = RED if h < 35 else WHITE
-	weapon_label.text = "MK18 / RIFLE" if weapon == "RIFLE" else "G19 / PISTOL"
+	weapon_label.text = "AR15 / RIFLE" if weapon == "RIFLE" else "G19 / PISTOL"
 	ammo_value.text = "%02d / %03d" % [mag, reserve]
 	ammo_value.modulate = RED if mag <= (6 if weapon == "RIFLE" else 3) else WHITE
 	status_label.text = "RELOAD" if game.player.reloading else ("EMPTY" if mag == 0 else "READY")
@@ -450,7 +545,10 @@ func confirm_hit(killed := false) -> void:
 	if killed: kill_time = 0.42
 
 func _process(delta: float) -> void:
-	var active: bool = game.game_started and not get_tree().paused and not game.cinematic_running and game.player != null and game.player.alive
+	if brand_remaining > 0:
+		brand_remaining = maxf(0.0, brand_remaining - delta)
+		if brand_remaining == 0: finish_brand_intro()
+	var active: bool = not brand_panel.visible and game.game_started and not get_tree().paused and not game.cinematic_running and game.player != null and game.player.alive
 	if active != combat_visible: refresh_state()
 	# UI timers continue for menu notifications; combat effects freeze on pause.
 	notice_time = maxf(0, notice_time - delta)
@@ -495,22 +593,13 @@ func reticle_center() -> Vector2:
 
 func _draw() -> void:
 	if not is_instance_valid(design): return
-	var menu_visible: bool = game.main_menu.visible or game.mode_panel.visible or game.settings_panel.visible or game.archive_panel.visible or pause_panel.visible
+	var menu_visible: bool = game.main_menu.visible or game.mode_panel.visible or game.settings_panel.visible or game.archive_panel.visible or pause_panel.visible or about_panel.visible
 	if menu_visible:
-		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.009, 0.019, 0.027, 0.98))
+		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color(0.009, 0.019, 0.027, 0.62) if game.main_menu.visible else Color(0.009, 0.019, 0.027, 0.97))
+	if is_instance_valid(brand_panel) and brand_panel.visible:
+		draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color.WHITE)
 	draw_set_transform(design.position, 0, design.scale)
 	if game.main_menu.visible:
-		# Deterministic forest silhouette; no texture downloads or per-frame noise.
-		for i in range(18):
-			var x := 580.0 + i * 61.0
-			var h := 190.0 + fposmod(i * 79.0, 330.0)
-			var c := Color(0.04, 0.11, 0.13, 0.70)
-			draw_line(Vector2(x, 740), Vector2(x, 740 - h), c, 4)
-			for branch in range(5):
-				var y := 740.0 - h + branch * h * 0.15
-				var spread := 20.0 + branch * 12.0
-				draw_colored_polygon(PackedVector2Array([Vector2(x, y), Vector2(x - spread, y + h * 0.22), Vector2(x + spread, y + h * 0.22)]), c)
-		for i in range(12): draw_line(Vector2(650, 780 + i * 4), Vector2(1510, 780 + i * 4), Color(0.11, 0.29, 0.31, 0.12 - i * 0.008), 1)
 		draw_line(Vector2(90, 282), Vector2(530, 282), RED, 3)
 		draw_line(Vector2(90, 792), Vector2(1500, 792), Color(0.18, 0.30, 0.32), 1)
 	if not combat_visible: return

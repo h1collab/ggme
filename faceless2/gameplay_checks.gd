@@ -42,6 +42,16 @@ func run() -> void:
 	await create_timer(0.6).timeout
 	game.joystick.value = Vector2.ZERO
 	check(player.global_position.x < 8.3, "Road boundary must stop the player before leaving the playable ground")
+	player.global_position = Vector3(0, 0.03, -120)
+	game.joystick.value = Vector2(0, -1)
+	await create_timer(0.6).timeout
+	game.joystick.value = Vector2.ZERO
+	check(player.global_position.z > -121.5 and player.is_on_floor(), "Far boundary must prevent walking beyond collision terrain")
+	player.global_position = Vector3(0, 0.03, 26)
+	game.joystick.value = Vector2(0, 1)
+	await create_timer(0.6).timeout
+	game.joystick.value = Vector2.ZERO
+	check(player.global_position.z < 27.5 and player.is_on_floor(), "Checkpoint boundary must prevent falling behind the starting area")
 	# A real overhead collider must permit crouching but block standing.
 	player.global_position = Vector3(0, 0.03, -9)
 	player.toggle_crouch()

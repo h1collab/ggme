@@ -101,3 +101,13 @@ PC controls: WASD move, Shift run, C crouch, F flashlight, left mouse/Space fire
 right mouse aim, R reload, Q switch, E interact. Android uses the joystick and
 labelled action buttons. Story, rush, nightmare, exploration and blackout modes,
 relay objectives, evidence, radio scenes and checkpoint saves are retained.
+
+## v9 natural materials and Zorix branding
+
+- Ground now samples the original photographic gravel in world coordinates, with seamless road tiles, two wheel tracks, restrained damp patches and separate earth/leaf-litter shoulders with rolling terrain beyond the accessible area. Small normal detail and varying roughness respond to lights; the collision surface stays at y=0.
+- Imported guard face/mouth metalness is corrected to zero. Fabric roughness rises from 0.027–0.059 to 0.86; skin and eyes keep distinct roughness. Hit reactions use a small lean instead of scaling the character.
+- Moonlight and ambient fill are more neutral, lamp light warmer, fog less dense and the moon smaller. High-quality mode allows one nearby lamp to cast a positional shadow. Forest spacing varies deterministically, distant forest closes both horizons and reflectors follow the actual road edges. End barriers prevent walking beyond the collision strip; both are exercised by real-physics tests.
+- Weapon lighting and hand color are less bright and saturated. Ammo moves above the touch controls, radio subtitles move away from the crosshair, and touch actions use RELOAD/CROUCH labels.
+- The supplied game image becomes the Android icon. The second supplied image is the team logo. Startup says **Made By Zorix GAme Team**, can be skipped and finishes while the world is paused. Main menu uses the actual 3D checkpoint backdrop and includes About Us with the official `https://zorix.it` link.
+- `presentation_checks.gd` verifies imported branding, startup timing/skip, About Us/back, fitted phone/tablet layouts and guard fabric/skin materials. The existing rendering/combat and real-physics gameplay suites remain required. Nine actual Mobile Vulkan views include startup, main menu, About Us and six gameplay views.
+- Android output: `faceless-2-v9-zorix.apk`, version code 9 / name 0.9.0. QA screenshots and logs are published in `faceless-2-v9-visual-qa`. Desktop/software Vulkan captures do not establish physical Android device frame rates. Existing low-poly model geometry and procedural character animation still limit visual realism.

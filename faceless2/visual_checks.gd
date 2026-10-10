@@ -27,9 +27,25 @@ func capture(game: Node3D, name: String, pos: Vector3, heading: float, pitch: fl
 		return
 	print("Visual capture: ", name)
 
+func capture_page(name: String) -> void:
+	for i in range(6): await process_frame
+	var image := root.get_texture().get_image()
+	if image == null or image.is_empty() or image.save_png(output.path_join(name + ".png")) != OK:
+		push_error("Screenshot failed: " + name)
+		quit(1)
+		return
+	print("Visual capture: ", name)
+
 func run() -> void:
 	var game := load("res://scripts/game.gd").new() as Node3D
 	root.add_child(game)
+	game.interface.show_brand_intro(false)
+	await capture_page("00a-team-intro")
+	game.interface.finish_brand_intro()
+	await capture_page("00b-main-menu")
+	game.interface.open_about()
+	await capture_page("00c-about-us")
+	game.interface.close_about()
 	paused = false
 	game.set_process(false)
 	game.selected_mode = "EXPLORATION"

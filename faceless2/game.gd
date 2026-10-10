@@ -1,5 +1,6 @@
 extends Node3D
 
+const GroundSurface = preload("res://scripts/ground_surface.gd")
 const AssetVisual = preload("res://scripts/asset_visual.gd")
 
 const PlayerScript = preload("res://scripts/player.gd")
@@ -174,15 +175,8 @@ func _build_road() -> void:
 		return
 	# The source patch is an irregular showcase mesh with gaps at its edges.
 	# Reuse its original PBR texture on continuous, upward-facing gameplay planes.
-	var road_material := surface.get_active_material(0).duplicate() as BaseMaterial3D
-	road_material.albedo_color = Color(0.26, 0.24, 0.21)
-	road_material.roughness = 0.94
-	road_material.roughness_texture = null
-	road_material.metallic = 0.0
-	road_material.metallic_texture = null
-	road_material.normal_scale = 0.45
-	road_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	road_material.uv1_scale = Vector3(3.0, 4.0, 1.0)
+	var source_material := surface.get_active_material(0) as BaseMaterial3D
+	var road_material := GroundSurface.make(source_material)
 	for i in range(6):
 		var tile := Node3D.new()
 		tile.name = "RoadTile%d" % i
@@ -197,13 +191,11 @@ func _build_road() -> void:
 		tile.add_child(visual)
 	var forest_floor := MeshInstance3D.new()
 	var shoulder := PlaneMesh.new()
-	shoulder.size = Vector2(70.0, 150.0)
-	var soil := road_material.duplicate() as BaseMaterial3D
-	soil.albedo_color = Color(0.105, 0.14, 0.10)
-	soil.uv1_scale = Vector3(12.0, 25.0, 1.0)
+	shoulder.size = Vector2(200.0, 420.0)
+	var soil := GroundSurface.make(source_material, true)
 	shoulder.material = soil
-	forest_floor.mesh = shoulder
-	forest_floor.position = Vector3(0, -0.035, -47)
+	forest_floor.position = Vector3(0, -0.035, -60)
+	forest_floor.mesh = GroundSurface.terrain(shoulder, forest_floor.position)
 	add_child(forest_floor)
 	# Release the unused diorama meshes and materials after extracting the road.
 	source.free()
@@ -214,22 +206,22 @@ func _build_world() -> void:
 	environment.background_mode = Environment.BG_COLOR
 	environment.background_color = Color(0.008,0.014,0.025)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.38,0.46,0.58)
-	environment.ambient_light_energy = 0.30
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.ambient_light_color = Color(0.49,0.53,0.59)
+	environment.ambient_light_energy = 0.38
+	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
 	environment.adjustment_enabled = true
 	environment.adjustment_brightness = 1.30
 	environment.fog_enabled = true
 	environment.fog_light_color = Color(0.035,0.055,0.075)
-	environment.fog_density = 0.004
-	environment.fog_height_density = 0.012
+	environment.fog_density = 0.0022
+	environment.fog_height_density = 0.006
 	world.environment = environment
 	add_child(world)
 
 	var moon := DirectionalLight3D.new()
 	moon.rotation_degrees = Vector3(-48,-18,0)
-	moon.light_color = Color(0.56,0.66,0.84)
-	moon.light_energy = 0.52
+	moon.light_color = Color(0.76,0.82,0.92)
+	moon.light_energy = 0.42
 	moon.shadow_enabled = true
 	moon.directional_shadow_max_distance = 45.0
 	moon_light = moon
@@ -239,6 +231,9 @@ func _build_world() -> void:
 	_static_box(Vector3(0,-0.35,-47),Vector3(18,0.7,150),_mat(Color.WHITE))
 	_static_box(Vector3(-8.8,1.2,-47),Vector3(0.5,2.4,150),_mat(Color.WHITE))
 	_static_box(Vector3(8.8,1.2,-47),Vector3(0.5,2.4,150),_mat(Color.WHITE))
+	# Close both ends of the collision strip before the distant visual terrain.
+	_static_box(Vector3(0,1.2,-122),Vector3(18,2.4,0.5),_mat(Color.WHITE))
+	_static_box(Vector3(0,1.2,28),Vector3(18,2.4,0.5),_mat(Color.WHITE))
 
 	# Every visible object below is an original Sketchfab GLB, normalized to a sane game scale.
 	_build_road()
@@ -255,12 +250,14 @@ func _build_world() -> void:
 	AssetVisual.add_static_collision(shelter)
 	AssetVisual.add_static_collision(cabin)
 
-	# Cleaner forest spacing: fewer clusters, always outside the road barriers.
+	# Tree roots follow rolling soil; positions remain outside the barriers.
+	var forest_random := RandomNumberGenerator.new()
+	forest_random.seed = 2139
 	for z in range(4,-103,-12):
-		_spawn_asset("res://assets/pine_cluster.glb",Vector3(-12.2,0,float(z)),0.07*float(z),6.2)
-		_spawn_asset("res://assets/pine_cluster.glb",Vector3(12.2,0,float(z)-2.0),-0.05*float(z),6.2)
-		_static_box(Vector3(-12.2,2.4,float(z)),Vector3(3.6,4.8,3.6),_mat(Color.WHITE))
-		_static_box(Vector3(12.2,2.4,float(z)-2.0),Vector3(3.6,4.8,3.6),_mat(Color.WHITE))
+		for side in [-1.0, 1.0]:
+			var x: float = side * forest_random.randf_range(11.5, 14.0)
+			var depth := float(z) + forest_random.randf_range(-3, 3)
+			_spawn_asset("res://assets/pine_cluster.glb", Vector3(x, GroundSurface.forest_height(x, depth)-0.035, depth), forest_random.randf_range(-PI, PI), forest_random.randf_range(5.8, 8.2))
 
 	relay_active = [false,false,false]
 	var relay_positions := [Vector3(5.5,0,-13),Vector3(-5.4,0,-53),Vector3(5.3,0,-84)]
@@ -297,9 +294,11 @@ func _build_world() -> void:
 		_spawn_asset("res://assets/street_lamp.glb",Vector3(4.8,0,float(z)),0.0,4.2)
 		var light := OmniLight3D.new()
 		light.position = Vector3(4.5,3.6,float(z))
-		light.omni_range = 10.0
-		light.light_energy = 1.1
-		light.light_color = Color(1.0,0.76,0.48)
+		light.omni_range = 11.5
+		light.light_energy = 1.45
+		light.light_color = Color(1.0,0.83,0.64)
+		light.shadow_bias = 0.08
+		light.shadow_normal_bias = 0.6
 		light.distance_fade_enabled = true
 		light.distance_fade_begin = 28.0
 		light.distance_fade_length = 12.0
@@ -492,8 +491,8 @@ func _apply_settings() -> void:
 		player.viewmodel_viewport.msaa_3d = Viewport.MSAA_2X if q < 2 else Viewport.MSAA_4X
 	if environment:
 		environment.adjustment_brightness=float(settings["brightness"])
-		environment.ambient_light_energy=0.30*float(settings["night_visibility"])
-		environment.fog_density=0.004/max(float(settings["night_visibility"]),0.5)
+		environment.ambient_light_energy=0.38*float(settings["night_visibility"])
+		environment.fog_density=0.0022/max(float(settings["night_visibility"]),0.5)
 
 func _run_mid_cinematic(beat: String) -> void:
 	if cinematic_running or player == null:
@@ -518,6 +517,7 @@ func _run_mid_cinematic(beat: String) -> void:
 
 
 func _start_new_game() -> void:
+	interface.finish_brand_intro()
 	mode_panel.visible=false; main_menu.visible=false; get_tree().paused=false; game_started=true
 	chapter=1; story_flags={}; kills=0; final_wave_started=false; final_wave_cleared=false
 	for i in range(relay_active.size()): relay_active[i]=false
@@ -535,6 +535,7 @@ func _start_new_game() -> void:
 	if ambience_player: ambience_player.play()
 
 func _continue_game() -> void:
+	interface.finish_brand_intro()
 	var cfg:=ConfigFile.new()
 	if cfg.load("user://faceless2_save.cfg")!=OK:
 		_show_notice("NO CHECKPOINT DATA"); return

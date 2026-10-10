@@ -103,8 +103,9 @@ static func make_hands(source: Node3D) -> Node3D:
 				var builder := SurfaceTool.new()
 				builder.begin(Mesh.PRIMITIVE_TRIANGLES)
 				var material := mesh.get_active_material(surface).duplicate() as BaseMaterial3D
-				material.albedo_color = Color(0.56, 0.32, 0.21) if "Object_7" in mesh.name else Color(0.08, 0.11, 0.14)
-				material.roughness = 0.78
+				material.albedo_color = Color(0.46, 0.32, 0.24) if "Object_7" in mesh.name else Color(0.08, 0.11, 0.14)
+				material.roughness = 0.72
+				material.metallic_specular = 0.25
 				builder.set_material(material)
 				var count := 0
 				for index in range(0, indices.size(), 3):

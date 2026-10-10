@@ -149,20 +149,20 @@ func _build_viewmodel() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0, 0, 0, 0)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.72, 0.80, 0.92)
-	env.ambient_light_energy = 0.9
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.ambient_light_color = Color(0.64, 0.68, 0.74)
+	env.ambient_light_energy = 0.78
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	world.environment = env
 	viewmodel_viewport.add_child(world)
 	var key := DirectionalLight3D.new()
 	key.rotation_degrees = Vector3(-35, -30, 0)
 	key.light_color = Color(0.94, 0.96, 1.0)
-	key.light_energy = 1.2
+	key.light_energy = 0.95
 	viewmodel_viewport.add_child(key)
 	var rim := DirectionalLight3D.new()
 	rim.rotation_degrees = Vector3(20, 145, 0)
-	rim.light_color = Color(0.48, 0.68, 1.0)
-	rim.light_energy = 0.55
+	rim.light_color = Color(0.65, 0.72, 0.83)
+	rim.light_energy = 0.24
 	viewmodel_viewport.add_child(rim)
 
 	viewmodel_root = Node3D.new()

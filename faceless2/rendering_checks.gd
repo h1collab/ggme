@@ -15,6 +15,7 @@ func run_checks() -> void:
 	var game := load("res://scripts/game.gd").new() as Node3D
 	root.add_child(game)
 	check(not game.interface.combat.visible and not game.interface.touch_controls.is_visible_in_tree(), "Main menu must hide combat HUD and touch controls")
+	game.interface.finish_brand_intro()
 	paused = false
 	game.set_process(false)
 	game.selected_mode = "EXPLORATION"

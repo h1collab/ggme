@@ -72,6 +72,7 @@ static func prepare_viewmodel(root: Node3D) -> void:
 			if original is BaseMaterial3D:
 				var material := original.duplicate() as BaseMaterial3D
 				material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+				material.roughness = maxf(material.roughness, 0.42)
 				mesh.set_surface_override_material(surface, material)
 
 static func prepare_world(root: Node3D, path: String) -> void:
@@ -87,6 +88,15 @@ static func prepare_world(root: Node3D, path: String) -> void:
 			if original is BaseMaterial3D:
 				var material := original.duplicate() as BaseMaterial3D
 				material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+				if path.ends_with("blackwood_soldier.glb"):
+					# Imported cloth values are near mirror-smooth; face/mouth incorrectly metallic.
+					material.metallic = 0.0
+					material.metallic_texture = null
+					material.roughness_texture = null
+					material.roughness = 0.86 if "guard_" in material.resource_name else 0.64
+					material.metallic_specular = 0.24
+					material.albedo_color = Color(0.80, 0.80, 0.77)
+					if "eyeball" in material.resource_name: material.roughness = 0.32
 				if path.ends_with("pine_cluster.glb"):
 					material.roughness = 0.95
 					material.roughness_texture = null

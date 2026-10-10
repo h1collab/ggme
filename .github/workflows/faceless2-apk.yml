@@ -1,4 +1,4 @@
-name: Build Faceless 2 v8 Model Polish and Tested APK
+name: Build Faceless 2 v9 Natural Materials and Zorix Branding APK
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
           mkdir app
           unzip -q upgrade.zip -d app
 
-      - name: Apply Faceless 2 v8 project
+      - name: Apply Faceless 2 v9 project
         shell: bash
         run: |
           cp faceless2/interface.gd app/scripts/interface.gd
@@ -43,14 +43,17 @@ jobs:
           cp faceless2/soldier.gd app/scripts/soldier.gd
           cp faceless2/virtual_joystick.gd app/scripts/virtual_joystick.gd
           cp faceless2/main.tscn app/main.tscn
-          cp faceless2/icon.svg app/ui/icon.svg
+          cp faceless2/ground_surface.gd app/scripts/ground_surface.gd
+          cp faceless2/presentation_checks.gd app/scripts/presentation_checks.gd
+          cp faceless2/branding/game_icon.png app/ui/game_icon.png
+          cp faceless2/branding/team_logo.jpg app/ui/team_logo.jpg
           sed -i 's/Escape Black Pine/Faceless 2/g' app/project.godot
           sed -i 's/School Brawl/Faceless 2/g' app/project.godot
           sed -i 's/Escape Black Pine/Faceless 2/g' app/export_presets.cfg
           sed -i 's/School Brawl/Faceless 2/g' app/export_presets.cfg
-          sed -i 's/^version\/code=.*/version\/code=8/' app/export_presets.cfg
-          sed -i 's/^version\/name=.*/version\/name="0.8.0"/' app/export_presets.cfg
-          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v8-zorix.apk/g' app/export_presets.cfg
+          sed -i 's/^version\/code=.*/version\/code=9/' app/export_presets.cfg
+          sed -i 's/^version\/name=.*/version\/name="0.9.0"/' app/export_presets.cfg
+          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v9-zorix.apk/g' app/export_presets.cfg
           rm -f app/assets/*.glb
           test -s app/scripts/game.gd
           test -s app/main.tscn
@@ -124,18 +127,23 @@ jobs:
           test -s app/audio/voice_final_wave.wav
           test -s app/audio/voice_final_clear.wav
 
-      - name: Generate audio and Android icon
+      - name: Generate audio and install supplied branding
         shell: bash
         run: |
-          python -m pip install --disable-pip-version-check cairosvg
           python faceless2/generate_audio.py app/audio
-          python - <<'PY'
-          import cairosvg
-          cairosvg.svg2png(url="app/ui/icon.svg", write_to="app/ui/icon.png", output_width=512, output_height=512)
-          PY
-          sed -i 's#boot_splash/image="res://ui/icon.svg"#boot_splash/image="res://ui/icon.png"#' app/project.godot
-          sed -i 's#config/icon="res://ui/icon.svg"#config/icon="res://ui/icon.png"#' app/project.godot
-          sed -i 's#res://ui/icon.svg#res://ui/icon.png#g' app/export_presets.cfg
+          python - <<'PYCODE'
+          from pathlib import Path
+          import re
+          p=Path("app/project.godot")
+          s=p.read_text()
+          s=s.replace('boot_splash/image="res://ui/icon.svg"','boot_splash/image="res://ui/team_logo.jpg"')
+          s=s.replace('config/icon="res://ui/icon.svg"','config/icon="res://ui/game_icon.png"')
+          s=re.sub(r'boot_splash/bg_color=.*', 'boot_splash/bg_color=Color(1, 1, 1, 1)', s)
+          s=s.replace('boot_splash/fullsize=false','boot_splash/fullsize=true')
+          p.write_text(s)
+          p=Path("app/export_presets.cfg")
+          p.write_text(p.read_text().replace("res://ui/icon.svg","res://ui/game_icon.png"))
+          PYCODE
           test -s app/audio/blackwood_ambience.wav
           test -s app/audio/signal_static.wav
           test -s app/audio/chase_pulse.wav
@@ -145,7 +153,8 @@ jobs:
           test -s app/audio/footstep.wav
           test -s app/audio/footstep_run.wav
           test -s app/audio/heartbeat.wav
-          test -s app/ui/icon.png
+          test -s app/ui/game_icon.png
+          test -s app/ui/team_logo.jpg
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -202,23 +211,31 @@ jobs:
           godot --headless --path app --script scripts/combat_effects.gd --check-only
           godot --headless --path app --script scripts/touch_action.gd --check-only
           godot --headless --path app --script scripts/game.gd --check-only
-          timeout 180 godot --headless --path app --script scripts/rendering_checks.gd | tee qa/rendering-checks.log
-          timeout 180 godot --headless --path app --script scripts/gameplay_checks.gd | tee qa/gameplay-checks.log
+          timeout 180 godot --headless --path app --script scripts/rendering_checks.gd 2>&1 | tee qa/rendering-checks.log
+          timeout 180 godot --headless --path app --script scripts/gameplay_checks.gd 2>&1 | tee qa/gameplay-checks.log
+          timeout 180 godot --headless --path app --script scripts/presentation_checks.gd 2>&1 | tee qa/presentation-checks.log
 
       - name: Capture actual Mobile Vulkan gameplay views
         shell: bash
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends xvfb mesa-vulkan-drivers
-          LP_NUM_THREADS=2 timeout 300 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" | tee qa/visual-checks.log
-          test "$(find qa -name '*.png' | wc -l)" -eq 6
+          LP_NUM_THREADS=2 timeout 420 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
+          test "$(find qa -name '*.png' | wc -l)" -eq 9
+          python - <<'PYCODE'
+          from pathlib import Path
+          for name, marker in [("rendering-checks.log","Rendering/gameplay checks: PASS"),("gameplay-checks.log","Full gameplay checks: PASS"),("presentation-checks.log","Presentation checks: PASS"),("visual-checks.log","Visual captures: PASS")]:
+              text=Path("qa",name).read_text()
+              assert marker in text and "ERROR:" not in text and "FAIL" not in text, name
+          print("All required runtime checks completed without engine errors")
+          PYCODE
 
       - name: Create debug keystore
         shell: bash
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v8 APK
+      - name: Export Faceless 2 v9 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -226,19 +243,19 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless-2-v8-zorix.apk
-          test -s app/build/faceless-2-v8-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless-2-v9-zorix.apk
+          test -s app/build/faceless-2-v9-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v8-zorix-apk
-          path: app/build/faceless-2-v8-zorix.apk
+          name: faceless-2-v9-zorix-apk
+          path: app/build/faceless-2-v9-zorix.apk
           if-no-files-found: error
 
       - name: Upload model report and rendered test evidence
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v8-visual-qa
+          name: faceless-2-v9-visual-qa
           path: qa
           if-no-files-found: error

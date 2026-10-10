@@ -43,6 +43,7 @@ func _ready() -> void:
 		# This rig faces +Z; AI and muzzle rays face -Z.
 		content.rotation.y = PI
 		visual.add_child(content)
+		AssetVisual.prepare_world(content, "res://assets/blackwood_soldier.glb")
 		var box := AssetVisual.bounds(visual)
 		content.position -= Vector3(box.get_center().x, box.position.y, box.get_center().z)
 		visual.scale = Vector3.ONE * (1.86 / maxf(box.size.y, 0.001))
@@ -211,9 +212,9 @@ func take_bullet(damage: float, hit_pos: Vector3) -> void:
 	muzzle_signal.hide()
 	if visual:
 		if hit_tween and hit_tween.is_running(): hit_tween.kill()
-		visual.scale = visual_scale * Vector3(1.025, 0.98, 1.025)
+		visual.rotation.x = -0.045
 		hit_tween = create_tween()
-		hit_tween.tween_property(visual, "scale", visual_scale, 0.12)
+		hit_tween.tween_property(visual, "rotation:x", 0.0, 0.16)
 	if health <= 0:
 		dead = true
 		if game: game.soldier_down(self)
