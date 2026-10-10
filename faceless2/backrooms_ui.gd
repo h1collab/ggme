@@ -26,6 +26,13 @@ var address_field: LineEdit
 var port_field: SpinBox
 var key_field: LineEdit
 var upnp_box: CheckBox
+var room_code_field: LineEdit
+var room_name_field: LineEdit
+var room_visibility: OptionButton
+var slot_limit: SpinBox
+var directory_field: LineEdit
+var available_rooms: VBoxContainer
+var room_code_label: Label
 var intro_timer: Timer
 var panel_kind := ""
 
@@ -148,7 +155,8 @@ func _build_hud() -> void:
 	hud.add_child(joystick)
 	_button(hud, "调查 / E", Rect2(1352, 637, 195, 77), func(): game.interact(), true)
 	_button(hud, "手电 / F", Rect2(1352, 734, 195, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
-	_button(hud, "重播语音", Rect2(1060, 840, 220, 50), _replay_generated_voice, true)
+	_button(hud, "杏仁水 / 喝", Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
+	_button(hud, "重播语音", Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
 	var run := _button(hud, "RUN", Rect2(290, 784, 136, 67), func(): pass, true)
 	run.button_down.connect(func(): run_held = true)
 	run.button_up.connect(func(): run_held = false)
@@ -180,7 +188,7 @@ func intro() -> void:
 	_image(panels, _brand_file("team_logo.jpg"), Rect2(655, 180, 290, 290), true)
 	var title := _label(panels, "Made By Zorix GAme Team", Vector2(350, 525), 900, 40)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var detail := _label(panels, "FACELESS 2 / AN ATMOSPHERIC HORROR STORY", Vector2(350, 615), 900, 21, MUTED)
+	var detail := _label(panels, "FACELESS 2 / THE OTHER SHIFT", Vector2(350, 615), 900, 21, MUTED)
 	detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_button(panels, "CONTINUE", Rect2(660, 748, 280, 67), menu)
 	intro_timer = Timer.new()
@@ -196,10 +204,10 @@ func menu() -> void:
 	_image(panels, _brand_file("game_icon.png"), Rect2(70, 50, 90, 90))
 	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
-	_label(panels, "THE SIGNAL BELOW  /  THE RETURN", Vector2(73, 323), 640, 27, ACCENT)
+	_label(panels, "THE OTHER SHIFT  /  错层", Vector2(73, 323), 640, 27, ACCENT)
 	_label(panels, "一栋已经拆除的楼，记录着你从未经历过的出勤。\n找到林岚失踪的真相。水正在向每一层蔓延。", Vector2(72, 411), 600, 26, MUTED)
 	_button(panels, "开始探索     →", Rect2(72, 538, 600, 76), func(): game.start_solo())
-	_button(panels, "DIRECT CO-OP / 1–4", Rect2(72, 631, 600, 74), open_lobby)
+	_button(panels, "房间合作 / 2–4 人", Rect2(72, 631, 600, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
@@ -222,7 +230,7 @@ func open_briefing() -> void:
 	_card(panels, Rect2(76, 492, 1400, 145), Color(0.065, 0.089, 0.073))
 	_label(panels, "调查目标 / 你的行动会留下证据", Vector2(98, 508), 1200, 23, ACCENT)
 	_label(panels, game.story.BRIEFINGS[game.stage][2], Vector2(98, 555), 1310, 22)
-	_label(panels, "WASD / 左摇杆移动  ·  E / 调查  ·  J / 日志  ·  F / 手电\n右侧拖动观察，低头能看到双脚。剧情镜头永远可打断。", Vector2(76, 653), 1390, 22, MUTED)
+	_label(panels, "WASD / 左摇杆移动  ·  E / 拾取或组合  ·  J / 日志  ·  F / 手电\n右侧拖动观察，低头能看到双脚。剧情镜头永远可打断。", Vector2(76, 653), 1390, 22, MUTED)
 	_button(panels, "进入黑暗 / CONTINUE", Rect2(76, 764, 1380, 80), close_panels)
 	game.story.play_voice("brief_%d" % game.stage)
 
@@ -253,7 +261,7 @@ func open_journal() -> void:
 	_button(panels, "返回现场", Rect2(1215, 820, 295, 65), close_panels)
 
 func open_final_choice() -> void:
-	if game.stage != 2 or not game.transfer_ready() or game.lift_active: return
+	if game.stage != 3 or not game.transfer_ready() or game.lift_active: return
 	_page("终章 / 信号的归属", "ending_choice")
 	_label(panels, "你已找到三份原始证据。失联并非偶然。\n林岚没有请求救援：她试图阻止另一侧的东西通过这条线。", Vector2(85, 220), 1370, 30)
 	_card(panels, Rect2(80, 415, 690, 264), Color(0.045,0.078,0.07,0.94))
@@ -269,11 +277,11 @@ func open_final_choice() -> void:
 func open_guide() -> void:
 	_page("探索方式", "guide")
 	var entries := [
-		["真实空间", "三个沉没楼层，各有不同的证据与现场疑点。调查完成才能解锁电梯。"],
+		["真实空间", "四个错位楼层，各有不同的证据与现场疑点。调查完成才能解锁电梯。"],
 		["恐惧来自环境", "水会渗进每一层。听脚步和电机，注意偶尔出现在暗处的脸。"],
 		["自由视角", "剧情自动转头默认关闭；即使启用，手动滑动也能立刻打断。"],
 		["调查日志", "按 J 或触摸日志按钮查看证据原文。最后一层可决定送出或封存真相。"],
-		["直接联机", "最多四人 P2P。证据与结局共享，各自的惊吓和镜头独立。"]]
+		["房间联机", "房间码与公开列表，2–4 人。证据共享，惊吓只控制自己视角。"]]
 	for i in range(entries.size()):
 		var y := 210 + i * 121
 		_label(panels, entries[i][0], Vector2(77, y), 450, 26, ACCENT)
@@ -284,10 +292,10 @@ func open_about() -> void:
 	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 248, 357, 357), true)
 	_label(panels, "Zorix GAme Team", Vector2(580, 244), 840, 45)
 	_label(panels, "Made By Zorix GAme Team", Vector2(584, 335), 850, 27, ACCENT)
-	_label(panels, "FACELESS 2 / THE SIGNAL BELOW\nExploration-driven atmospheric horror.\nLicensed real GLB architecture, local animated sightings and P2P co-op.", Vector2(584, 414), 875, 26)
+	_label(panels, "FACELESS 2 / THE OTHER SHIFT\nExploration-driven horror with local scripted sightings.\nLicensed real GLB architecture, local animated sightings and P2P co-op.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.15.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.16.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page("授权素材 / CREDITS", "credits")
@@ -307,6 +315,8 @@ func open_credits() -> void:
 func open_pause() -> void:
 	_page("暂停 / PAUSE", "pause")
 	_label(panels, "单人探索时暂停；多人房间中其他玩家继续移动。", Vector2(76, 226), 1410, 26, MUTED)
+	if not game.rooms.room_code.is_empty():
+		_label(panels, "你的房间号：" + game.rooms.room_code + "  ·  复制给朋友后可用房间号加入", Vector2(76, 260), 1420, 24, ACCENT)
 	_button(panels, "CONTINUE", Rect2(75, 327, 620, 80), close_panels)
 	_button(panels, "CONTROLS", Rect2(75, 445, 620, 78), open_guide)
 	_button(panels, "SETTINGS", Rect2(825, 445, 620, 78), open_settings)
@@ -314,72 +324,130 @@ func open_pause() -> void:
 	_button(panels, "LEAVE", Rect2(75, 565, 620, 78), func(): game.net.leave(); game.running = false; menu())
 
 func open_lobby() -> void:
-	_page("DIRECT P2P / 1–4", "lobby")
-	_card(panels, Rect2(72, 245, 690, 494))
-	_card(panels, Rect2(800, 245, 730, 494))
-	_label(panels, "HOST ADDRESS", Vector2(105, 275), 605, 20, MUTED)
-	address_field = LineEdit.new()
-	address_field.position = Vector2(105, 325)
-	address_field.size = Vector2(610, 62)
-	address_field.placeholder_text = "192.168.1.20 / public IP"
-	address_field.add_theme_font_size_override("font_size", 24)
-	panels.add_child(address_field)
-	_label(panels, "UDP PORT", Vector2(105, 412), 210, 20, MUTED)
-	port_field = SpinBox.new()
-	port_field.position = Vector2(105, 455)
-	port_field.size = Vector2(225, 58)
-	port_field.min_value = 1024
-	port_field.max_value = 65535
-	port_field.value = 24711
-	panels.add_child(port_field)
-	_label(panels, "ROOM KEY", Vector2(368, 412), 350, 20, MUTED)
-	key_field = LineEdit.new()
-	key_field.position = Vector2(368, 455)
-	key_field.size = Vector2(345, 58)
-	key_field.max_length = 24
-	key_field.secret = true
-	panels.add_child(key_field)
-	upnp_box = CheckBox.new()
-	upnp_box.text = "尝试 UPnP 映射公网端口"
-	upnp_box.position = Vector2(105, 538)
-	upnp_box.size = Vector2(610, 53)
-	panels.add_child(upnp_box)
-	_button(panels, "HOST", Rect2(105, 638, 292, 68), _host)
-	_button(panels, "JOIN", Rect2(425, 638, 290, 68), _join)
-	_label(panels, "CONNECTING", Vector2(835, 280), 610, 27, ACCENT)
-	_label(panels, "同一 Wi-Fi：输入房主局域网 IP 和 UDP 端口。\n\n公网：房主需要能被访问的公网地址、UPnP 或手动端口映射。\n\n无中继、无万能 NAT 穿透。房主离开则全员回到菜单。", Vector2(835, 355), 615, 25)
-	room_status = _label(panels, game.net.status, Vector2(76, 777), 1420, 22, ACCENT)
+	_page("联机房间 / 创建 · 公开列表 · 房间码", "lobby")
+	if not game.rooms.rooms_changed.is_connected(_render_rooms): game.rooms.rooms_changed.connect(_render_rooms)
+	if not game.rooms.room_created.is_connected(_room_created): game.rooms.room_created.connect(_room_created)
+	if not game.rooms.room_error.is_connected(_room_error): game.rooms.room_error.connect(_room_error)
+	_card(panels, Rect2(65, 218, 705, 560))
+	_card(panels, Rect2(793, 218, 742, 560))
+	_label(panels, "创建房间 / 你是房主", Vector2(92, 236), 650, 28, ACCENT)
+	room_name_field = LineEdit.new()
+	room_name_field.position = Vector2(94, 292)
+	room_name_field.size = Vector2(630, 56)
+	room_name_field.placeholder_text = "房间名字 / 例如 黑暗走廊"
+	room_name_field.max_length = 40
+	panels.add_child(room_name_field)
+	_label(panels, "类型", Vector2(93, 373), 190, 19, MUTED)
+	room_visibility = OptionButton.new()
+	room_visibility.position = Vector2(96, 409)
+	room_visibility.size = Vector2(323, 56)
+	room_visibility.add_item("公开 / 显示在列表", 0)
+	room_visibility.add_item("私人 / 只通过房间号", 1)
+	panels.add_child(room_visibility)
+	_label(panels, "人数上限", Vector2(455, 373), 240, 19, MUTED)
+	slot_limit = SpinBox.new()
+	slot_limit.position = Vector2(458, 409)
+	slot_limit.size = Vector2(244, 56)
+	slot_limit.min_value = 2
+	slot_limit.max_value = 4
+	slot_limit.step = 1
+	slot_limit.value = 4
+	panels.add_child(slot_limit)
+	_button(panels, "创建房间", Rect2(95, 497, 609, 70), _create_room)
+	room_code_label = _label(panels, "房间号在创建后显示，复制给朋友即可加入。", Vector2(99, 593), 630, 22, ACCENT)
+	_label(panels, "同一 Wi-Fi 无须服务器。跨网络需要部署 JS 房间服务，且房主 UDP 端口可达。", Vector2(97, 680), 628, 19, MUTED)
+	_label(panels, "加入房间 / 不输入 IP", Vector2(821, 236), 635, 28, ACCENT)
+	room_code_field = LineEdit.new()
+	room_code_field.position = Vector2(827, 290)
+	room_code_field.size = Vector2(418, 57)
+	room_code_field.placeholder_text = "输入八位房间号"
+	room_code_field.max_length = 10
+	panels.add_child(room_code_field)
+	_button(panels, "加入", Rect2(1260, 288, 226, 60), _join_by_code)
+	_label(panels, "附近 / 公开房间", Vector2(822, 371), 430, 22, MUTED)
+	_button(panels, "刷新", Rect2(1315, 366, 176, 54), func(): game.rooms.discover())
+	var viewport := ScrollContainer.new()
+	viewport.position = Vector2(829, 439)
+	viewport.size = Vector2(649, 263)
+	panels.add_child(viewport)
+	available_rooms = VBoxContainer.new()
+	available_rooms.custom_minimum_size = Vector2(615, 0)
+	available_rooms.add_theme_constant_override("separation", 9)
+	viewport.add_child(available_rooms)
+	_label(panels, "网络模式：本地发现 / JS 目录（可选）", Vector2(87, 790), 630, 19, MUTED)
+	directory_field = LineEdit.new()
+	directory_field.position = Vector2(88, 821)
+	directory_field.size = Vector2(1025, 55)
+	directory_field.placeholder_text = "公共服务 HTTPS 地址 / 不需要填写玩家 IP"
+	directory_field.text = game.rooms.directory_url
+	panels.add_child(directory_field)
+	_button(panels, "保存服务", Rect2(1132, 815, 250, 60), _configure_directory)
+	room_status = _label(panels, game.net.status, Vector2(822, 722), 683, 19, ACCENT)
+	game.rooms.discover()
 
-func _host() -> void:
-	var result: Error = game.net.host(int(port_field.value), key_field.text, upnp_box.button_pressed)
-	if result == OK:
-		game.start_shift(0)
+func _configure_directory() -> void:
+	game.rooms.configure(directory_field.text)
+	game.save_settings()
+	game.rooms.discover()
+
+func _create_room() -> void:
+	game.rooms.create_room(room_visibility.selected == 0, int(slot_limit.value), room_name_field.text)
+	if is_instance_valid(room_status): room_status.text = "正在创建房间……"
+
+func _join_by_code() -> void:
+	game.running = false
+	game.rooms.join_code(room_code_field.text)
+
+func _room_created(code: String) -> void:
+	if panel_kind == "lobby":
+		if is_instance_valid(room_code_label): room_code_label.text = "房间号：%s  /  请发给好友" % code
 		open_briefing()
 
-func _join() -> void:
-	game.running = false
-	game.net.join(address_field.text, int(port_field.value), key_field.text)
+func _room_error(message: String) -> void:
+	if panel_kind == "lobby" and is_instance_valid(room_status): room_status.text = message
+
+func _render_rooms(list: Array) -> void:
+	if panel_kind != "lobby" or not is_instance_valid(available_rooms): return
+	for child in available_rooms.get_children():
+		available_rooms.remove_child(child)
+		child.queue_free()
+	if list.is_empty():
+		var help := Label.new()
+		help.text = "暂无公开房间。私人房间请填写房间号。"
+		help.add_theme_font_size_override("font_size", 22)
+		available_rooms.add_child(help)
+	for entry in list:
+		var code: String = str(entry.get("code", ""))
+		var players: int = int(entry.get("players", 1))
+		var limit: int = int(entry.get("max_players", 4))
+		var join := Button.new()
+		join.custom_minimum_size = Vector2(600, 59)
+		join.text = "%s   %d/%d   %s" % [str(entry.get("name", "Faceless 2")), players, limit, code]
+		join.add_theme_font_size_override("font_size", 21)
+		join.disabled = players >= limit
+		join.pressed.connect(func(): game.rooms.join_code(code))
+		available_rooms.add_child(join)
 
 func open_result() -> void:
 	_page("你决定了真相的去向" if game.completed else "探索中断", "result")
 	result_shown = true
 	_label(panels, game.notice, Vector2(76, 260), 1410, 33, ACCENT)
-	_label(panels, "已确认现场证据 / %d of 3\n抵达层级 / %d of 3" % [game.repaired.count(true), game.stage + 1], Vector2(76, 388), 1360, 29)
+	_label(panels, "已确认现场证据 / %d of 3\n抵达层级 / %d of 4" % [game.repaired.count(true), game.stage + 1], Vector2(76, 388), 1360, 29)
 	if game.net.mode != "client": _button(panels, "RESTART THIS LAYER", Rect2(76, 666, 625, 82), func(): game.start_shift(game.stage); close_panels())
 	_button(panels, "MAIN MENU", Rect2(790, 666, 620, 82), func(): game.net.leave(); game.running = false; menu())
 
 func refresh() -> void:
 	if not is_instance_valid(game.level): return
 	status_label.text = game.level.title
-	goal_label.text = "EVIDENCE %d/3  ·  %s" % [game.repaired.count(true), "SOLO" if game.net.mode == "solo" else "CREW %d/4" % max(1, game.net.poses.size())]
-	notice_label.text = "耐力 %d%%\n调查 %d/3" % [int(game.player.stamina), game.repaired.count(true)]
+	goal_label.text = "线索 %d/3  ·  杏仁水 %d  ·  %s" % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
+	notice_label.text = "耐力 %d%%\n钥匙 %s" % [int(game.player.stamina), "已找到" if game.key_picked else "未找到"]
 	prompt_label.text = game.prompt()
 	var objective: Dictionary = game.next_objective()
 	var offset: Vector3 = objective.position - game.player.position
 	var facing := Vector3(0, 0, -1).rotated(Vector3.UP, game.player.yaw)
 	var angle := facing.signed_angle_to(Vector3(offset.x, 0, offset.z).normalized(), Vector3.UP)
 	var direction := "前方" if absf(angle) < 0.65 else ("后方" if absf(angle) > 2.5 else ("左侧" if angle > 0 else "右侧"))
-	var next_title: String = objective.text.split(" / ")[0] if not objective.text.contains("已解锁") else "前往电梯"
+	var next_title: String = objective.text.split(" / ")[0]
 	objective_label.text = "正在下降 / 不要回答声音" if game.lift_active else "调查目标：%s\n%s · 约 %d 米" % [next_title, direction, int(offset.length())]
 	subtitle_label.text = game.story.subtitle
 	subtitle_backdrop.visible = not game.story.subtitle.is_empty()
@@ -408,9 +476,9 @@ func open_settings() -> void:
 	sensitivity.value = game.sensitivity
 	sensitivity.value_changed.connect(func(value: float): game.sensitivity = value; game.save_settings())
 	panels.add_child(sensitivity)
-	_label(panels, "主音量", Vector2(75, 602), 1100, 24, ACCENT)
+	_label(panels, "主音量", Vector2(75, 582), 1100, 24, ACCENT)
 	var volume := HSlider.new()
-	volume.position = Vector2(75, 649)
+	volume.position = Vector2(75, 628)
 	volume.size = Vector2(1390, 51)
 	volume.min_value = 0
 	volume.max_value = 1
@@ -418,9 +486,16 @@ func open_settings() -> void:
 	volume.value = game.audio_volume
 	volume.value_changed.connect(game.set_audio_volume)
 	panels.add_child(volume)
+	var glance := CheckBox.new()
+	glance.text = "开场惊吓瞬间转头（默认开；可关闭，手动视角立即打断）"
+	glance.position = Vector2(75, 708)
+	glance.size = Vector2(1400, 49)
+	glance.button_pressed = game.shock_glance_enabled
+	glance.toggled.connect(func(value: bool): game.shock_glance_enabled = value; game.player.cancel_focus(); game.save_settings())
+	panels.add_child(glance)
 	var speech := CheckBox.new()
 	speech.text = "播放神经网络预生成的中文录音（非系统 TTS，可关闭）"
-	speech.position = Vector2(75, 739)
+	speech.position = Vector2(75, 770)
 	speech.size = Vector2(1400, 55)
 	speech.button_pressed = game.voice_enabled
 	speech.toggled.connect(func(value: bool):

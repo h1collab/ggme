@@ -24,7 +24,7 @@ func run() -> void:
 	check(game.story.animation != null and game.story.animation.is_playing() and str(game.story.animation.current_animation).to_lower().contains("walk"), "Authored Walk2 animation imported")
 	check(game.story.step_audio.stream != null and game.story.breath_audio.stream != null, "Positional recorded creature sounds loaded")
 	check(game.ui.theme.default_font.has_char("岚".unicode_at(0)), "Chinese narrative font includes required glyphs")
-	for layer in range(3):
+	for layer in range(4):
 		game.start_shift(layer)
 		game.ui.close_panels()
 		game.auto_turn = false
@@ -65,9 +65,22 @@ func run() -> void:
 		game.player.look(Vector2(8, 0))
 		check(game.player.focus_seconds == 0 and game.player.attention_hold == 0, "Touch or mouse look cancels opt-in focus")
 		var objective: Dictionary = game.next_objective()
-		check(objective.text.contains("01"), "First missing clue is explained")
+		check(objective.text.contains("杏仁水"), "Non-reading survival pickup is the first objective")
 		game.repaired = [true, true, true]
-		check(game.next_objective().text.contains("电梯"), "Last clue points toward exit")
+		game.water_picked = true
+		game.key_picked = true
+		game.assembled = true
+		check(game.next_objective().text.contains("电梯"), "Combined clues point toward exit")
+	game.start_shift(0)
+	game.ui.close_panels()
+	game.player.reset_to(game.level.spawn)
+	game.story.update(2.5)
+	check(game.story.phase == "flash" and game.story.actor.visible, "Opening delivers actual local dark-face sighting without reading")
+	check(game.player.focus_seconds > 0, "Opening local shock glance defaults on, duration finite")
+	game.player.look(Vector2(14, 0))
+	check(game.player.focus_seconds == 0, "Shock glance is immediately manually interrupted")
+	game.story.update(0.9)
+	check(game.story.phase == "idle" and not game.story.actor.visible, "Opening face vanishes on time")
 	game.net.leave()
 	game.queue_free()
 	await create_timer(0.15).timeout

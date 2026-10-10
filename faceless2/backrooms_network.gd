@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 15
+const PROTOCOL := 16
 const MAX_CREW := 4
 var game: Node
 var peer: ENetMultiplayerPeer
@@ -23,6 +23,7 @@ var monitor_flags: Dictionary = {}
 var action_times: Dictionary = {}
 var pose_times: Dictionary = {}
 var disconnected_count := 0
+var max_crew := 4
 
 func _ready() -> void:
 	name = "DirectSession"
@@ -35,12 +36,13 @@ func _ready() -> void:
 func authoritative() -> bool:
 	return mode != "client"
 
-func host(selected_port: int, key: String, map_router: bool) -> Error:
+func host(selected_port: int, key: String, map_router: bool, slots: int = 4) -> Error:
 	leave()
 	port = selected_port
+	max_crew = clampi(slots, 2, MAX_CREW)
 	password = key.substr(0, 24)
 	peer = ENetMultiplayerPeer.new()
-	var result := peer.create_server(port, MAX_CREW - 1, 3)
+	var result := peer.create_server(port, max_crew - 1, 3)
 	if result != OK:
 		peer = null
 		status = "Port unavailable. Choose another UDP port."
@@ -48,7 +50,7 @@ func host(selected_port: int, key: String, map_router: bool) -> Error:
 	multiplayer.multiplayer_peer = peer
 	mode = "host"
 	members = {1:true}
-	status = "Hosting / %s:%d / 1 of 4" % [local_address(), port]
+	status = "Hosting / 1 of %d" % max_crew
 	if map_router and upnp_thread == null:
 		upnp_thread = Thread.new()
 		upnp_thread.start(_map_router.bind(generation, port))
@@ -57,7 +59,7 @@ func host(selected_port: int, key: String, map_router: bool) -> Error:
 func join(address: String, selected_port: int, key: String) -> Error:
 	leave()
 	if address.strip_edges().is_empty():
-		status = "Enter the host IP or hostname."
+		status = "Invalid room endpoint. Ask the host to check connectivity."
 		return ERR_INVALID_PARAMETER
 	password = key.substr(0, 24)
 	port = selected_port
@@ -65,7 +67,7 @@ func join(address: String, selected_port: int, key: String) -> Error:
 	var result := peer.create_client(address.strip_edges(), port, 3)
 	if result != OK:
 		peer = null
-		status = "Cannot open connection. Check the address and port."
+		status = "连接失败：房主网络暂不可达"
 		return result
 	multiplayer.multiplayer_peer = peer
 	mode = "client"
@@ -75,6 +77,7 @@ func join(address: String, selected_port: int, key: String) -> Error:
 
 func leave() -> void:
 	generation += 1
+	if is_instance_valid(game) and is_instance_valid(game.rooms): game.rooms.leave_room()
 	if is_instance_valid(peer): peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	peer = null
@@ -146,14 +149,14 @@ func _connected() -> void:
 func _hello(version: int, key: String) -> void:
 	if mode != "host": return
 	var id := multiplayer.get_remote_sender_id()
-	if version != PROTOCOL or key != password or members.size() >= MAX_CREW:
+	if version != PROTOCOL or key != password or members.size() >= max_crew:
 		_reject.rpc_id(id, "Version or room key mismatch, or room full.")
 		return
 	members[id] = true
 	poses[id] = {"p":game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0}
 	pose_times[id] = Time.get_ticks_msec()
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
-	status = "Hosting / %s:%d / %d of 4" % [local_address(), port, members.size()]
+	status = "Room / %d of %d" % [members.size(), max_crew]
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _welcome(state: Dictionary, spawn: Vector3) -> void:
@@ -176,7 +179,7 @@ func _reject(reason: String) -> void:
 
 func _failed() -> void:
 	leave()
-	status = "Connection failed. Check host IP, UDP port and network."
+	status = "连接失败：房主 UDP 不可达（需要端口映射或同一局域网）"
 	game.ui.open_lobby()
 
 func _lost_host() -> void:

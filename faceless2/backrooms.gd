@@ -5,12 +5,14 @@ const PlayerScript = preload("backrooms_player.gd")
 const UiScript = preload("backrooms_ui.gd")
 const NetworkScript = preload("backrooms_network.gd")
 const StoryScript = preload("backrooms_story.gd")
+const RoomsScript = preload("backrooms_rooms.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
 var level: Node3D
 var player: CharacterBody3D
 var ui: Control
 var net: Node
+var rooms: Node
 var environment: WorldEnvironment
 var running := false
 var stage := 0
@@ -45,6 +47,11 @@ var sensitivity := 1.0
 var auto_turn := false
 var audio_volume := 0.8
 var voice_enabled := true
+var shock_glance_enabled := true
+var inventory := {"almond_water":0,"lift_keys":0}
+var water_picked := false
+var key_picked := false
+var assembled := false
 var splash_audio: AudioStreamPlayer3D
 var lift_door_audio: AudioStreamPlayer3D
 var lift_motor_audio: AudioStreamPlayer3D
@@ -90,6 +97,9 @@ func _ready() -> void:
 	net = NetworkScript.new()
 	net.game = self
 	add_child(net)
+	rooms = RoomsScript.new()
+	rooms.game = self
+	add_child(rooms)
 	_audio()
 	story = StoryScript.new()
 	story.game = self
@@ -102,6 +112,8 @@ func _ready() -> void:
 		auto_turn = bool(config.get_value("controls", "auto_turn", false))
 		audio_volume = clampf(float(config.get_value("audio", "volume", 0.8)), 0, 1)
 		voice_enabled = bool(config.get_value("audio", "generated_voice", true))
+		shock_glance_enabled = bool(config.get_value("controls", "scripted_glance", true))
+		rooms.configure(String(config.get_value("network", "directory_url", "")))
 	set_audio_volume(audio_volume)
 	set_quality(quality)
 	ui.intro()
@@ -158,7 +170,7 @@ func _load_level(index: int) -> void:
 	if is_instance_valid(level):
 		remove_child(level)
 		level.queue_free()
-	stage = clampi(index, 0, 2)
+	stage = clampi(index, 0, 3)
 	lift_active = false
 	lift_elapsed = 0.0
 	lift_close_started = false
@@ -168,6 +180,9 @@ func _load_level(index: int) -> void:
 	add_child(level)
 	level.build(stage)
 	remote_water_steps.clear()
+	water_picked = false
+	key_picked = false
+	assembled = false
 	if is_instance_valid(player): player.reset_to(level.spawn)
 	if is_instance_valid(story): story.reset_layer(stage)
 	if is_instance_valid(ambience):
@@ -182,6 +197,7 @@ func _load_level(index: int) -> void:
 
 func start_solo() -> void:
 	net.leave()
+	inventory = {"almond_water":0,"lift_keys":0}
 	start_shift(0)
 	ui.open_briefing()
 
@@ -264,7 +280,7 @@ func _tick(delta: float) -> void:
 		if lift_elapsed >= LIFT_RIDE_DURATION:
 			lift_active = false
 			if is_instance_valid(player): player.end_lift_ride()
-			if stage < 2:
+			if stage < 3:
 				start_shift(stage + 1)
 				if net.mode == "solo": ui.open_briefing()
 			else:
@@ -282,34 +298,71 @@ func _tick(delta: float) -> void:
 		anomaly = -1
 
 func transfer_ready() -> bool:
-	return not repaired.has(false) and not failed
+	return assembled and not repaired.has(false) and key_picked and not failed
 
 func prompt() -> String:
+	if not water_picked and player.position.distance_to(level.water_position) < 2.0: return "E / 拾取杏仁水"
+	if not key_picked and player.position.distance_to(level.key_position) < 2.0: return "E / 拾取电梯钥匙组件"
+	if not assembled and not repaired.has(false) and key_picked and player.position.distance_to(level.console_position) < 2.9: return "E / 拼接钥匙与信号图"
 	for i in range(3):
 		if player.position.distance_to(level.relays[i]) < 2.5:
 			return "证据已记录 / 查看日志" if repaired[i] else "E / 调查 " + story.EVIDENCE_TITLES[stage][i]
 	if player.position.distance_to(level.console_position) < 2.9: return "E / 打开调查日志"
 	if player.position.distance_to(level.exit_position) < 2.8:
-		return "电梯正在下降" if lift_active else ("E / 决定真相的去向" if stage == 2 and transfer_ready() else ("E / 进入电梯" if transfer_ready() else "电梯封锁 / 尚有证据未查清"))
+		return "电梯正在下降" if lift_active else ("E / 决定真相的去向" if stage == 3 and transfer_ready() else ("E / 进入电梯" if transfer_ready() else "电梯封锁 / 尚有证据未查清"))
 	return ""
 
 func interact() -> void:
 	if not running or failed or completed or lift_active: return
+	if not water_picked and player.position.distance_to(level.water_position) < 2.0:
+		net.request("pickup", 0)
+		return
+	if not key_picked and player.position.distance_to(level.key_position) < 2.0:
+		net.request("pickup", 1)
+		return
 	for i in range(3):
 		if player.position.distance_to(level.relays[i]) < 2.5:
 			if repaired[i]: ui.open_journal()
 			else: net.request("collect", i)
 			return
 	if player.position.distance_to(level.console_position) < 2.9:
-		ui.open_journal()
+		if not assembled and not repaired.has(false) and key_picked:
+			net.request("assemble", 0)
+		else: ui.open_journal()
 		return
 	if player.position.distance_to(level.exit_position) < 2.8:
-		if stage == 2 and transfer_ready(): ui.open_final_choice()
+		if stage == 3 and transfer_ready(): ui.open_final_choice()
 		else: net.request("transfer", 0)
 
 func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) -> void:
 	if not net.authoritative() or not running or failed or completed: return
 	match action:
+		"pickup":
+			if index == 0 and not water_picked and pos.distance_to(level.water_position) < 2.0:
+				water_picked = true
+				inventory["almond_water"] = int(inventory.get("almond_water",0)) + 1
+				level.hide_pickup(0)
+				notice = "发现杏仁水 / 救生物资已加入全队背包"
+				story.say("[未知低语] 别喝空瓶子。它会先学你的口渴。", 6.0, "warning")
+			elif index == 1 and not key_picked and pos.distance_to(level.key_position) < 2.0:
+				key_picked = true
+				inventory["lift_keys"] = int(inventory.get("lift_keys",0)) + 1
+				level.hide_pickup(1)
+				notice = "找到钥匙组件 / 去调查其余证据，回到调查台拼接"
+				story.say("[门禁音] 一块在地板下找到的电梯钥匙。", 6.0)
+			else: return
+		"assemble":
+			if assembled or repaired.has(false) or not key_picked or pos.distance_to(level.console_position) >= 2.9: return
+			assembled = true
+			notice = "钥匙与线索已拼合 / 黑暗深处的电梯已通电"
+			anomaly = 1
+			anomaly_until = elapsed + 2.5
+			story.say("[电梯] 未登记的钥匙已接受。有人已经在轿厢里。", 8.0, "elevator")
+		"drink":
+			if int(inventory.get("almond_water",0)) <= 0: return
+			inventory["almond_water"] = int(inventory.get("almond_water",0)) - 1
+			signal_pressure = maxf(0.0, signal_pressure - 35.0)
+			notice = "喝下杏仁水 / 心跳逐渐平静，周围的水仍在倒流"
 		"collect":
 			if index < 0 or index >= 3 or pos.distance_to(level.relays[index]) >= 2.5 or repaired[index]: return
 			repaired[index] = true
@@ -319,8 +372,8 @@ func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) ->
 			anomaly_until = elapsed + 1.3
 		"transfer":
 			if not transfer_ready() or lift_active or pos.distance_to(level.exit_position) >= 2.8: return
-			if stage == 2 and index not in [0, 1]: return
-			ending_variant = index if stage == 2 else 0
+			if stage == 3 and index not in [0, 1]: return
+			ending_variant = index if stage == 3 else 0
 			lift_active = true
 			lift_elapsed = 0.0
 			lift_epoch += 1
@@ -337,13 +390,15 @@ func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) ->
 	if hum.stream != null: hum.play()
 
 func snapshot() -> Dictionary:
-	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running,"lift_active":lift_active,"lift_elapsed":lift_elapsed,"lift_epoch":lift_epoch,"ending_variant":ending_variant}
+	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running,"lift_active":lift_active,"lift_elapsed":lift_elapsed,"lift_epoch":lift_epoch,"ending_variant":ending_variant,"inventory":inventory.duplicate(),"water_picked":water_picked,"key_picked":key_picked,"assembled":assembled}
 
 func receive_state(state: Dictionary) -> void:
 	if net.authoritative(): return
 	if int(state.get("revision", -1)) < revision: return
 	var next_stage := int(state.get("stage", 0))
 	var previous_repaired: Array = repaired.duplicate()
+	var previous_water := water_picked
+	var previous_key := key_picked
 	var was_running := running
 	var old_lift_epoch := lift_epoch
 	if next_stage != stage:
@@ -366,6 +421,14 @@ func receive_state(state: Dictionary) -> void:
 	revision = state.revision
 	running = state.running
 	ending_variant = int(state.get("ending_variant", 0))
+	inventory = state.get("inventory", {"almond_water":0,"lift_keys":0}).duplicate()
+	water_picked = bool(state.get("water_picked", false))
+	key_picked = bool(state.get("key_picked", false))
+	assembled = bool(state.get("assembled", false))
+	if water_picked: level.hide_pickup(0)
+	else: level.show_pickup(0)
+	if key_picked: level.hide_pickup(1)
+	else: level.show_pickup(1)
 	lift_epoch = int(state.get("lift_epoch", 0))
 	lift_active = bool(state.get("lift_active", false))
 	lift_elapsed = float(state.get("lift_elapsed", 0.0))
@@ -386,7 +449,9 @@ func receive_state(state: Dictionary) -> void:
 			if is_instance_valid(lift_motor_audio) and lift_motor_audio.stream != null: lift_motor_audio.play()
 	elif player.lift_riding:
 		player.end_lift_ride()
-	if running and not was_running: story.say("[无线电] 如果听见不属于你的脚步，别追。先找齐三段录音。", 10)
+	if water_picked and not previous_water: story.say("[无线电] 全队找到一瓶杏仁水。不要喝到瓶底。", 6.0, "warning")
+	if key_picked and not previous_key: story.say("[门禁] 取得一段电梯钥匙组件。回到调查台拼合。", 6.0)
+	if running and not was_running: story.say("[耳机里传来自己呼吸声] ……先看看黑暗中是谁站着。", 6.5)
 	for i in range(3):
 		if repaired[i] and not previous_repaired[i]: story.on_discovery(stage, i, repaired.count(true))
 
@@ -455,6 +520,8 @@ func save_settings() -> void:
 	config.set_value("controls", "auto_turn", auto_turn)
 	config.set_value("audio", "volume", audio_volume)
 	config.set_value("audio", "generated_voice", voice_enabled)
+	config.set_value("controls", "scripted_glance", shock_glance_enabled)
+	config.set_value("network", "directory_url", rooms.directory_url if is_instance_valid(rooms) else "")
 	config.save("user://faceless2.cfg")
 
 func set_audio_volume(value: float) -> void:
@@ -464,6 +531,9 @@ func set_audio_volume(value: float) -> void:
 	save_settings()
 
 func next_objective() -> Dictionary:
+	if not water_picked: return {"text":"拾起杏仁水 / 先准备在异常空间中生存", "position":level.water_position}
+	if not key_picked: return {"text":"寻找电梯钥匙 / 金属碰撞声在附近", "position":level.key_position}
 	for i in range(3):
 		if not repaired[i]: return {"text":story.EVIDENCE_TITLES[stage][i] + " / " + story.EVIDENCE_WHY[stage][i], "position":level.relays[i]}
-	return {"text":"进入电梯 / 选择真相的去向" if stage == 2 else "电梯已解锁 / 前往下一层", "position":level.exit_position}
+	if not assembled: return {"text":"返回调查台 / 把钥匙与三份现场证据拼合", "position":level.console_position}
+	return {"text":"进入电梯 / 选择真相的去向" if stage == 3 else "电梯已解锁 / 前往下一层", "position":level.exit_position}

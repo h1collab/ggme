@@ -62,3 +62,9 @@ All newly visible 3D architecture, lift panels, consoles, puddle planes, evidenc
 `first_person_legs.glb` derives **904 skinned leg/foot triangles** from the original Cesium Man model (© 2017 Cesium, CC BY 4.0). `first_person_arms.glb` retains 546 original skinned arm triangles. Both remain authored Cesium meshes with source bones, UVs and animation; no generated humanoid geometry. The extracted file remains licensed CC BY 4.0 and bears a source attribution in `asset.extras`.
 
 The 19 synthetic Mandarin voice clips include revised investigation records, three interlude transmissions and an alternate ending, generated **offline** with Kokoro, Apache 2.0, never system TTS or fal.ai. Character identities and supernatural fiction are original narrative content and do not impersonate a real person's voice.
+
+### New v0.16 real pickup GLBs (no AI-generated geometry)
+
+- **Almond water bottle:** Kenney / Food Kit, `soda-bottle.glb` (embedded-texture glTF converted by Hidencod/tge-assets); **CC0 1.0**. Original author: [Kenney](https://kenney.nl/assets/food-kit). Reused as almond-water prop in Faceless 2 without altering its authored geometry. Pinned redistributed Git blob `6dea17f5ccfb18356e3643ca6cb3b371b0dd2144` ([source](https://github.com/Hidencod/tge-assets/blob/main/packs/food-kit/soda-bottle.glb)).
+- **Elevator key:** Kenney / Mini Dungeon Kit, `key.glb`; **CC0 1.0**. Original author: [Kenney](https://kenney.nl). Converted to embedded-texture GLB by Hidencod/tge-assets, unchanged authored geometry. Pinned Git blob `640ae2dfbd57a19d1b8c9e122f6d5b9c30f8e5bc` ([source](https://github.com/Hidencod/tge-assets/blob/main/packs/mini-dungeon/key.glb)).
+- CC0 source verification: [Kenney asset repository license](https://github.com/Hidencod/tge-assets/blob/main/LICENSE). Short script-based material hints, signal markers, narration and invisible collision proxies are not replacement models.

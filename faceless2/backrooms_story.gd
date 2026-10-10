@@ -5,28 +5,33 @@ extends Node3D
 # Investigation chapters, not a repair loop or a collection of identical tapes.
 # Each piece changes the meaning of the next floor, and is shared by ENet.
 const BRIEFINGS := [
-	["序章 / 被拆除的入口", "你是 Zorix 异常建筑调查组的现场调查员。\n五年前，银杏街 17 号办公楼被宣布拆除；今晚 02:13，失联搭档林岚的求救却从原地址发来。\n检修门在你身后封死。地上的水还带着室外的雨味，但这里已经四十天没有下雨。", "先查清这栋楼为何仍在运行。调查文件、异常足迹与调度记录；不要追逐黑暗中的人影。"],
-	["第一章 / 第三个人的脚步", "第一层证据证明：你们并不是第一次进入这里。\n地下机房的仪表记录了一支不存在的第三人小队。无人的水坑里出现了与你同步却方向相反的脚印。\n林岚留下了一条消息：‘如果有人穿着我的外套，就当作没看见。’", "核对管线图、确认机房呼吸声源、找到井道终端上的队员档案。然后决定是否继续下降。"],
-	["终章 / 水记得你的名字", "电梯门里有一道从内侧留下的抓痕。水面映出的是你刚才站过的位置，而不是现在的你。\n林岚还活着吗？最后一层保存着她的求救记录，也保存着你自己的上一轮出勤档案。\n取回真相后，可以把证据送到地面，或封存这里，结束信号。", "查验水下工牌、读取最后的巡检日志、找到终端中的原始记录。最后在电梯选择如何处理真相。"]]
+ ["序章 / 不要回头", "你在拆除工地接到一通求救。电话里是林岚，可她就在你身后说：‘我没打电话。’下一秒，电梯门将你们分开。你跌进一层没有出口的黄色长廊。灯会在你移动时熄灭。", "先拾起地上的杏仁水，找电梯钥匙。检查三处现场，将钥匙与线索在调查台拼合。不要回答自己的声音。"],
+ ["第一章 / 门后的第三个人", "电梯下降了，却停在一条重复的宿舍走廊。每次关门，房间数就多一个。队伍里有人听见自己从隔壁喊救命。电梯需要一枚新的钥匙碎片。", "找到有绿光的补给，拾取钥匙组件，调查墙后的三处异常。将线索拼合后乘电梯离开。"],
+ ["第二章 / 水面先动了", "泳池没有排水口。水里映出的是两秒之后的你。当所有人都停步时，水底却还有一串脚印。林岚说，怪物在等你模仿它。", "收集杏仁水与钥匙；追踪水中异样的三个位置。不要只相信眼前的反射。"],
+ ["终章 / 零号井", "这不是失联者发来的求救，是建筑在练习人的声音。你曾经来到这里多次，并带出过它的碎片。现在它希望你亲手打开地面那扇门。", "拿到最后的钥匙，组合四层证据。不要相信房门外与你一模一样的声音。最终决定：带走它，还是永远封闭零号井。"]]
 const EVIDENCE_TITLES := [
-	["01 / 拆除令的原件", "02 / 逆行的湿脚印", "03 / 凌晨调度单"],
-	["01 / 不存在的管线", "02 / 机房呼吸测试", "03 / 第三名队员档案"],
-	["01 / 浸水的工牌", "02 / 井道巡检日志", "03 / 最后一次呼叫"]]
+ ["01 / 无人来电", "02 / 从墙里伸出的脚印", "03 / 昨天的自己"],
+ ["01 / 房间里有人", "02 / 会呼吸的机房", "03 / 多出来的工牌"],
+ ["01 / 两秒后的倒影", "02 / 水下的求救", "03 / 不存在的第四人"],
+ ["01 / 失败的撤离", "02 / 林岚的真正警告", "03 / 你的最后一份名单"]]
 const EVIDENCE_WHY := [
-	["纸张日期比建筑消失晚五年：有人仍在维护它。", "脚印朝墙里走去，却没有返回；它正在模仿行动。", "调度单上有你上次来这里的签字，但你完全不记得。"],
-	["下方根本不该有楼层；水从上层顺着不存在的管道渗入。", "机械噪声停下时仍有呼吸声，是有人在机房里等待。", "录像显示三个人走进电梯，你们的名单上只有两个人。"],
-	["工牌上的照片是林岚，签发日期却写着明天。", "你在记录里听见自己的声音，提醒过去的自己别靠近电梯。", "最后一次呼叫不是求救。有人正利用信号引你把它带出去。"]]
+ ["房间的电话已经拔线，却在跟着你呼吸。", "脚印到墙前戛然而止，但墙后还在响。", "监控不是过去：画面里的人刚刚转过头。"],
+ ["门后的脚步会重复你的移动。", "停机以后，管道里有人敲出你的名字。", "所有记录都坚持有一个不存在的同伴。"],
+ ["倒影比你先动，你可以试着停下。", "呼救声来自水下，但泳池没有深水区。", "第四个人没有脸，却用你的声音点名。"],
+ ["钥匙上刻着你的上一次离开日期。", "林岚从没有要求你救她，她在阻止开门。", "名单上最后一个人将决定怪物能否出去。"]]
 const MEMORY_TEXT := [
-	["[纸质档案] 建筑物于五年前拆除，但这份消防验收日期写着昨天。签名栏只有一个字：‘返’。", "[现场勘察] 雨水倒流进墙，第二串脚印竟与你的鞋底花纹相同；它的方向却朝向你。", "[调度单] 外勤姓名栏出现了两次你的名字。第一行旁写着：‘已返回’，第二行写着：‘再次进入’。"],
-	["[管网记录] 供水阀编号指向一个在城市图纸上不存在的楼层。锈水里混着新鲜泥沙。", "[机房录音] 电机已经停机，但第三个麦克风里仍有呼吸声。它只在你停止呼吸时响起。", "[队员档案] 监控里走入电梯的第三个人穿着你的制服，但胸牌写着林岚的名字。"],
-	["[工牌] 林岚的工牌仍然潮湿。签发日期是明天，背面写着：‘别相信你看到的我。’", "[巡检日志] 第七次出勤的声音属于你：‘如果你听到这个消息，就证明我又失败了。’", "[原始信号] 林岚没有发出求救。她一直在警告地面不要打开门，而你收到的声音来自门的另一侧。"]]
+ ["断线电话连续响了七次。最后一次从听筒里传来自己的喘息。", "湿脚印沿墙往上爬，墙体背面响起敲门声。", "小票写着：撤离失败，重试。签名是你，日期是明天。"],
+ ["门缝下面伸出一只与你同尺寸的鞋。灯一亮，它不见了。", "你屏住呼吸时，管道另一端仍有一个声音在替你呼吸。", "这枚工牌的照片空白，姓名栏却和你一模一样。"],
+ ["水面中的你比真正的你早两秒低头。它在提前看你后面的东西。", "水下传来熟悉的声音：‘我没有失踪，是你把门打开了。’", "第四双湿脚印走入电梯。监控里只有三个人。"],
+ ["上一轮调查留下的钥匙上刻着：不要带着它回家。", "林岚留下的原始记录：‘不是我在呼救。千万不要把你的声音借给它。’", "名单最后是‘返程者’，照片是你，下面却写着‘仍在地下’。"]]
 const INTERLUDES := [
-	"[楼内广播] 应急出口的位置刚刚改变。它知道你正在寻找调度单。别相信第二次出现的指示牌。",
-	"[林岚 / 断续的无线电] 我看到你了……可你明明还在上一层。千万别回答另一个你的呼叫。",
-	"[楼层系统] 上传通道已经连接。警告：文件中包含尚未发生的事件。谁才是调查对象？"]
+ "[电话在空房间里响了] 你刚才走过的门，此刻从里面锁上了。",
+ "[房内传来你的声音] 救我……别开门。",
+ "[广播] 下一班乘客请不要观察水中第二个人。",
+ "[林岚] 现在你知道了：真正想离开的不是我们。"]
 const ENDINGS := [
-	"你将所有证据送到地面。凌晨的新闻确认失踪者获救，却没有人记得她的名字。手机响起，是你自己的声音：‘下一次别开门。’",
-	"你关闭了信号中继。电梯最终抵达空荡的工地，雨水停了，走廊却不再存在。林岚的声音留在地下：‘谢谢你没让它出来。’"]
+ "电梯抵达地面。灯光和雨水都恢复正常。你的手机收到新消息：‘我已经在你家门口了。’门铃响起，铃声与你的心跳完全同步。",
+ "你按下封存键。电梯停止，黑暗中的脸第一次失去了笑容。广播播放林岚最后的录音：‘谢谢。别再找到我。’地面的夜终于安静。"]
 
 var game: Node
 var actor: Node3D
@@ -52,6 +57,8 @@ var peek_fraction := 1.0
 var sway := 0.0
 var secondary_seen := false
 var cooldown := 0.0
+var intro_clock := 0.0
+var intro_done := false
 
 func _ready() -> void:
 	name = "LocalSightingDirector"
@@ -110,15 +117,17 @@ func reset_layer(index: int) -> void:
 	step_clock = 0
 	cooldown = 0
 	# Physical wall segments make the retreat endpoint really occluded.
-	var z := -18.1 if index == 1 else -7.3
+	var z := -18.1 if index == 1 else (-22.0 if index == 3 else -7.3)
 	var side := 1.0 if index == 1 else -1.0
 	trigger = Vector3(0, 0, z)
 	reveal_point = Vector3(side * 5.2, 0, z - 0.2)
 	hidden_point = Vector3(side * 5.2, 0, z + 3.0)
-	peek_fraction = [0.83, 1.0, 0.88][index]
-	duration = [1.5, 2.0, 1.2][index]
+	peek_fraction = [0.83, 1.0, 0.88, 0.75][index]
+	duration = [1.5, 2.0, 1.2, 1.0][index]
 	subtitle = ""
 	subtitle_seconds = 0
+	intro_clock = 0
+	intro_done = false
 	if is_instance_valid(actor):
 		actor.visible = false
 		actor.position = hidden_point
@@ -134,6 +143,13 @@ func say(text: String, seconds: float = 7.0, voice_key: String = "") -> void:
 func on_discovery(chapter: int, index: int, total: int) -> void:
 	# Local narration only; the host already validated the interact distance.
 	say(MEMORY_TEXT[chapter][index], 12.5, "tape_%d_%d" % [chapter, index])
+	# Something concrete reacts to a discovery: spatial footsteps behind the
+	# player and sudden dimming, not just a wall of narrative subtitles.
+	if is_instance_valid(step_audio) and step_audio.stream != null:
+		step_audio.position = game.player.position + Vector3(0, 0, 2.5)
+		step_audio.play()
+	game.anomaly = index % 3
+	game.anomaly_until = game.elapsed + 1.3
 	if total == 2:
 		# The chapter reveal is always reachable in the evidence journal even
 		# if a concurrent recording temporarily replaces the subtitle.
@@ -197,6 +213,26 @@ func update(delta: float) -> void:
 	step_audio.stream_paused = false
 	breath_audio.stream_paused = false
 	subtitle_seconds = maxf(0, subtitle_seconds - delta)
+	# The opening is a PRESENT event, not a paragraph: the lights fail, a face
+	# stands ahead in the hall, a breath comes from beside the player, and a
+	# 0.65s local-only shock glance can be interrupted by any manual look.
+	if game.stage == 0 and not intro_done and phase == "idle" and not seen:
+		intro_clock += delta
+		if intro_clock > 2.35 and is_instance_valid(actor):
+			intro_done = true
+			phase = "flash"
+			clock = 0.0
+			actor.position = Vector3(-1.1, 0, 4.25)
+			actor.visible = true
+			_set_walk_speed(0.0)
+			game.anomaly = 0
+			game.anomaly_until = game.elapsed + 1.1
+			if game.shock_glance_enabled:
+				game.player.begin_focus(actor.global_position + Vector3(0, 1.6, 0), 0.65)
+			if breath_audio.stream != null:
+				breath_audio.position = actor.position + Vector3(0, 1.5, 0)
+				breath_audio.play()
+			say("[身后有人贴耳低语] 别……回……头。", 3.5, "opening")
 	if subtitle_seconds <= 0: subtitle = ""
 	cooldown += delta
 	if not seen and game.player.position.distance_to(trigger) < 2.15:
@@ -205,6 +241,12 @@ func update(delta: float) -> void:
 		_start_sighting(true)
 	if phase == "idle" or phase == "done": return
 	clock += delta
+	if phase == "flash":
+		if clock >= 0.85:
+			phase = "idle"
+			if is_instance_valid(actor): actor.visible = false
+			breath_audio.stop()
+		return
 	sway += delta
 	step_audio.position = reveal_point
 	breath_audio.position = reveal_point + Vector3(0, 1.58, 0)

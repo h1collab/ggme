@@ -11,6 +11,9 @@ var relays: Array[Vector3] = []
 var console_position := Vector3(0, 0, 6)
 var exit_position := Vector3(0, 0, -27)
 var spawn := Vector3(0, 0.05, 9)
+var water_position := Vector3(2.3,0,-2.9)
+var key_position := Vector3(-1.8,0,-12.6)
+var pickup_nodes: Array[Node3D] = []
 var lamp_material: StandardMaterial3D
 var wall_material: ShaderMaterial
 var floor_material: ShaderMaterial
@@ -38,8 +41,8 @@ func build(level: int) -> void:
 	index = level
 	name = "AuthenticGLBArchitecture"
 	_load_architecture()
-	title = ["FACELESS 2 / 失联楼层", "FACELESS 2 / 地下回声", "FACELESS 2 / 静水之下"][index]
-	subtitle = ["走廊里没有出口。", "脚步比你晚半拍。", "水里有不属于你的倒影。"][index]
+	title = ["FACELESS 2 / 失联入口", "FACELESS 2 / 哑声宿舍", "FACELESS 2 / 倒影泳池", "FACELESS 2 / 零号控制室"][index]
+	subtitle = ["墙后有人在重复你的声音。", "隔着门，有人比你先回头。", "水面里的人先一步迈开了脚。", "地面上只有你留下的第一串鞋印。"][index]
 	wall_material = _surface(0)
 	floor_material = _surface(1)
 	var ceiling := _surface(2)
@@ -78,9 +81,11 @@ func build(level: int) -> void:
 	_exit()
 	if index == 1: _service_details()
 	elif index == 2: _pool_details()
+	elif index == 3: _archive_details()
 	else: _office_details()
 	_water_details()
 	_external_props()
+	_pickup_details()
 
 func _load_architecture() -> void:
 	architecture_meshes.clear()
@@ -140,7 +145,7 @@ void fragment(){
  float broad=noise(p*1.7)*0.5+noise(p*5.1)*0.25+noise(p*17.0)*0.25;
  float grain=noise(p*63.0);
  vec3 col=vec3(0.52,0.47,0.26); float rough=0.93;
- if(theme==0){
+ if(theme==0 || theme==3){
   if(surface==0){float stripe=pow(abs(sin(p.x*34.0)),12.0);col=mix(vec3(0.53,0.47,0.28),vec3(0.62,0.56,0.36),broad)*mix(0.95,1.0,stripe);col*=1.0-0.2*(1.0-smoothstep(0.0,0.65,world.y));}
   if(surface==1){col=mix(vec3(0.24,0.21,0.14),vec3(0.34,0.30,0.2),broad);col*=mix(0.93,1.06,grain);}
  }else if(theme==1){col=mix(vec3(0.28,0.30,0.29),vec3(0.42,0.43,0.40),broad);if(surface==1){col*=0.67;rough=0.88;}}
@@ -155,7 +160,7 @@ void fragment(){
 	material.shader = shader
 	material.set_shader_parameter("theme", index)
 	material.set_shader_parameter("surface", kind)
-	var photos := [["wallpaper.jpg", "carpet.jpg", "ceiling.jpg"], ["concrete.jpg", "concrete.jpg", "concrete.jpg"], ["pooltile.jpg", "poolfloor.jpg", "pooltile.jpg"]]
+	var photos := [["wallpaper.jpg", "carpet.jpg", "ceiling.jpg"], ["concrete.jpg", "concrete.jpg", "concrete.jpg"], ["pooltile.jpg", "poolfloor.jpg", "pooltile.jpg"], ["concrete.jpg", "poolfloor.jpg", "ceiling.jpg"]]]
 	var photo_path := Assets.path("vendor/" + photos[index][kind])
 	if ResourceLoader.exists(photo_path):
 		material.set_shader_parameter("surface_photo", load(photo_path))
@@ -365,6 +370,49 @@ func animate_lift(t: float) -> void:
 		shaft_markers[i].position.y = 0.45 + fposmod((float(i) * 0.52) + maxf(t - 3.2, 0.0) * 2.1, 2.2)
 	lift_cab.position.y = (sin(t * 18.0) * 0.012 if t > 3.25 else 0.0)
 
+
+func _archive_details() -> void:
+	# No procedural visible geometry; authored CC0 furniture is reused as racks.
+	for n in range(5):
+		var shelf := Assets.fitted("vendor/shelf.glb", 2.1)
+		shelf.name = "LicensedArchiveRack_%d" % n
+		shelf.position = Vector3(-12.6 if n % 2 == 0 else 12.6, 0, -4.0 - n * 4.7)
+		shelf.rotation.y = PI / 2.0
+		add_child(shelf)
+	_sign("000 / NO EXIT", Vector3(0, 2.3, -18.0), 0.011)
+
+func _pickup_details() -> void:
+	pickup_nodes.clear()
+	# Kenney Food Kit soda bottle is the visible licensed CC0 mesh of almond
+	# water. Its material is recolored; geometry is not generated at runtime.
+	var bottle: Node3D = Assets.fitted("vendor/almond_water.glb", 0.31)
+	bottle.name = "AlmondWater_CC0"
+	bottle.position = water_position
+	add_child(bottle)
+	pickup_nodes.append(bottle)
+	var key: Node3D = Assets.fitted("vendor/lift_key.glb", 0.22)
+	key.name = "AccessKey_CC0"
+	key.position = key_position + Vector3(0, 0.10, 0)
+	key.rotation.x = -0.5
+	add_child(key)
+	pickup_nodes.append(key)
+	# Two cheap, shadowless beacons point at interactable objects even for
+	# players who never open the investigation journal.
+	for at in [water_position, key_position]:
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(0.39, 0.76, 0.57)
+		glow.light_energy = 0.35
+		glow.omni_range = 2.25
+		glow.shadow_enabled = false
+		glow.position = at + Vector3(0, 0.45, 0)
+		add_child(glow)
+
+func hide_pickup(kind: int) -> void:
+	if kind >= 0 and kind < pickup_nodes.size(): pickup_nodes[kind].visible = false
+
+func show_pickup(kind: int) -> void:
+	if kind >= 0 and kind < pickup_nodes.size(): pickup_nodes[kind].visible = true
+
 func _office_details() -> void:
 	var dirt := _plain(Color(0.27, 0.25, 0.15), 1.0)
 	for i in range(16):
@@ -442,6 +490,7 @@ void fragment(){
 		0: pools = [Vector4(0.0,-3.2,5.4,7.0),Vector4(-8.0,-12.3,7.7,5.4),Vector4(0.0,-21.2,5.2,9.1),Vector4(8.3,6.2,8.4,5.0)]
 		1: pools = [Vector4(0.0,-5.8,5.8,10.5),Vector4(8.0,-17.0,10.8,7.8),Vector4(-9.0,-24.1,9.0,8.4),Vector4(0.0,7.6,5.6,5.8)]
 		2: pools = [Vector4(-8.0,-14.6,7.0,7.4),Vector4(8.0,-14.6,7.0,7.4),Vector4(0.0,-22.0,5.6,13.1),Vector4(0.0,4.0,6.4,10.3)]
+		3: pools = [Vector4(0.0,-3.0,7.0,10.0),Vector4(-8.0,-14.6,7.0,7.4),Vector4(8.0,-23.2,7.0,7.4),Vector4(0.0,7.2,5.0,7.0)]
 	for i in range(pools.size()):
 		var pool: Vector4 = pools[i]
 		var mat := water_material.duplicate() as ShaderMaterial
@@ -524,3 +573,4 @@ func update_state(closed: Array, lights_on: bool, anomaly: int, repaired: Array,
 		var mat: StandardMaterial3D = relay_visuals[i].material_override
 		mat.albedo_color = Color(0.18, 0.63, 0.40) if repaired[i] else Color(0.68, 0.31, 0.1)
 		mat.emission = mat.albedo_color
+

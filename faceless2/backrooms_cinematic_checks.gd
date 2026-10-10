@@ -34,14 +34,14 @@ func run() -> void:
 	check(arm_meshes.size() > 0 and arm_meshes[0].mesh != null, "First-person arms render original authored geometry")
 	check(game.story.voice_audio != null, "Generated neural narration player exists")
 	check(ResourceLoader.exists("res://audio/voice/brief_0.ogg"), "Kokoro Mandarin first briefing is packaged")
-	check(ResourceLoader.exists("res://audio/voice/tape_2_2.ogg"), "Kokoro final narrative clip is packaged")
+	check(ResourceLoader.exists("res://audio/voice/tape_3_2.ogg"), "Fourth-floor generated voice is packaged")
 	check(ResourceLoader.exists("res://audio/voice/ending_seal.ogg") and ResourceLoader.exists("res://audio/voice/turn_2.ogg"), "Additional branch ending and chapter-turn voice clips packaged")
 	check(game.story.play_voice("warning"), "Neural audio plays without invoking OS speech")
 	check(game.story.voice_audio.stream != null, "Generated OGG loaded into engine")
 	game.voice_enabled = false
 	check(not game.story.play_voice("warning"), "Generated narration can be disabled")
 	game.voice_enabled = true
-	for layer in range(3):
+	for layer in range(4):
 		game.start_shift(layer)
 		game.ui.close_panels()
 		check(game.level.water_materials.size() >= 4 and game.level.wet_regions.size() >= 4, "Multi-zone authored-GLB shallow water spans level %d" % layer)
@@ -66,7 +66,9 @@ func run() -> void:
 	game.ui.close_panels()
 	var start_door: float = game.level.lift_left.position.x
 	game.player.reset_to(game.level.exit_position)
-	for i in range(3): game.apply_action("collect", i, game.level.relays[i] + Vector3(0, 0, 0.9), false)
+	for i in range(4): game.apply_action("collect", i, game.level.relays[i] + Vector3(0, 0, 0.9), false)
+	game.apply_action("pickup", 1, game.level.key_position, false)
+	game.apply_action("assemble", 0, game.level.console_position, false)
 	game.apply_action("transfer", 0, game.level.exit_position, false)
 	check(game.lift_active and game.stage == 0, "Elevator ride starts instead of immediate level teleport")
 	check(game.player.lift_riding, "Only a local player in the cabin receives motion")

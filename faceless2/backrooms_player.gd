@@ -201,9 +201,9 @@ func reset_to(pos: Vector3) -> void:
 	landing_dip = 0.0
 	last_grounded = false
 
-func begin_focus(target: Vector3) -> void:
+func begin_focus(target: Vector3, duration: float = 1.2) -> void:
 	focus_target = target
-	focus_seconds = 1.2
+	focus_seconds = clampf(duration, 0.0, 1.2)
 
 func cancel_focus() -> void:
 	focus_seconds = 0

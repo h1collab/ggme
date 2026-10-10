@@ -1,39 +1,11 @@
-# Faceless 2 v0.15 — The Signal Below / The Return
+# Faceless 2 v0.16 — The Other Shift
 
-An exploratory, story-forward Backrooms horror game (Godot 4.7.2 / Android debug build). **Not** a FNAF-style shift, CCTV or resource-management game; no guns or shooting.
+**Premise:** During a rescue call, the investigator hears Lin Lan pleading from a dead phone while Lin Lan appears behind them. A short local-only opening face-in-the-dark event, mechanical silence, inverted footsteps, wet footprints and animated monster sightings establish danger through the playable space. No mandatory CCTV/power-shift or combat loop.
 
-## Narrative progression
+**Loop:** Pick up a real GLB almond-water bottle and access-key piece, investigate three distinct GLB-backed clues, physically reassemble the key at the investigation desk, then board the animated lift. Four connected thematic chapters (lost entrance, silent dormitory, premature water reflection, zero shaft) end in a host-authoritative send/seal choice. Scripted event gaze is short, optional and manually interruptible. Voice cues are pre-generated Mandarin OGG with Kokoro rather than Android TTS.
 
-**Prologue — The demolished entrance:** a Zorix investigator follows missing partner Lin Lan to an office demolished five years earlier. Evidence: original demolition warrant, backwards wet footprints, night dispatch sheet bearing the player's prior signature.
+**Networking:** 1-player solo or create a co-op room of **2, 3 or 4 maximum participants**, public/private. Public rooms appear in a browsable list; private rooms require an 8-character code. Clients never type IP addresses. The JavaScript directory under `matchmaking/` must be **deployed** over HTTPS for discovery across networks; automatic LAN rooms use UDP broadcasts. Peer gameplay uses Godot ENet/UDP, one authoritative host. Session codes and lists are not NAT traversal; a reachable UDP host is necessary. No relay/host migration. Sudden disconnect clears a slot and GLB avatar. Events only steer local cameras.
 
-**Chapter 1 — A third crew member:** infrastructure maps show a nonexistent basement, the powered-down machinery still breathes and an elevator shows a person wearing a colleague's clothes. Evidence: pipe schematic, respiration test, crew roster.
+**Visual/performance:** Licensed GLB architecture and props; skeletal/skin animation for monster, hands and visible feet. Shallow reactive water on every level, limited steps/particles and mobile resolution scaling. These are optimizations, not proof of real phone FPS or commercial AAA fidelity.
 
-**Final chapter — Water remembers names:** Lin Lan's identity card is dated tomorrow, recordings refer to a seventh expedition, and the origin of the signal is revealed. Evidence: submerged badge, shaft maintenance log, original radio call. The final lift offers **SEND THE EVIDENCE** or **SEAL THE SIGNAL** with two authored epilogues. The evidence journal is accessible anytime, and a midway radio event changes the interpretation of each chapter.
-
-Brief shadow silhouettes and spatialized footsteps can trigger at scripted locations, but no hostile combat, camera hijack or long pursuit. Auto-look defaults to off and can be overridden manually. In multiplayer, scripted camera controls affect only the local player.
-
-## Art pipeline
-
-- Visible architecture, floor, puddles, wall trim, doors, light housings and detail panels reuse imported **Huuxloc BackRooms** GLB mesh components (CC BY 4.0). GLB source is pinned and Draco-decoded at build time. Performance-friendly collision boxes have no visible mesh.
-- CC0 **Poly Haven** GLB furniture provides varied physical story evidence and background props. No engine-generated BoxMesh, SphereMesh, ArrayMesh or CylinderMesh is used for *visible world geometry*.
-- Monster mesh, animation and texture come from HorrorGameMaker / City Building Game Art under CC0; the original `Walk2` animation drives approaches and retreats.
-- **Cesium Man** is the source for the first-person forearms, legs and shoes, extracted from the source GLB by skinning weights while preserving authored rig and walk animation. Arms respond to movement and idle breathing; look down to see the legs. We provide CC BY 4.0 credit.
-- Standing water appears in **four zones per floor**, each with irregular softened shores, color/specular/Fresnel response and at most eight active ring impulses. A single reusable, 7-droplet emitter uses GLB support geometry. This avoids expensive render-to-texture reflections and procedural meshing during play.
-
-See `ASSET_CREDITS.md` and `OFL.txt` for licenses and modifications. Derivative GLBs are *not* AI generated.
-
-## Controls
-
-Keyboard: WASD move, Shift sprint, E investigate, J evidence journal, F flashlight, Escape pause. Android: left virtual joystick, right swipe to look, RUN / 调查 / 手电 / 日志 buttons. Under Settings, choose rendering scale, sensitivity, generated narration and opt-in scripted camera focus.
-
-## Sound and TTS
-
-Build-time `generate_voice.py` creates **19 Mandarin neural OGG clips** from Kokoro-82M-v1.1-zh under Apache 2.0. No on-device speech engine, system TTS or fal.ai. Recorded CC0 3D ambience plus deterministic splash and lift foley are played with capped concurrency. No internet connection is required for playback.
-
-## Direct multiplayer
-
-ENet/UDP, 1–4 players, protocol **15**, room key + compatibility handshake, distance validation, host-owned evidence/lift/ending state, late join, and 15s killed-client seat cleanup. Direct public-IP/UPnP/port forwarding may be needed across networks; no relay or host migration.
-
-## CI and scope
-
-`.github/workflows/faceless2-apk.yml` restores pinned authored assets, builds the skinned limb derivatives, downloads neural TTS *only during CI*, checks asset inventory/geometry restrictions, then imports and tests with `godot --headless`. Gameplay, story, water/limb/lift and independent ENet/UDP scenarios gate APK export. Artifact: `faceless2-v015-zorix.apk`, 0.15.0 / code 15, debug-signed. The APK is not installed or run as a test. No graphic capture, emulator, physical device, frame-rate, thermal or smartphone touch performance test is claimed.
+Automated gameplay QA is **Godot `--headless` exclusively** and the separate Node.js service is tested with Node's built-in test runner. Android APK is exported, not installed or run in CI. See [the root README](../README.md), [credits](ASSET_CREDITS.md), and [build workflow](../.github/workflows/faceless2-apk.yml).
