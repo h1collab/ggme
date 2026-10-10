@@ -365,30 +365,6 @@ func animate_lift(t: float) -> void:
 		shaft_markers[i].position.y = 0.45 + fposmod((float(i) * 0.52) + maxf(t - 3.2, 0.0) * 2.1, 2.2)
 	lift_cab.position.y = (sin(t * 18.0) * 0.012 if t > 3.25 else 0.0)
 
-func add_water_step(at: Vector3) -> bool:
-	if index != 2 or not is_instance_valid(pool_water): return false
-	if at.z < -18.3 or at.z > -10.9: return false
-	if not ((-11.5 < at.x and at.x < -4.5) or (4.5 < at.x and at.x < 11.5)): return false
-	# Ring impulses are capped; shader loops over eight uniforms without
-	# allocating meshes, particle systems or textures on each step.
-	ripple_buffer.push_front(Vector4(at.x, at.z, water_clock, 0.86))
-	if ripple_buffer.size() > 8: ripple_buffer.resize(8)
-	if is_instance_valid(splash_particles):
-		splash_particles.position = Vector3(at.x, 0.075, at.z)
-		splash_particles.restart()
-	return true
-
-func update_water(delta: float) -> void:
-	if not is_instance_valid(water_material): return
-	water_clock += delta
-	# Expire impulses even if a player stops in the water.
-	for i in range(ripple_buffer.size() - 1, -1, -1):
-		if water_clock - ripple_buffer[i].z >= 2.5: ripple_buffer.remove_at(i)
-	var uniforms := PackedVector4Array()
-	for i in range(8): uniforms.push_back(ripple_buffer[i] if i < ripple_buffer.size() else Vector4(-100, -100, -100, 0))
-	water_material.set_shader_parameter("impulses", uniforms)
-	water_material.set_shader_parameter("water_seconds", water_clock)
-
 func _office_details() -> void:
 	var dirt := _plain(Color(0.27, 0.25, 0.15), 1.0)
 	for i in range(16):
@@ -548,4 +524,3 @@ func update_state(closed: Array, lights_on: bool, anomaly: int, repaired: Array,
 		var mat: StandardMaterial3D = relay_visuals[i].material_override
 		mat.albedo_color = Color(0.18, 0.63, 0.40) if repaired[i] else Color(0.68, 0.31, 0.1)
 		mat.emission = mat.albedo_color
-
