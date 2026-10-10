@@ -11,6 +11,7 @@ const WorldDetailScript = preload("res://scripts/world_detail.gd")
 const CombatEffectsScript = preload("res://scripts/combat_effects.gd")
 var interface: Control
 var world_detail: Node3D
+var gameplay_assets: Array[PackedScene] = []
 var effects: Node3D
 
 var player: CharacterBody3D
@@ -77,6 +78,7 @@ var settings := {
 func _ready() -> void:
 	if OS.has_feature("mobile"):
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
+	_warm_gameplay_assets()
 	_load_settings()
 	_build_world()
 	world_detail = Node3D.new()
@@ -91,6 +93,17 @@ func _ready() -> void:
 	_build_audio()
 	_apply_settings()
 	get_tree().paused = true
+
+func _warm_gameplay_assets() -> void:
+	# Upload gameplay meshes/textures before the first world frame. Loading them
+	# while switching to the weapon SubViewport can stall a cold Vulkan driver.
+	# Retain PackedScenes so ResourceLoader can reuse them on start and recovery.
+	for filename in ["pistol", "rifle", "fp_hands", "blackwood_soldier", "faceless_entity"]:
+		var scene := load("res://assets/%s.glb" % filename) as PackedScene
+		if scene != null:
+			gameplay_assets.append(scene)
+		else:
+			push_error("Required gameplay model is missing: " + filename)
 
 func _process(delta: float) -> void:
 	if not game_started or player == null or cinematic_running:
