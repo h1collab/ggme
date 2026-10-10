@@ -124,7 +124,7 @@ jobs:
           export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 HF_HUB_DISABLE_XET=1
           python faceless2/generate_voice.py app/audio/voice | tee qa/neural-voice-generation.log
           cp /usr/share/common-licenses/Apache-2.0 app/KOKORO_APACHE_2.txt
-          test "$(find app/audio/voice -maxdepth 1 -name '*.ogg' | wc -l)" = 19
+          test "$(find app/audio/voice -maxdepth 1 -name '*.ogg' | wc -l)" = 25
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
