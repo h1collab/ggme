@@ -221,7 +221,7 @@ func update(delta: float) -> void:
 		if intro_clock > 2.35 and is_instance_valid(actor):
 			intro_done = true
 			phase = "flash"
-			clock = 0.0
+			clock = -delta # This first update begins the flash; do not consume its 0.85s in one frame
 			actor.position = Vector3(-1.1, 0, 4.25)
 			actor.visible = true
 			_set_walk_speed(0.0)
