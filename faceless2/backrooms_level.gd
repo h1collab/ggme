@@ -160,7 +160,7 @@ void fragment(){
 	material.shader = shader
 	material.set_shader_parameter("theme", index)
 	material.set_shader_parameter("surface", kind)
-	var photos := [["wallpaper.jpg", "carpet.jpg", "ceiling.jpg"], ["concrete.jpg", "concrete.jpg", "concrete.jpg"], ["pooltile.jpg", "poolfloor.jpg", "pooltile.jpg"], ["concrete.jpg", "poolfloor.jpg", "ceiling.jpg"]]]
+	var photos := [["wallpaper.jpg", "carpet.jpg", "ceiling.jpg"], ["concrete.jpg", "concrete.jpg", "concrete.jpg"], ["pooltile.jpg", "poolfloor.jpg", "pooltile.jpg"], ["concrete.jpg", "poolfloor.jpg", "ceiling.jpg"]]
 	var photo_path := Assets.path("vendor/" + photos[index][kind])
 	if ResourceLoader.exists(photo_path):
 		material.set_shader_parameter("surface_photo", load(photo_path))
