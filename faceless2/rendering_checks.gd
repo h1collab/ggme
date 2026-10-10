@@ -67,6 +67,11 @@ func run_checks() -> void:
 		await process_frame
 	check(not player.reloading and player.ammo_in_mag == 29, "Reset must cancel stale reload callbacks")
 	var soldier: CharacterBody3D = game.soldiers[0]
+	for hand_spec in [{"name":"R_Hand", "target":Vector3(0.08, 1.30, -0.23)}, {"name":"L_Hand", "target":Vector3(-0.02, 1.32, -0.34)}]:
+		for bone in range(soldier.skeleton.get_bone_count()):
+			if hand_spec.name in String(soldier.skeleton.get_bone_name(bone)):
+				var hand_point: Vector3 = soldier.global_transform.affine_inverse() * (soldier.skeleton.global_transform * soldier.skeleton.get_bone_global_pose(bone).origin)
+				check(hand_point.distance_to(hand_spec.target) < 0.10, "Guard hands must meet the rifle ready stance instead of floating at T-pose positions")
 	var original_scale: Vector3 = soldier.visual.scale
 	soldier.take_bullet(1.0, Vector3.ZERO)
 	for i in range(30):

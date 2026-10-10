@@ -53,7 +53,7 @@ func _ready() -> void:
 			rig_root = content
 			_pose_guard()
 		var weapon := Node3D.new()
-		weapon.position = Vector3(0.10, 1.23, -0.20)
+		weapon.position = Vector3(0.08, 1.30, -0.20)
 		add_child(weapon)
 		var rifle := load("res://assets/rifle.glb").instantiate() as Node3D
 		weapon.add_child(rifle)
@@ -72,7 +72,7 @@ func _ready() -> void:
 	material.albedo_color = Color(1.0, 0.48, 0.16)
 	lamp.material = material
 	muzzle_signal.mesh = lamp
-	muzzle_signal.position = Vector3(0.14, 1.4, -0.30)
+	muzzle_signal.position = Vector3(0.08, 1.30, -0.55)
 	muzzle_signal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	muzzle_signal.hide()
 	add_child(muzzle_signal)
@@ -85,7 +85,6 @@ func _point_bone(fragment: String, direction: Vector3) -> void:
 		var desired := Basis(Quaternion(pose.basis.x.normalized(), target)) * pose.basis
 		var parent := skeleton.get_bone_parent(bone)
 		if parent >= 0: desired = skeleton.get_bone_global_pose(parent).basis.inverse() * desired
-		desired = skeleton.get_bone_rest(bone).basis.inverse() * desired
 		skeleton.set_bone_pose_rotation(bone, desired.orthonormalized().get_rotation_quaternion())
 		skeleton.force_update_all_bone_transforms()
 		return
@@ -93,10 +92,10 @@ func _point_bone(fragment: String, direction: Vector3) -> void:
 func _pose_guard() -> void:
 	# Point each arm's +X bone axis toward a two-hand ready stance; preserve the
 	# imported rest axes instead of assuming Blender and Valve rigs agree.
-	_point_bone("R_UpperArm", Vector3(0.10, -0.30, -0.12))
-	_point_bone("R_Forearm", Vector3(-0.07, 0.05, -0.25))
-	_point_bone("L_UpperArm", Vector3(-0.06, -0.26, -0.20))
-	_point_bone("L_Forearm", Vector3(0.08, 0.09, -0.25))
+	_point_bone("R_UpperArm", Vector3(0.04, -0.28, -0.08))
+	_point_bone("R_Forearm", Vector3(-0.17, 0.10, -0.22))
+	_point_bone("L_UpperArm", Vector3(-0.02, -0.22, -0.20))
+	_point_bone("L_Forearm", Vector3(0.20, 0.06, -0.21))
 	for bone in range(skeleton.get_bone_count()):
 		var name := String(skeleton.get_bone_name(bone))
 		if "Thigh" in name or "Calf" in name:
@@ -187,7 +186,7 @@ func _can_see_player() -> bool:
 	return not hit.is_empty() and hit.get("collider") == player
 
 func _fire_at_snapshot() -> void:
-	var origin := global_position + global_basis * Vector3(0.14, 1.4, -0.30)
+	var origin := global_position + global_basis * muzzle_signal.position
 	var direction := (aim_point - origin).normalized()
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * 45)
 	query.exclude = [self]
