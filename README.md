@@ -1,33 +1,31 @@
-> 当前主要开发版本为 **Faceless 2**，代码在 [`faceless2/`](faceless2/README.md)。
-> 安卓构建使用 **Build Faceless 2 v10 Layered Forest and Natural Motion APK** 工作流；当前游戏与测试说明见 [faceless2/README.md](faceless2/README.md)，下面是保留的旧版原型说明。
+# Backrooms / Night Relay
 
-# Escape Black Pine / 逃离黑松疗养院
+A monster-free, atmospheric Backrooms game by **Zorix GAme Team**, with three explorable layers and up to four-player direct P2P cooperation.
 
-这是一个 Godot 4.7.2 制作的 3D 第一人称恐怖逃脱游戏原型，目标平台为 Android。
+Observe actual live surveillance feeds, identify fluorescent circuit faults, repair three nodes, manage reserve power and physical isolation shutters, and complete each 02:00–06:00 shift to reach the next layer. Yellow-wall offices, maintenance corridors and vaulted pool rooms provide different materials and lighting. There are no hostile creatures, weapons or jump scares in this version.
 
-## 已实现
+## Run the current game
 
-- 废弃疗养院 / 旧校舍风格室内 3D 场景
-- 两枚保险丝 → 恢复配电 → 档案室钥匙 → 正门逃生的完整目标链
-- “值夜人”巡逻、视线侦测、追逐、搜索、抓捕与重生
-- 手电筒电量、低电量闪烁、冲刺体力、头部晃动
-- 动态阴影、雾、Film tonemapping、PBR 材质、应急灯与随机视觉惊吓
-- Android 双区触控：左侧拖动移动，右侧拖动观察，右侧轻点交互
-- PC：WASD / Shift / 鼠标 / E或左键 / F
+Use Godot **4.7.2**. The repository's root `project.godot` opens the current Backrooms main scene. Assets are procedural and the supplied branding is included; no Sketchfab account is required.
 
-## Godot 无头构建 APK
-
-GitHub Actions 使用官方 Godot 4.7.2 与 Android export templates，并执行：
-
-```bash
+```sh
+python faceless2/backrooms_audio.py audio
 godot --headless --path . --import
-godot --headless --path . --export-debug Android build/escape-black-pine.apk
+godot --path .
 ```
 
-构建成功后，在 Actions 对应运行的 Artifacts 下载 `escape-black-pine-apk`。
+Keyboard: WASD, Shift, E, F, Escape. Android: left joystick, right-side look, independent USE/TORCH/RUN touch controls. Quality and sensitivity settings are saved locally.
 
-> `payload/` 是旧版原生 C++ 构建留下的历史文件，新 Godot 工作流不再读取它。
+## Android APK
 
-## Current Android build: Backrooms / Night Relay v0.11.0
+The [Backrooms build workflow](.github/workflows/faceless2-apk.yml) creates `backrooms-v11-zorix.apk` (0.11.0 / code 11), validates real gameplay and four-process ENet sessions, captures all nine surveillance views, checks the APK signature and Internet permission, then installs and operates the APK in an Android 35 emulator. Download the APK artifact from the latest successful run on the development branch.
 
-The current development branch replaces monster/combat gameplay with three Backrooms layers and FNAF-inspired live surveillance, power, isolation shutters, anomaly reporting and cooperative exploration. Native ENet direct P2P supports up to four players. See [gameplay, connection instructions, testing and APK build](faceless2/README.md). The workflow exports `backrooms-v11-zorix.apk` with the supplied Zorix branding.
+The root Android export preset selects only the new main scene, its dependencies, supplied branding and generated audio. The packaged workflow also supplies a PNG team boot splash. APKs are debug-signed test builds; production signing and physical-device performance validation remain release work.
+
+## Cooperative play
+
+Host a room and share your IP and UDP port (default **24711**), or join a host address. Same-network hosting works directly; Internet play needs a reachable public endpoint, optional UPnP mapping or manual port forwarding. There is no external matchmaking/relay service or guaranteed traversal of carrier NAT. The host stays online and owns shared progress.
+
+See [game rules, networking details, testing and limitations](faceless2/README.md). [Official website](https://zorix.it).
+
+Previous game source is preserved in `faceless2/legacy/` and ignored by Godot. The historical School Brawl workflow runs only on its historical branch or manual dispatch.

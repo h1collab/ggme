@@ -13,6 +13,7 @@ func _initialize() -> void:
 func shot(filename: String) -> void:
 	game.ui.refresh()
 	game.level.update_state(game.doors, game.lights_on, game.anomaly, game.repaired, 0.2, game.ui.monitor_camera.position if game.ui.monitoring else game.player.position, 3)
+	await create_timer(0.25).timeout
 	for i in range(12):
 		game.ui.refresh()
 		await process_frame

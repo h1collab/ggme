@@ -1,0 +1,6 @@
+/.godot/
+/audio/
+/build/
+**/__pycache__/
+*.gd.uid
+*.import

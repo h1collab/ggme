@@ -1,6 +1,6 @@
 # Backrooms / Night Relay — Android v0.11.0
 
-An original, monster-free atmospheric survey game by Zorix GAme Team. The current Android main scene is `faceless2/main.tscn`, which loads `backrooms.gd`. Previous forest/combat source files are retained as history in the repository but are not copied into or packaged with this build. No hostile NPCs, jump scares, weapons, creature sounds or generated character GLBs are used.
+An original, monster-free atmospheric survey game by Zorix GAme Team. The current Android main scene is `faceless2/main.tscn`, which loads `backrooms.gd`. Previous forest/combat source files are archived in `faceless2/legacy/` and excluded from Godot import but are not copied into or packaged with this build. No hostile NPCs, jump scares, weapons, creature sounds or generated character GLBs are used.
 
 ## Play
 
@@ -26,6 +26,8 @@ Official references: [Godot ENetMultiplayerPeer](https://docs.godotengine.org/en
 The supplied first image is the game icon; the second is the team logo and boot splash. Intro: **Made By Zorix GAme Team**. About Us links to **https://zorix.it**. Original source images are preserved in `branding/`.
 
 ## Build and verification
+
+The repository root `project.godot` and `main.tscn` also run this version directly. Generate optional local audio with `python faceless2/backrooms_audio.py audio`, import with Godot 4.7.2, then run the project. The root export preset selects only the new scene, its dependencies, branding and audio.
 
 `.github/workflows/faceless2-apk.yml` restores the SHA-verified Godot base, replaces the original scripts/assets/audio with the new Backrooms project, generates three original machinery/footstep WAVs, installs Godot 4.7.2 and Android SDK, runs actual engine gameplay and four-process ENet checks, captures eighteen actual Mobile Vulkan views (including all nine surveillance feeds), and exports `backrooms-v11-zorix.apk`. The exported APK is then installed and operated on an Android 35 emulator: touch movement, live monitoring, real APK-to-desktop ENet joining, shutter replication and disconnect are checked before delivery. CI fails on missing PASS markers, engine errors, failed UDP checks or missing screenshots.
 

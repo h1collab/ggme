@@ -1,9 +1,9 @@
 extends Node3D
 
-const LevelScript = preload("res://scripts/backrooms_level.gd")
-const PlayerScript = preload("res://scripts/backrooms_player.gd")
-const UiScript = preload("res://scripts/backrooms_ui.gd")
-const NetworkScript = preload("res://scripts/backrooms_network.gd")
+const LevelScript = preload("backrooms_level.gd")
+const PlayerScript = preload("backrooms_player.gd")
+const UiScript = preload("backrooms_ui.gd")
+const NetworkScript = preload("backrooms_network.gd")
 const SHIFT_SECONDS := 180.0
 var level: Node3D
 var player: CharacterBody3D
@@ -288,7 +288,9 @@ func update_crew(poses: Dictionary) -> void:
 		if not poses.has(id) or id == local_id: remove_crew(id)
 	for id in poses:
 		if id == local_id: continue
-		if not crew.has(id): crew[id] = _crew_avatar(id)
+		if not crew.has(id):
+			crew[id] = _crew_avatar(id)
+			crew[id].position = poses[id].p
 		crew[id].set_meta("target", poses[id].p)
 		crew[id].set_meta("yaw", poses[id].y)
 

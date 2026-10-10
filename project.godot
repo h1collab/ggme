@@ -1,21 +1,27 @@
-; Escape Black Pine - Godot 4.7.2
+; Escape Black Pine - made by zorix
 config_version=5
 
 [application]
-config/name="Escape Black Pine"
+config/name="Backrooms Night Relay"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
-boot_splash/bg_color=Color(0.004, 0.006, 0.009, 1)
+config/icon="res://faceless2/branding/game_icon.png"
+boot_splash/bg_color=Color(1, 1, 1, 1)
 boot_splash/show_image=false
+boot_splash/fullsize=true
+boot_splash/use_filter=true
 
 [display]
 window/size/viewport_width=1600
 window/size/viewport_height=900
+window/size/window_width_override=1280
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
-window/handheld/orientation=1
+window/stretch/aspect="expand"
+window/handheld/orientation=0
+window/energy_saving/keep_screen_on=true
 
 [rendering]
-textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
 renderer/rendering_method.gl_compatibility="gl_compatibility"
@@ -24,6 +30,7 @@ anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/use_debanding=true
 lights_and_shadows/directional_shadow/size=2048
 lights_and_shadows/positional_shadow/atlas_size=2048
+textures/vram_compression/import_etc2_astc=true
 
 [physics]
 3d/default_gravity=18.0
@@ -36,3 +43,7 @@ move_right={"deadzone":0.3,"events":[Object(InputEventKey,"physical_keycode":68)
 sprint={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":4194325)]}
 interact={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":69),Object(InputEventMouseButton,"button_index":1)]}
 flashlight={"deadzone":0.5,"events":[Object(InputEventKey,"physical_keycode":70)]}
+
+[threading]
+worker_pool/max_threads=8
+worker_pool/low_priority_thread_ratio=1.0

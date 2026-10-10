@@ -66,9 +66,9 @@ def walk_to_console():
 host = None
 host_log = None
 try:
-    adb('install', '-r', args.apk)
+    adb('install', '--no-streaming', '-r', args.apk)
     adb('logcat', '-c')
-    adb('shell', 'am', 'start', '-n', package + '/' + activity)
+    adb('shell', 'am', 'start', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER', '-n', package + '/' + activity)
     wait_marker('UI_SCREEN / menu', 90)
     time.sleep(2)
     capture('android-01-menu')
@@ -127,6 +127,7 @@ except Exception:
     raise
 finally:
     (out / 'android-logcat.log').write_text(logs())
+    (out / 'android-system-logcat.log').write_text(adb('logcat', '-d'))
     if host is not None and host.poll() is None:
         host.terminate()
         try: host.wait(timeout=3)

@@ -1,7 +1,7 @@
 extends Control
 
-const Joystick = preload("res://scripts/virtual_joystick.gd")
-const TouchAction = preload("res://scripts/touch_action.gd")
+const Joystick = preload("virtual_joystick.gd")
+const TouchAction = preload("touch_action.gd")
 const PAPER := Color(0.87, 0.87, 0.79)
 const MUTED := Color(0.51, 0.57, 0.53)
 const ACCENT := Color(0.70, 0.78, 0.54)
@@ -188,7 +188,7 @@ func _clear(kind: String) -> void:
 func intro() -> void:
 	_clear("intro")
 	_card(panels, Rect2(0, 0, 1600, 900), Color(0.025, 0.04, 0.055))
-	_image(panels, "res://ui/team_logo.jpg", Rect2(650, 190, 300, 300), true)
+	_image(panels, _brand_file("team_logo.jpg"), Rect2(650, 190, 300, 300), true)
 	var text := _label(panels, "Made By Zorix GAme Team", Vector2(350, 545), 900, 40)
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var detail := _label(panels, "A SURVEY OF IMPOSSIBLE SPACES", Vector2(350, 625), 900, 18, MUTED)
@@ -208,7 +208,7 @@ func menu() -> void:
 		game.player.yaw = -0.42
 		game.player.rotation.y = -0.42
 	_card(panels, Rect2(0, 0, 730, 900), Color(0.025, 0.04, 0.032, 0.97))
-	_image(panels, "res://ui/game_icon.png", Rect2(66, 58, 92, 92))
+	_image(panels, _brand_file("game_icon.png"), Rect2(66, 58, 92, 92))
 	_label(panels, "ZORIX / FIELD RECORDINGS", Vector2(185, 80), 480, 20, ACCENT)
 	_label(panels, "BACKROOMS", Vector2(65, 218), 700, 68)
 	_label(panels, "NIGHT RELAY", Vector2(70, 307), 620, 36, ACCENT)
@@ -256,7 +256,7 @@ func open_guide() -> void:
 
 func open_about() -> void:
 	_page("ABOUT US", "about")
-	_image(panels, "res://ui/team_logo.jpg", Rect2(105, 240, 370, 370), true)
+	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 240, 370, 370), true)
 	_label(panels, "Zorix GAme Team", Vector2(580, 254), 830, 45)
 	_label(panels, "Made By Zorix GAme Team", Vector2(584, 336), 800, 26, ACCENT)
 	_label(panels, "BACKROOMS / NIGHT RELAY\nAn atmospheric cooperative survey game.\nTension through space, observation and resource choices.", Vector2(584, 418), 865, 27)
@@ -417,3 +417,7 @@ func open_settings() -> void:
 
 func _monitor_status() -> String:
 	return "%02d:%02d / SHIFT\nPOWER %d%%\nSIGNAL %d%% / HEAT %d%%\nREPORTS %d/3" % [2 + int(game.elapsed / 45), int(fmod(game.elapsed / 45, 1.0) * 60), int(game.power), int(game.signal_pressure), int(game.heat), game.reports]
+
+func _brand_file(filename: String) -> String:
+	var packaged := "res://ui/" + filename
+	return packaged if ResourceLoader.exists(packaged) else "res://faceless2/branding/" + filename

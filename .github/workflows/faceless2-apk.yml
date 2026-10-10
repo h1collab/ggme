@@ -38,7 +38,7 @@ jobs:
           source=Path('faceless2')
           for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_checks.gd','backrooms_network_checks.gd','backrooms_visual_checks.gd','virtual_joystick.gd','touch_action.gd']:
               shutil.copy2(source/name, Path('app/scripts')/name)
-          shutil.copy2(source/'main.tscn', 'app/main.tscn')
+          Path('app/main.tscn').write_text((source/'main.tscn').read_text().replace('res://faceless2/', 'res://scripts/'))
           shutil.copy2(source/'branding/game_icon.png', 'app/ui/game_icon.png')
           shutil.copy2(source/'branding/team_logo.jpg', 'app/ui/team_logo.jpg')
           Image.open('app/ui/team_logo.jpg').save('app/ui/team_splash.png')
