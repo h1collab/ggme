@@ -314,8 +314,8 @@ func _build_world() -> void:
 		light.spot_angle_attenuation = 0.6
 		light.light_energy = 2.3
 		light.light_color = Color(1.0,0.83,0.64)
-		light.shadow_bias = 0.08
-		light.shadow_normal_bias = 0.6
+		light.shadow_bias = 0.04
+		light.shadow_normal_bias = 0.30
 		light.distance_fade_enabled = true
 		light.distance_fade_begin = 28.0
 		light.distance_fade_length = 12.0
@@ -821,6 +821,9 @@ func _play_sfx(path: String, volume_db := -2.0) -> void:
 
 func play_footstep(running: bool) -> void:
 	_play_sfx("res://audio/footstep_run.wav" if running else "res://audio/footstep.wav",-10.0)
+	# Small pitch/level variation breaks the identical repeating footstep loop.
+	step_player.pitch_scale = randf_range(0.94, 1.06)
+	step_player.volume_db += randf_range(-1.2, 0.5)
 
 func on_player_shot(weapon:String)->void:
 	interface.shot_time = 0.09

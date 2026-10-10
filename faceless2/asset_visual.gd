@@ -98,6 +98,7 @@ static func prepare_world(root: Node3D, path: String) -> void:
 					material.albedo_color = Color(0.80, 0.80, 0.77)
 					if "eyeball" in material.resource_name: material.roughness = 0.32
 				if path.ends_with("pine_cluster.glb"):
+					material.albedo_color *= Color(0.76, 0.79, 0.72)
 					material.roughness = 0.95
 					material.roughness_texture = null
 					material.metallic = 0

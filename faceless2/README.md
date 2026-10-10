@@ -116,3 +116,14 @@ relay objectives, evidence, radio scenes and checkpoint saves are retained.
 Visual QA pins and verifies the exact Mesa software driver used locally. For llvmpipe captures only, gravel is decoded to identical source pixels before sampling; physical GPUs retain exported compressed textures. Camera poses, models, shaders, lighting, quality and output resolution stay the same. Per-stage/per-frame progress is logged to distinguish loading from rendering stalls.
 
 The project uses eight worker threads with a 1.0 low-priority thread ratio. This is a tested workaround for Mobile shader/pipeline compilation stalls on cold caches in this asset set (upstream report: https://github.com/godotengine/godot/issues/123060). Cold-cache captures are checked separately from warm-cache rendering; hardware Android performance remains unmeasured.
+
+
+## v10 layered environment and natural motion
+
+- Layered 48/96/160/224-tree quality budgets replace sparse forest spacing. The original licensed pine mesh uses varied proportions, rotation and per-instance tone, with deeper stands closing both horizons. Nearby and distant foliage remains matte.
+- Four independently culled sectors contain opaque wind-bent grass geometry and irregular moss-colored stones. All scatter stays outside the accessible shoulder and follows terrain height. Per-sector grass budgets are 32/64/96/128; rocks 8/16/24/32. Wind is vertex-only; no alpha overdraw, collision or per-object animation nodes are added.
+- Visible low wire fences explain existing side collision barriers. Two physical field signs add checkpoint context without covering the mission route or interactable props. Reflector bands respond to lighting rather than glowing, and tighter lamp shadow bias improves ground contact.
+- Original photographic gravel blends differently oriented samples to reduce repeated patches, with irregular wheel-track alignment, runoff, fine needle/litter detail and earthy shoulder variation. Accessible geometry and collision remain unchanged.
+- Guard rotation has a bounded angular speed. Procedural gait blends back to rest, with restrained breathing and balance on the imported torso bones; skinning and fitted scale remain intact. Footstep pitch/level varies slightly between steps.
+- Runtime regression checks cover terrain-rooted scatter, walkable clearance, detail quality budgets and natural motion. Eleven actual Mobile Vulkan captures include the forest shoulder and field sign alongside branding, weapons, guard and extraction views.
+- Android output: `faceless-2-v10-zorix.apk`, version code 10 / name 0.10.0. This remains a debug-signed prototype build. Desktop software-rendered QA does not measure physical Android frame rates; the original low-poly model silhouettes and procedural animation still limit production AAA realism.

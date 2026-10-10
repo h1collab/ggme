@@ -26,6 +26,9 @@ var skeleton: Skeleton3D
 var rig_root: Node3D
 var gait := 0.0
 var leg_rotations := {}
+var torso_rotations := {}
+var movement_blend := 0.0
+var breath_time := 0.0
 
 func _ready() -> void:
 	var cs := CollisionShape3D.new()
@@ -101,17 +104,30 @@ func _pose_guard() -> void:
 		var name := String(skeleton.get_bone_name(bone))
 		if "Thigh" in name or "Calf" in name:
 			leg_rotations[bone] = skeleton.get_bone_pose_rotation(bone)
+		if "Spine2" in name or "Spine1" in name:
+			torso_rotations[bone] = skeleton.get_bone_pose_rotation(bone)
 
 func _animate_gait(delta: float) -> void:
 	if skeleton == null: return
 	var movement := clampf(Vector2(velocity.x, velocity.z).length() / 2.3, 0, 1)
+	movement_blend = lerpf(movement_blend, movement, 1.0 - exp(-delta * 10.0))
+	breath_time += delta
 	gait += delta * 8.5 * movement
 	for bone in leg_rotations:
 		var name := String(skeleton.get_bone_name(bone))
-		var step := sin(gait + (PI if "L_" in name else 0.0)) * movement
+		var step := sin(gait + (PI if "L_" in name else 0.0)) * movement_blend
 		var angle := step * 0.30 if "Thigh" in name else maxf(0, -step) * 0.42
 		# The leg length axis is local X; local Z flexes the imported knee.
 		skeleton.set_bone_pose_rotation(bone, leg_rotations[bone] * Quaternion(Vector3.BACK, angle))
+	for bone in torso_rotations:
+		var breathing := sin(breath_time * 1.65) * 0.006
+		var balance := sin(gait) * movement_blend * 0.012
+		skeleton.set_bone_pose_rotation(bone, torso_rotations[bone] * Quaternion(Vector3.BACK, breathing + balance))
+
+func _turn_toward(direction: Vector3, delta: float) -> void:
+	if direction.length_squared() < 0.01: return
+	var heading := atan2(-direction.x, -direction.z)
+	rotation.y = rotate_toward(rotation.y, heading, delta * 3.2)
 
 func hear_shot(origin: Vector3) -> void:
 	if dead or global_position.distance_to(origin) > 30.0: return
@@ -152,7 +168,7 @@ func _physics_process(delta: float) -> void:
 	if memory > 0:
 		direction = last_known - global_position
 		direction.y = 0
-		if direction.length() > 0.1: look_at(global_position + direction, Vector3.UP)
+		_turn_toward(direction, delta)
 		speed = 2.3
 		if has_sight:
 			if distance < 5.0: direction = -to_player
@@ -171,7 +187,7 @@ func _physics_process(delta: float) -> void:
 		if direction.length() < 0.8:
 			patrol_index = (patrol_index + 1) % patrol_points.size()
 			direction = Vector3.ZERO
-		else: look_at(global_position + direction, Vector3.UP)
+		else: _turn_toward(direction, delta)
 	if stagger > 0 or windup > 0: speed *= 0.2
 	var desired := direction.normalized() * speed if direction.length() > 0.1 else Vector3.ZERO
 	velocity.x = move_toward(velocity.x, desired.x, delta * 10)

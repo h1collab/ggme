@@ -262,9 +262,9 @@ func run_checks() -> void:
 	check(player.get_shot_spread() < hip_spread, "Crouching must improve accuracy")
 	player.crouched = false
 	game.world_detail.apply_quality(0)
-	check(game.world_detail.forest_batches[0].multimesh.visible_instance_count == 18 and not game.world_detail.relay_lights[0].visible, "Low quality must reduce forest density and secondary lights")
+	check(game.world_detail.forest_batches[0].multimesh.visible_instance_count == 48 and not game.world_detail.relay_lights[0].visible, "Low quality must reduce forest density and secondary lights")
 	game.world_detail.apply_quality(3)
-	check(game.world_detail.forest_batches[0].multimesh.visible_instance_count == 72, "Ultra must enable the full instanced forest")
+	check(game.world_detail.forest_batches[0].multimesh.visible_instance_count == 224, "Ultra must enable the full instanced forest")
 	var effects_count: int = game.effects.get_child_count()
 	for i in range(100): game.effects.shot(Vector3(0, 1, 0), Vector3(0, 1, -4), Vector3.BACK)
 	check(game.effects.get_child_count() == effects_count, "Repeated fire must reuse effect pools without growing the scene")

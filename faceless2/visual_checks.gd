@@ -64,6 +64,15 @@ func run() -> void:
 	root.add_child(game)
 	game.interface.show_brand_intro(false)
 	await capture_page("00a-team-intro")
+	# Verify the actual GPU transform buffers, alongside headless placement checks.
+	for batch in game.world_detail.undergrowth_batches + game.world_detail.rock_batches:
+		for i in range(batch.multimesh.instance_count):
+			var uploaded: Transform3D = batch.multimesh.get_instance_transform(i)
+			var intended: Transform3D = batch.get_meta("placements")[i]
+			if not uploaded.origin.is_equal_approx(intended.origin):
+				push_error("Scatter GPU transform differs from terrain placement")
+				quit(1)
+				return
 	game.interface.finish_brand_intro()
 	await capture_page("00b-main-menu")
 	game.interface.open_about()
@@ -95,6 +104,8 @@ func run() -> void:
 	await capture(game, "04-guard", Vector3(0, 0.02, -3), 0, -0.08)
 	await capture(game, "05-extraction", Vector3(0, 0.02, -101), 0, -0.04, true)
 	await capture(game, "06-checkpoint", Vector3(0, 0.02, 1), PI * 0.76, -0.05)
+	await capture(game, "07-forest-shoulder", Vector3(7.2, 0.02, -18), -PI * 0.5, -0.15)
+	await capture(game, "08-field-sign", Vector3(-5.5, 0.02, 3), 0.48, -0.02)
 	for node in game.find_children("*", "AudioStreamPlayer", true, false): node.stop(); node.stream = null
 	for node in game.find_children("*", "AudioStreamPlayer3D", true, false): node.stop(); node.stream = null
 	game.queue_free()

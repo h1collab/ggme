@@ -66,6 +66,22 @@ func run() -> void:
 	for batch in game.world_detail.forest_batches:
 		var mat := batch.material_override as BaseMaterial3D
 		check(mat != null and mat.metallic_specular <= 0.01 and mat.roughness >= 0.9, "Distant forest must match matte nearby foliage")
+	# Scatter must be rooted on visual soil and stay outside accessible collision.
+	for batch in game.world_detail.undergrowth_batches + game.world_detail.rock_batches:
+		for placement in batch.get_meta("placements"):
+			var position: Vector3 = placement.origin
+			check(absf(position.x) >= 9.3, "Decorative scatter must not obstruct the walkable shoulder or objectives")
+			var soil: float = game.GroundSurface.forest_height(position.x, position.z) - 0.035
+			check(position.y >= soil - 0.01 and position.y < soil + 0.3, "Scatter must follow terrain rather than float or sink")
+	check(game.world_detail.undergrowth_batches.size() == 4 and game.world_detail.rock_batches.size() == 4, "Detail must be divided into independently culled sectors")
+	check(game.world_detail.get_node("BoundaryPosts").multimesh.instance_count == 76, "Both existing side boundaries need visible fence posts")
+	for tier in range(4):
+		game.world_detail.apply_quality(tier)
+		for batch in game.world_detail.undergrowth_batches:
+			check(batch.multimesh.visible_instance_count == [32,64,96,128][tier], "Undergrowth budget must respect selected quality")
+		for batch in game.world_detail.rock_batches:
+			check(batch.multimesh.visible_instance_count == [8,16,24,32][tier], "Rock budget must respect selected quality")
+	game.world_detail.apply_quality(int(game.settings["quality"]))
 	var rectangles: Array[Rect2] = []
 	for control in ui.touch_controls.get_children():
 		if control is Button:
@@ -84,6 +100,15 @@ func run() -> void:
 				cloth_count += 1
 				check(mat.roughness >= 0.8, "Uniform must use matte fabric instead of glossy plastic")
 	check(cloth_count >= 5, "Fabric test must cover imported guard surfaces")
+	var heading: float = guard.rotation.y
+	guard._turn_toward(Vector3.RIGHT, 1.0 / 60.0)
+	check(absf(angle_difference(heading, guard.rotation.y)) <= 0.054, "Guard must turn at a bounded rate instead of snapping instantly")
+	guard.velocity = Vector3(0,0,2.0)
+	guard._animate_gait(0.3)
+	guard.velocity = Vector3.ZERO
+	for i in range(20): guard._animate_gait(0.1)
+	check(guard.movement_blend < 0.001 and guard.visual.scale.is_equal_approx(guard.visual_scale), "Gait must settle smoothly while preserving fitted character scale")
+	check(not guard.torso_rotations.is_empty(), "Breathing must animate the actual torso rig")
 	for node in game.find_children("*","AudioStreamPlayer",true,false): node.stop(); node.stream = null
 	for node in game.find_children("*","AudioStreamPlayer3D",true,false): node.stop(); node.stream = null
 	game.queue_free()

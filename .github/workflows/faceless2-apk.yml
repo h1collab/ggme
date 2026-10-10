@@ -1,4 +1,4 @@
-name: Build Faceless 2 v9 Natural Materials and Zorix Branding APK
+name: Build Faceless 2 v10 Layered Forest and Natural Motion APK
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
           mkdir app
           unzip -q upgrade.zip -d app
 
-      - name: Apply Faceless 2 v9 project
+      - name: Apply Faceless 2 v10 project
         shell: bash
         run: |
           cp faceless2/interface.gd app/scripts/interface.gd
@@ -51,9 +51,9 @@ jobs:
           sed -i 's/School Brawl/Faceless 2/g' app/project.godot
           sed -i 's/Escape Black Pine/Faceless 2/g' app/export_presets.cfg
           sed -i 's/School Brawl/Faceless 2/g' app/export_presets.cfg
-          sed -i 's/^version\/code=.*/version\/code=9/' app/export_presets.cfg
-          sed -i 's/^version\/name=.*/version\/name="0.9.0"/' app/export_presets.cfg
-          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v9-zorix.apk/g' app/export_presets.cfg
+          sed -i 's/^version\/code=.*/version\/code=10/' app/export_presets.cfg
+          sed -i 's/^version\/name=.*/version\/name="0.10.0"/' app/export_presets.cfg
+          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v10-zorix.apk/g' app/export_presets.cfg
           rm -f app/assets/*.glb
           test -s app/scripts/game.gd
           test -s app/main.tscn
@@ -244,7 +244,7 @@ jobs:
           Path("/tmp/qa-lvp.json").write_text(json.dumps(descriptor))
           PYCODE
           VK_DRIVER_FILES=/tmp/qa-lvp.json LP_NUM_THREADS=2 timeout 720 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
-          test "$(find qa -name '*.png' | wc -l)" -eq 9
+          test "$(find qa -name '*.png' | wc -l)" -eq 11
           python - <<'PYCODE'
           from pathlib import Path
           for name, marker in [("rendering-checks.log","Rendering/gameplay checks: PASS"),("gameplay-checks.log","Full gameplay checks: PASS"),("presentation-checks.log","Presentation checks: PASS"),("visual-checks.log","Visual captures: PASS")]:
@@ -258,7 +258,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v9 APK
+      - name: Export Faceless 2 v10 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -266,20 +266,20 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless-2-v9-zorix.apk
-          test -s app/build/faceless-2-v9-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless-2-v10-zorix.apk
+          test -s app/build/faceless-2-v10-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v9-zorix-apk
-          path: app/build/faceless-2-v9-zorix.apk
+          name: faceless-2-v10-zorix-apk
+          path: app/build/faceless-2-v10-zorix.apk
           if-no-files-found: error
 
       - name: Upload model report and rendered test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v9-visual-qa
+          name: faceless-2-v10-visual-qa
           path: qa
           if-no-files-found: error

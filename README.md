@@ -1,5 +1,5 @@
 > 当前主要开发版本为 **Faceless 2**，代码在 [`faceless2/`](faceless2/README.md)。
-> 安卓构建使用 **Build Faceless 2 v9 Natural Materials and Zorix Branding APK** 工作流；当前游戏与测试说明见 [faceless2/README.md](faceless2/README.md)，下面是保留的旧版原型说明。
+> 安卓构建使用 **Build Faceless 2 v10 Layered Forest and Natural Motion APK** 工作流；当前游戏与测试说明见 [faceless2/README.md](faceless2/README.md)，下面是保留的旧版原型说明。
 
 # Escape Black Pine / 逃离黑松疗养院
 
