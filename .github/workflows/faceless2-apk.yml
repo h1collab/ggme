@@ -174,7 +174,7 @@ jobs:
           done
           timeout 180 godot --headless --path app --script scripts/backrooms_checks.gd 2>&1 | tee qa/runtime-checks.log
           timeout 180 godot --headless --path app --script scripts/backrooms_story_checks.gd 2>&1 | tee qa/story-checks.log
-          timeout 180 godot --headless --path app --script scripts/backrooms_cinematic_checks.gd 2>&1 | tee qa/cinematic-checks.log
+          timeout 180 godot --headless --verbose --path app --script scripts/backrooms_cinematic_checks.gd 2>&1 | tee qa/cinematic-checks.log
           python faceless2/test_backrooms_network.py --godot godot --project app --output qa 2>&1 | tee qa/network-checks.log
           python - <<'PYCODE'
           from pathlib import Path

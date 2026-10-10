@@ -67,8 +67,21 @@ func run() -> void:
 	check(game.ui.modal and game.player.focus_seconds == 0, "Menu cancels any scripted camera focus")
 	game.ui.close_panels()
 	game.net.leave()
+	# End all live streaming decoders/particle emitters before tearing down
+	# the imported skinned GLB scene. Godot may otherwise retain audio
+	# playback resources beyond the final SceneTree tick in headless mode.
+	for class_name in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
+		for sound in game.find_children("*", class_name, true, false):
+			sound.stop()
+			sound.stream = null
+	for emitter in game.find_children("*", "CPUParticles3D", true, false):
+		emitter.emitting = false
+	for anim in game.find_children("*", "AnimationPlayer", true, false):
+		anim.stop()
+	arm_meshes.clear()
 	game.queue_free()
-	await create_timer(0.15).timeout
+	for i in range(10): await process_frame
+	await create_timer(0.8).timeout
 	if failures.is_empty():
 		print("Faceless 2 cinematic checks: PASS / imported arms, generated Mandarin, reactive water, animated elevator, bounded input")
 		quit(0)
