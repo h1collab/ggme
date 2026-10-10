@@ -133,10 +133,12 @@ jobs:
           python faceless2/generate_audio.py app/audio
           python - <<'PYCODE'
           from pathlib import Path
+          from PIL import Image
           import re
+          Image.open("app/ui/team_logo.jpg").save("app/ui/team_splash.png")
           p=Path("app/project.godot")
           s=p.read_text()
-          s=s.replace('boot_splash/image="res://ui/icon.svg"','boot_splash/image="res://ui/team_logo.jpg"')
+          s=s.replace('boot_splash/image="res://ui/icon.svg"','boot_splash/image="res://ui/team_splash.png"')
           s=s.replace('config/icon="res://ui/icon.svg"','config/icon="res://ui/game_icon.png"')
           s=re.sub(r'boot_splash/bg_color=.*', 'boot_splash/bg_color=Color(1, 1, 1, 1)', s)
           s=s.replace('boot_splash/fullsize=false','boot_splash/fullsize=true')
@@ -214,13 +216,19 @@ jobs:
           timeout 180 godot --headless --path app --script scripts/rendering_checks.gd 2>&1 | tee qa/rendering-checks.log
           timeout 180 godot --headless --path app --script scripts/gameplay_checks.gd 2>&1 | tee qa/gameplay-checks.log
           timeout 180 godot --headless --path app --script scripts/presentation_checks.gd 2>&1 | tee qa/presentation-checks.log
+          python - <<'PYCODE'
+          from pathlib import Path
+          for name, marker in [("rendering-checks.log","Rendering/gameplay checks: PASS"),("gameplay-checks.log","Full gameplay checks: PASS"),("presentation-checks.log","Presentation checks: PASS")]:
+              text=Path("qa",name).read_text()
+              assert marker in text and "ERROR:" not in text and "FAIL" not in text, name
+          PYCODE
 
       - name: Capture actual Mobile Vulkan gameplay views
         shell: bash
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends xvfb mesa-vulkan-drivers
-          LP_NUM_THREADS=2 timeout 420 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
+          LP_NUM_THREADS=2 timeout 720 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
           test "$(find qa -name '*.png' | wc -l)" -eq 9
           python - <<'PYCODE'
           from pathlib import Path

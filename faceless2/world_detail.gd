@@ -198,7 +198,7 @@ func _process(delta: float) -> void:
 	shadow_clock -= delta
 	if shadow_clock <= 0 and is_instance_valid(game.player):
 		shadow_clock = 0.3
-		var nearest: OmniLight3D
+		var nearest: SpotLight3D
 		var distance := 12.0
 		for light in game.street_lights:
 			light.shadow_enabled = false

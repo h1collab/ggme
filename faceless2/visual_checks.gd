@@ -19,7 +19,7 @@ func capture(game: Node3D, name: String, pos: Vector3, heading: float, pitch: fl
 	game.player._apply_weapon_pose()
 	game.interface.notice_time = 0
 	game.update_hud(game.player.health, game.player.stamina, game.player.battery, game.player.current_weapon, game.player.ammo_in_mag, game.player.reserve_ammo)
-	for i in range(6): await process_frame
+	for i in range(3): await process_frame
 	var image := root.get_texture().get_image()
 	if image == null or image.is_empty() or image.save_png(output.path_join(name + ".png")) != OK:
 		push_error("Screenshot failed: " + name)
@@ -28,7 +28,7 @@ func capture(game: Node3D, name: String, pos: Vector3, heading: float, pitch: fl
 	print("Visual capture: ", name)
 
 func capture_page(name: String) -> void:
-	for i in range(6): await process_frame
+	for i in range(3): await process_frame
 	var image := root.get_texture().get_image()
 	if image == null or image.is_empty() or image.save_png(output.path_join(name + ".png")) != OK:
 		push_error("Screenshot failed: " + name)

@@ -13,6 +13,10 @@ func run() -> void:
 	var game := load("res://scripts/game.gd").new() as Node3D
 	root.add_child(game)
 	var ui: Control = game.interface
+	check(str(ProjectSettings.get_setting("application/boot_splash/image")) == "res://ui/team_splash.png", "Native boot splash must use supported PNG encoding")
+	var splash := Image.new()
+	check(splash.load_png_from_buffer(FileAccess.get_file_as_bytes("res://ui/team_splash.png")) == OK, "Native boot splash must decode successfully")
+	for light in game.street_lights: check(light is SpotLight3D, "Nearby street shadows must use one projected view instead of six cube faces")
 	check(ui.brand_panel.visible, "Team presentation must appear before main menu")
 	check(ui.brand_credit.text == "Made By Zorix GAme Team", "Startup must use requested credit exactly")
 	check(ui.OFFICIAL_WEBSITE == "https://zorix.it", "About Us must point to official website")

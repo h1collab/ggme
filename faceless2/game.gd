@@ -35,7 +35,7 @@ var cinematic_running := false
 var crosshair: Label
 var environment: Environment
 var moon_light: DirectionalLight3D
-var street_lights: Array[OmniLight3D] = []
+var street_lights: Array[SpotLight3D] = []
 var prompt_timer := 0.0
 
 var game_started := false
@@ -177,18 +177,18 @@ func _build_road() -> void:
 	# Reuse its original PBR texture on continuous, upward-facing gameplay planes.
 	var source_material := surface.get_active_material(0) as BaseMaterial3D
 	var road_material := GroundSurface.make(source_material)
-	for i in range(6):
-		var tile := Node3D.new()
-		tile.name = "RoadTile%d" % i
-		tile.position = Vector3(0, 0, 15.5 - 25.0 * i)
-		add_child(tile)
-		var visual := MeshInstance3D.new()
-		var plane := PlaneMesh.new()
-		plane.size = Vector2(8.4, 25.0)
-		plane.material = road_material
-		visual.mesh = plane
-		visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		tile.add_child(visual)
+	# One draw surface keeps Mobile's per-object light selection continuous.
+	var tile := Node3D.new()
+	tile.name = "RoadTile0"
+	tile.position = Vector3(0, 0, -47)
+	add_child(tile)
+	var visual := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(8.4, 150.0)
+	plane.material = road_material
+	visual.mesh = plane
+	visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tile.add_child(visual)
 	var forest_floor := MeshInstance3D.new()
 	var shoulder := PlaneMesh.new()
 	shoulder.size = Vector2(200.0, 420.0)
@@ -196,6 +196,7 @@ func _build_road() -> void:
 	shoulder.material = soil
 	forest_floor.position = Vector3(0, -0.035, -60)
 	forest_floor.mesh = GroundSurface.terrain(shoulder, forest_floor.position)
+	forest_floor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(forest_floor)
 	# Release the unused diorama meshes and materials after extracting the road.
 	source.free()
@@ -292,10 +293,13 @@ func _build_world() -> void:
 
 	for z in [3,-14,-30,-46,-62,-78,-94]:
 		_spawn_asset("res://assets/street_lamp.glb",Vector3(4.8,0,float(z)),0.0,4.2)
-		var light := OmniLight3D.new()
-		light.position = Vector3(4.5,3.6,float(z))
-		light.omni_range = 11.5
-		light.light_energy = 1.45
+		var light := SpotLight3D.new()
+		light.position = Vector3(4.5,3.4,float(z))
+		light.rotation_degrees = Vector3(-67, 90, 0)
+		light.spot_range = 13.0
+		light.spot_angle = 70.0
+		light.spot_angle_attenuation = 0.6
+		light.light_energy = 2.3
 		light.light_color = Color(1.0,0.83,0.64)
 		light.shadow_bias = 0.08
 		light.shadow_normal_bias = 0.6

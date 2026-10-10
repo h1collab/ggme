@@ -27,11 +27,11 @@ func run_checks() -> void:
 	for soldier in game.soldiers: soldier.set_physics_process(false)
 	await physics_frame
 	await physics_frame
-	for i in range(6):
+	for i in range(1):
 		var tile := game.get_node("RoadTile%d" % i) as Node3D
 		var box := tile.transform * AssetVisual.bounds(tile)
 		check(absf(box.size.x - 8.4) < 0.01, "Road must leave visible forest shoulders inside walkable ground")
-		check(absf(box.size.z - 25.0) < 0.01, "Road tile length must match collision")
+		check(absf(box.size.z - 150.0) < 0.01, "Continuous road length must match collision")
 		check(absf(box.end.y) < 0.001 and box.position.y >= -0.021, "Visible road must meet collision at y=0")
 		var mesh := tile.get_child(0) as MeshInstance3D
 		var normal_basis := mesh.global_basis.inverse().transposed()
