@@ -228,7 +228,17 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends xvfb mesa-vulkan-drivers
-          LP_NUM_THREADS=2 timeout 720 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
+          # Match the exact software Vulkan driver used for local visual QA.
+          curl -L --fail --retry 4 -o qa-mesa.deb "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/mesa-vulkan-drivers_25.2.8-0ubuntu0.24.04.2_amd64.deb"
+          echo "b3be471db0ec27eb28c1ea75a4d2e6bb3207c5904bdc3823dbba9ce530026939  qa-mesa.deb" | sha256sum -c -
+          dpkg-deb -x qa-mesa.deb /tmp/qa-mesa
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          descriptor={"ICD":{"api_version":"1.4.318","library_path":"/tmp/qa-mesa/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so"},"file_format_version":"1.0.1"}
+          Path("/tmp/qa-lvp.json").write_text(json.dumps(descriptor))
+          PYCODE
+          VK_DRIVER_FILES=/tmp/qa-lvp.json LP_NUM_THREADS=2 timeout 720 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
           test "$(find qa -name '*.png' | wc -l)" -eq 9
           python - <<'PYCODE'
           from pathlib import Path
@@ -262,6 +272,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload model report and rendered test evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: faceless-2-v9-visual-qa

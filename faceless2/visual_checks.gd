@@ -9,6 +9,7 @@ func _initialize() -> void:
 	call_deferred("run")
 
 func capture(game: Node3D, name: String, pos: Vector3, heading: float, pitch: float, rifle := false, aim := false) -> void:
+	print("Visual stage: preparing ", name)
 	game.player.global_position = pos
 	game.player.rotation.y = heading
 	game.player.pitch = pitch
@@ -19,13 +20,35 @@ func capture(game: Node3D, name: String, pos: Vector3, heading: float, pitch: fl
 	game.player._apply_weapon_pose()
 	game.interface.notice_time = 0
 	game.update_hud(game.player.health, game.player.stamina, game.player.battery, game.player.current_weapon, game.player.ammo_in_mag, game.player.reserve_ammo)
-	for i in range(3): await process_frame
+	for i in range(3):
+		await process_frame
+		print("Visual frame: ", name, " / ", i + 1)
 	var image := root.get_texture().get_image()
 	if image == null or image.is_empty() or image.save_png(output.path_join(name + ".png")) != OK:
 		push_error("Screenshot failed: " + name)
 		quit(1)
 		return
 	print("Visual capture: ", name)
+
+func _decode_software_ground(game: Node3D) -> void:
+	# Software Vulkan samples decoded source pixels; physical GPUs keep the
+	# exported compressed textures. Geometry, materials and camera are identical.
+	if not RenderingServer.get_video_adapter_name().to_lower().contains("llvmpipe"): return
+	var decoded := {}
+	for mesh in game.find_children("*", "MeshInstance3D", true, false):
+		if mesh.mesh == null: continue
+		for surface in range(mesh.mesh.get_surface_count()):
+			var material := mesh.get_active_material(surface) as ShaderMaterial
+			if material == null or not material.shader.code.contains("uniform sampler2D gravel"): continue
+			var texture := material.get_shader_parameter("gravel") as Texture2D
+			if texture == null: continue
+			var key := texture.get_instance_id()
+			if not decoded.has(key):
+				var image := texture.get_image()
+				if image.is_compressed(): assert(image.decompress() == OK)
+				decoded[key] = ImageTexture.create_from_image(image)
+				print("Visual software gravel decoded: ", image.get_size())
+			material.set_shader_parameter("gravel", decoded[key])
 
 func capture_page(name: String) -> void:
 	for i in range(3): await process_frame
@@ -49,9 +72,12 @@ func run() -> void:
 	paused = false
 	game.set_process(false)
 	game.selected_mode = "EXPLORATION"
+	print("Visual stage: spawning player and guards")
 	game._spawn_player_and_enemies(false)
+	print("Visual stage: player and guards ready")
 	game.main_menu.hide()
 	game.game_started = true
+	_decode_software_ground(game)
 	game.interface.force_touch = true
 	game.interface.refresh_state()
 	game.player.set_controls_enabled(true)
