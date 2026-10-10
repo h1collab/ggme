@@ -5,6 +5,7 @@ var game: Node
 var forest_batches: Array[MultiMeshInstance3D] = []
 var undergrowth_batches: Array[MultiMeshInstance3D] = []
 var rock_batches: Array[MultiMeshInstance3D] = []
+var field_signs: Array[Node3D] = []
 const FOREST_COUNTS = [48, 96, 160, 224]
 var relay_lights: Array[OmniLight3D] = []
 var relay_materials: Array[StandardMaterial3D] = []
@@ -292,6 +293,8 @@ func _build_field_signs() -> void:
 		label.position = Vector3(0,1.75,0.022)
 		label.visibility_range_end = 35
 		sign.add_child(label)
+		AssetVisual.add_static_collision(sign)
+		field_signs.append(sign)
 
 func _build_road_reflectors() -> void:
 	var concrete := StandardMaterial3D.new()

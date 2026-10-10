@@ -30,6 +30,12 @@ func run() -> void:
 	check(FileAccess.file_exists(save_path), "New game must create a checkpoint before the first relay")
 	await create_timer(0.6).timeout
 	check(player.is_on_floor() and absf(player.global_position.y) < 0.1, "Player must settle onto the visible ground")
+	for sign in game.world_detail.field_signs:
+		var center: Vector3 = sign.global_transform * Vector3(0,1.75,0)
+		var front: Vector3 = sign.global_basis.z
+		var query := PhysicsRayQueryParameters3D.create(center + front, center - front * 0.1)
+		var hit := game.get_world_3d().direct_space_state.intersect_ray(query)
+		check(not hit.is_empty() and sign.is_ancestor_of(hit.get("collider")), "Field signs must collide at their visible boards instead of letting shots pass through")
 	# Drive actual physics through the virtual joystick, rather than teleporting
 	# across the road. Check movement and the playable shoulder boundary.
 	var start := player.global_position
