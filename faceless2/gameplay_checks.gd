@@ -35,7 +35,7 @@ func run() -> void:
 		var front: Vector3 = sign.global_basis.z
 		var query := PhysicsRayQueryParameters3D.create(center + front, center - front * 0.1)
 		var hit := game.get_world_3d().direct_space_state.intersect_ray(query)
-		check(not hit.is_empty() and sign.is_ancestor_of(hit.get("collider")), "Field signs must collide at their visible boards instead of letting shots pass through")
+		check(not hit.is_empty() and sign.is_ancestor_of(hit.get("collider")) and hit.get("collider").get_parent().name == "SignBoard", "Field signs must collide at their visible boards instead of letting shots pass through")
 	# Drive actual physics through the virtual joystick, rather than teleporting
 	# across the road. Check movement and the playable shoulder boundary.
 	var start := player.global_position

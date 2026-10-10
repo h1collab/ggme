@@ -173,7 +173,8 @@ func _physics_process(delta: float) -> void:
 		if has_sight:
 			if distance < 5.0: direction = -to_player
 			elif distance <= 10.0: direction = Vector3(to_player.z, 0, -to_player.x) * strafe_side * 0.4
-			if distance < 15 and attack_cd <= 0 and windup <= 0 and stagger <= 0:
+			var aligned := distance < 0.1 or (-global_basis.z).dot(to_player.normalized()) > 0.80
+			if aligned and distance < 15 and attack_cd <= 0 and windup <= 0 and stagger <= 0:
 				windup = 0.48 / maxf(difficulty, 0.8)
 				# A player who moves during the tell can dodge the ensuing shot.
 				aim_point = player.global_position + Vector3(0, 1.05, 0)

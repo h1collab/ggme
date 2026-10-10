@@ -272,6 +272,7 @@ func _build_field_signs() -> void:
 		material.albedo_color = Color(0.16,0.19,0.17)
 		material.roughness = 0.85
 		var board := MeshInstance3D.new()
+		board.name = "SignBoard"
 		var shape := BoxMesh.new()
 		shape.size = Vector3(1.25,0.65,0.035)
 		shape.material = material
@@ -279,13 +280,14 @@ func _build_field_signs() -> void:
 		board.position.y = 1.75
 		sign.add_child(board)
 		var support := MeshInstance3D.new()
+		support.name = "SignSupport"
 		var pole := CylinderMesh.new()
 		pole.top_radius = 0.035
 		pole.bottom_radius = 0.04
 		pole.height = 1.8
 		pole.material = material
 		support.mesh = pole
-		support.position.y = 0.9
+		support.position = Vector3(0,0.9,-0.06)
 		sign.add_child(support)
 		var label := Label3D.new()
 		label.text = specification.text

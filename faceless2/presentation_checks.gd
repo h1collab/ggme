@@ -111,6 +111,21 @@ func run() -> void:
 	for i in range(20): guard._animate_gait(0.1)
 	check(guard.movement_blend < 0.001 and guard.visual.scale.is_equal_approx(guard.visual_scale), "Gait must settle smoothly while preserving fitted character scale")
 	check(not guard.torso_rotations.is_empty(), "Breathing must animate the actual torso rig")
+	paused = false
+	game.set_process(false)
+	game.player.set_physics_process(false)
+	for hostile in game.soldiers: hostile.set_physics_process(false)
+	if is_instance_valid(game.enemy): game.enemy.set_physics_process(false)
+	guard.global_position = game.player.global_position - Vector3(0,0,7)
+	guard.rotation.y = 0
+	guard.memory = 5
+	guard.sense_cd = 0
+	guard.attack_cd = 0
+	guard.windup = 0
+	await physics_frame
+	await physics_frame
+	guard._physics_process(1.0 / 60.0)
+	check(guard.has_sight and guard.windup == 0, "Aware guards with a clear sightline must turn their weapon toward the player before starting a shot")
 	for node in game.find_children("*","AudioStreamPlayer",true,false): node.stop(); node.stream = null
 	for node in game.find_children("*","AudioStreamPlayer3D",true,false): node.stop(); node.stream = null
 	game.queue_free()
