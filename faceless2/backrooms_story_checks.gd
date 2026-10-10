@@ -36,6 +36,7 @@ func run() -> void:
 		var hidden := PhysicsRayQueryParameters3D.create(origin, game.story.hidden_point + Vector3(0, 1.5, 0))
 		check(game.get_world_3d().direct_space_state.intersect_ray(visible).is_empty(), "Sighting has a clear end point")
 		check(not game.get_world_3d().direct_space_state.intersect_ray(hidden).is_empty(), "Monster retreats behind real architecture")
+		game.player.reset_to(game.level.spawn)
 		game.story.update(1)
 		check(not game.story.seen, "Nothing pops in far from scripted region")
 		game.player.position = game.story.trigger

@@ -122,7 +122,6 @@ func _load_level(index: int) -> void:
 	add_child(level)
 	level.build(stage)
 	if is_instance_valid(player): player.reset_to(level.spawn)
-	if is_instance_valid(ui): ui.retarget_camera()
 	if is_instance_valid(story): story.reset_layer(stage)
 	if is_instance_valid(ambience):
 		ambience.stop()
