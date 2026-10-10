@@ -225,15 +225,18 @@ func _shared_state(state: Dictionary) -> void:
 
 func request(action: String, index: int = 0) -> void:
 	if authoritative(): game.apply_action(action, index, game.player.position, game.ui.monitoring)
-	elif not members.is_empty(): _submit_action.rpc_id(1, action, index)
+	elif not members.is_empty(): _submit_action.rpc_id(1, action, index, game.ui.monitoring)
 
 @rpc("any_peer", "call_remote", "reliable", 0)
-func _submit_action(action: String, index: int) -> void:
+func _submit_action(action: String, index: int, monitoring: bool) -> void:
 	if mode != "host": return
 	var id := multiplayer.get_remote_sender_id()
 	if not members.has(id) or not poses.has(id): return
 	var now := Time.get_ticks_msec()
 	if now - int(action_times.get(id, 0)) < 180: return
 	action_times[id] = now
-	game.apply_action(action, index, poses[id].p, monitor_flags.get(id, false))
+	# Carry monitor intent on this reliable message. A pose on channel 1 can
+	# arrive after an action on channel 0 when the monitor is first raised.
+	# The host still checks the authoritative position before every action.
+	game.apply_action(action, index, poses[id].p, monitoring)
 	_shared_state.rpc(game.snapshot())

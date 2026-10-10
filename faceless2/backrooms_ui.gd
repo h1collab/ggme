@@ -112,7 +112,6 @@ func _button(parent: Node, text: String, rect: Rect2, callback: Callable, touch:
 	var button: Button = TouchAction.new() if touch else Button.new()
 	button.position = rect.position
 	button.size = rect.size
-	button.text = text
 	button.add_theme_font_size_override("font_size", 23)
 	button.add_theme_color_override("font_color", PAPER)
 	button.add_theme_stylebox_override("normal", _style(Color(0.08, 0.10, 0.085, 0.96)))
@@ -120,6 +119,9 @@ func _button(parent: Node, text: String, rect: Rect2, callback: Callable, touch:
 	button.add_theme_stylebox_override("pressed", _style(Color(0.25, 0.31, 0.19), ACCENT))
 	button.pressed.connect(callback)
 	parent.add_child(button)
+	# Shape after the final font/theme and tree are available.
+	button.text = text
+	button.size = rect.size
 	return button
 
 func _image(parent: Node, path: String, rect: Rect2, crop: bool = false) -> TextureRect:

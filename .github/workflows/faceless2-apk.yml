@@ -48,6 +48,8 @@ jobs:
           s=re.sub(r'boot_splash/image=.*', 'boot_splash/image="res://ui/team_splash.png"', s)
           s=re.sub(r'boot_splash/bg_color=.*', 'boot_splash/bg_color=Color(1, 1, 1, 1)', s)
           s=s.replace('boot_splash/fullsize=false','boot_splash/fullsize=true')
+          # Keep Vulkan; avoid Godot 4.7's Swappy presentation hang (#121035).
+          s=s.replace('[display]', '[display]\nwindow/frame_pacing/android/enable_frame_pacing=false', 1)
           s=re.sub(r'(?m)^worker_pool/(max_threads|low_priority_thread_ratio)=.*\n?', '', s)
           if '[threading]' not in s: s += '\n[threading]\n'
           s=s.replace('[threading]', '[threading]\nworker_pool/max_threads=8\nworker_pool/low_priority_thread_ratio=1.0', 1)

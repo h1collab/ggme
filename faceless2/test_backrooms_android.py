@@ -66,6 +66,10 @@ def walk_to_console():
 host = None
 host_log = None
 try:
+    # AOSP's own device tests preconfirm the first-fullscreen system tutorial.
+    # Use a 720p device surface to keep CPU Vulkan rendering practical in CI.
+    adb('shell', 'settings', 'put', 'secure', 'immersive_mode_confirmations', 'confirmed')
+    adb('shell', 'wm', 'size', '720x1280')
     adb('install', '--no-streaming', '-r', args.apk)
     adb('logcat', '-c')
     adb('shell', 'am', 'start', '-a', 'android.intent.action.MAIN', '-c', 'android.intent.category.LAUNCHER', '-n', package + '/' + activity)
