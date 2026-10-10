@@ -26,7 +26,7 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 void sky() {
 	vec3 dir = normalize(EYEDIR);
 	float height = clamp(dir.y, 0.0, 1.0);
-	vec3 night = mix(vec3(0.027, 0.052, 0.078), vec3(0.0025, 0.007, 0.016), pow(height, 0.42));
+	vec3 night = mix(vec3(0.012, 0.025, 0.042), vec3(0.0025, 0.007, 0.016), pow(height, 0.42));
 	vec2 uv = vec2(atan(dir.z, dir.x) / 6.2831853 + 0.5, asin(clamp(dir.y, -1.0, 1.0)) / 3.1415926 + 0.5);
 	vec2 grid = uv * vec2(260.0, 140.0);
 	vec2 cell = floor(grid);
@@ -83,6 +83,10 @@ func _build_forest() -> void:
 			var material := original.duplicate() as BaseMaterial3D
 			material.albedo_color *= Color(0.55, 0.62, 0.70)
 			material.roughness = 0.95
+			material.roughness_texture = null
+			material.metallic = 0
+			material.metallic_texture = null
+			material.metallic_specular = 0.15
 			batch.material_override = material
 		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(batch)

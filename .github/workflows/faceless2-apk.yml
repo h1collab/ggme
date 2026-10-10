@@ -1,4 +1,4 @@
-name: Build Faceless 2 v7 Atmosphere and Combat APK
+name: Build Faceless 2 v8 Model Polish and Tested APK
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
           mkdir app
           unzip -q upgrade.zip -d app
 
-      - name: Apply Faceless 2 v7 project
+      - name: Apply Faceless 2 v8 project
         shell: bash
         run: |
           cp faceless2/interface.gd app/scripts/interface.gd
@@ -37,6 +37,8 @@ jobs:
           cp faceless2/asset_visual.gd app/scripts/asset_visual.gd
           cp faceless2/first_person_assets.gd app/scripts/first_person_assets.gd
           cp faceless2/rendering_checks.gd app/scripts/rendering_checks.gd
+          cp faceless2/gameplay_checks.gd app/scripts/gameplay_checks.gd
+          cp faceless2/visual_checks.gd app/scripts/visual_checks.gd
           cp faceless2/faceless.gd app/scripts/faceless.gd
           cp faceless2/soldier.gd app/scripts/soldier.gd
           cp faceless2/virtual_joystick.gd app/scripts/virtual_joystick.gd
@@ -46,9 +48,9 @@ jobs:
           sed -i 's/School Brawl/Faceless 2/g' app/project.godot
           sed -i 's/Escape Black Pine/Faceless 2/g' app/export_presets.cfg
           sed -i 's/School Brawl/Faceless 2/g' app/export_presets.cfg
-          sed -i 's/^version\/code=.*/version\/code=7/' app/export_presets.cfg
-          sed -i 's/^version\/name=.*/version\/name="0.7.0"/' app/export_presets.cfg
-          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v7-zorix.apk/g' app/export_presets.cfg
+          sed -i 's/^version\/code=.*/version\/code=8/' app/export_presets.cfg
+          sed -i 's/^version\/name=.*/version\/name="0.8.0"/' app/export_presets.cfg
+          sed -i 's/escape-black-pine-zorix-v03.apk/faceless-2-v8-zorix.apk/g' app/export_presets.cfg
           rm -f app/assets/*.glb
           test -s app/scripts/game.gd
           test -s app/main.tscn
@@ -78,6 +80,14 @@ jobs:
               assert os.path.isfile(p) and os.path.getsize(p)>1024, p
           print("verified", len(m["assets"]), "Sketchfab GLBs")
           PY
+
+      - name: Optimize and validate embedded GLBs
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check Pillow==11.3.0
+          mkdir -p qa
+          python faceless2/test_optimize_glb.py
+          python faceless2/optimize_glb.py app/assets --report qa/glb-optimization.json
 
       - name: Generate offline cinematic TTS voice files
         shell: bash
@@ -192,14 +202,23 @@ jobs:
           godot --headless --path app --script scripts/combat_effects.gd --check-only
           godot --headless --path app --script scripts/touch_action.gd --check-only
           godot --headless --path app --script scripts/game.gd --check-only
-          timeout 180 godot --headless --path app --script scripts/rendering_checks.gd
+          timeout 180 godot --headless --path app --script scripts/rendering_checks.gd | tee qa/rendering-checks.log
+          timeout 180 godot --headless --path app --script scripts/gameplay_checks.gd | tee qa/gameplay-checks.log
+
+      - name: Capture actual Mobile Vulkan gameplay views
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb mesa-vulkan-drivers
+          LP_NUM_THREADS=2 timeout 300 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" | tee qa/visual-checks.log
+          test "$(find qa -name '*.png' | wc -l)" -eq 6
 
       - name: Create debug keystore
         shell: bash
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v7 APK
+      - name: Export Faceless 2 v8 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -207,12 +226,19 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless-2-v7-zorix.apk
-          test -s app/build/faceless-2-v7-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless-2-v8-zorix.apk
+          test -s app/build/faceless-2-v8-zorix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: faceless-2-v7-zorix-apk
-          path: app/build/faceless-2-v7-zorix.apk
+          name: faceless-2-v8-zorix-apk
+          path: app/build/faceless-2-v8-zorix.apk
+          if-no-files-found: error
+
+      - name: Upload model report and rendered test evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: faceless-2-v8-visual-qa
+          path: qa
           if-no-files-found: error

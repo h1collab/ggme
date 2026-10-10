@@ -22,6 +22,10 @@ var windup := 0.0
 var aim_point := Vector3.ZERO
 var stagger := 0.0
 var strafe_side := 1.0
+var skeleton: Skeleton3D
+var rig_root: Node3D
+var gait := 0.0
+var leg_rotations := {}
 
 func _ready() -> void:
 	var cs := CollisionShape3D.new()
@@ -36,11 +40,27 @@ func _ready() -> void:
 		visual = Node3D.new()
 		add_child(visual)
 		var content := packed.instantiate() as Node3D
+		# This rig faces +Z; AI and muzzle rays face -Z.
+		content.rotation.y = PI
 		visual.add_child(content)
 		var box := AssetVisual.bounds(visual)
 		content.position -= Vector3(box.get_center().x, box.position.y, box.get_center().z)
 		visual.scale = Vector3.ONE * (1.86 / maxf(box.size.y, 0.001))
 		visual_scale = visual.scale
+		var rigs := content.find_children("*", "Skeleton3D", true, false)
+		if not rigs.is_empty():
+			skeleton = rigs[0] as Skeleton3D
+			rig_root = content
+			_pose_guard()
+		var weapon := Node3D.new()
+		weapon.position = Vector3(0.10, 1.23, -0.20)
+		add_child(weapon)
+		var rifle := load("res://assets/rifle.glb").instantiate() as Node3D
+		weapon.add_child(rifle)
+		var gun_box := AssetVisual.bounds(weapon)
+		rifle.position -= gun_box.get_center()
+		weapon.scale = Vector3.ONE * (0.70 / gun_box.size.z)
+		AssetVisual.prepare_viewmodel(weapon)
 	strafe_side = -1.0 if global_position.x < 0 else 1.0
 	sense_cd = fposmod(global_position.z, 0.16)
 	muzzle_signal = MeshInstance3D.new()
@@ -56,6 +76,42 @@ func _ready() -> void:
 	muzzle_signal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	muzzle_signal.hide()
 	add_child(muzzle_signal)
+
+func _point_bone(fragment: String, direction: Vector3) -> void:
+	for bone in range(skeleton.get_bone_count()):
+		if fragment not in String(skeleton.get_bone_name(bone)): continue
+		var pose := skeleton.get_bone_global_pose(bone)
+		var target := (skeleton.global_basis.inverse() * global_basis * direction).normalized()
+		var desired := Basis(Quaternion(pose.basis.x.normalized(), target)) * pose.basis
+		var parent := skeleton.get_bone_parent(bone)
+		if parent >= 0: desired = skeleton.get_bone_global_pose(parent).basis.inverse() * desired
+		desired = skeleton.get_bone_rest(bone).basis.inverse() * desired
+		skeleton.set_bone_pose_rotation(bone, desired.orthonormalized().get_rotation_quaternion())
+		skeleton.force_update_all_bone_transforms()
+		return
+
+func _pose_guard() -> void:
+	# Point each arm's +X bone axis toward a two-hand ready stance; preserve the
+	# imported rest axes instead of assuming Blender and Valve rigs agree.
+	_point_bone("R_UpperArm", Vector3(0.10, -0.30, -0.12))
+	_point_bone("R_Forearm", Vector3(-0.07, 0.05, -0.25))
+	_point_bone("L_UpperArm", Vector3(-0.06, -0.26, -0.20))
+	_point_bone("L_Forearm", Vector3(0.08, 0.09, -0.25))
+	for bone in range(skeleton.get_bone_count()):
+		var name := String(skeleton.get_bone_name(bone))
+		if "Thigh" in name or "Calf" in name:
+			leg_rotations[bone] = skeleton.get_bone_pose_rotation(bone)
+
+func _animate_gait(delta: float) -> void:
+	if skeleton == null: return
+	var movement := clampf(Vector2(velocity.x, velocity.z).length() / 2.3, 0, 1)
+	gait += delta * 8.5 * movement
+	for bone in leg_rotations:
+		var name := String(skeleton.get_bone_name(bone))
+		var step := sin(gait + (PI if "L_" in name else 0.0)) * movement
+		var angle := step * 0.30 if "Thigh" in name else maxf(0, -step) * 0.42
+		# The leg length axis is local X; local Z flexes the imported knee.
+		skeleton.set_bone_pose_rotation(bone, leg_rotations[bone] * Quaternion(Vector3.BACK, angle))
 
 func hear_shot(origin: Vector3) -> void:
 	if dead or global_position.distance_to(origin) > 30.0: return
@@ -122,6 +178,7 @@ func _physics_process(delta: float) -> void:
 	velocity.z = move_toward(velocity.z, desired.z, delta * 10)
 	velocity.y = -0.2 if is_on_floor() else velocity.y - delta * 18
 	move_and_slide()
+	_animate_gait(delta)
 
 func _can_see_player() -> bool:
 	var query := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 1.5, 0), player.global_position + Vector3(0, 1.05, 0))

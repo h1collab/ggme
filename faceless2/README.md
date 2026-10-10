@@ -60,7 +60,20 @@ root project is the older Escape Black Pine prototype.
   investigation. The Faceless entity also respects sight/cover and remembers a
   last-known position. Character normalization uses posed bounds, both enemies
   preserve their fitted scale after damage, and the imported Walk clip loops.
-- Android build output is `faceless-2-v7-zorix.apk`, version code 7 / name 0.7.0.
+- Android build output is now `faceless-2-v8-zorix.apk`, version code 8 / name 0.8.0.
+
+## v8 model polish and runtime QA
+
+- `optimize_glb.py` repacks all 19 downloaded GLBs before Godot import. Hero models retain up to 2048px textures, scenery uses 1024px, and small interactive props use 512px. PNG alpha and packed PBR channels are preserved. Geometry, accessor indices, rigs and animations are unchanged; identical buffer payloads share aligned storage. The build publishes a per-model byte/texture report.
+- World models use an outer gameplay anchor with a separate scaled visual pivot. The visible base and interaction position now coincide even when an imported origin is far away. This fixes unreachable rifle/pickup/gate interactions.
+- The checkpoint booth has a sensible scale and roadside position. The tower's exhibition terrain and stationary civilian are removed. Booth, tower, bus shelter and cabin use the visible mesh for static collision, so doorways and the lookout underside remain open.
+- Guards face the direction of their AI, hold an actual rifle in a ready stance, and use a lightweight procedural leg gait on their original rig instead of sliding in a T pose.
+- Road/shoulder materials, foliage specular response, moon/ambient lighting and the rifle support-hand placement are adjusted for a more coherent night scene.
+- Crouching changes the capsule height and tests headroom before standing. Pausing immediately disables the hidden viewmodel render target. A new game writes an initial checkpoint so dying before Relay 1 can recover.
+
+The APK workflow runs three optimizer integrity tests, the existing rendering/combat regression suite, and `gameplay_checks.gd`. The latter runs real physics movement, boundary collision, crouch/headroom, the timed death recovery, all relay/evidence/rifle interactions, reload, final-wave death callbacks and extraction. It also captures six 1280×720 views with the Mobile Vulkan renderer in `visual_checks.gd` and publishes them in `faceless-2-v8-visual-qa`.
+
+These are desktop engine/runtime tests with actual imported assets and software-rendered screenshots. They do not measure Android device frame rate or replace a hardware playthrough. The current guard gait is procedural, and the mixed source assets still need authored animations/material art for a production AAA result.
 
 ## Build and verification
 

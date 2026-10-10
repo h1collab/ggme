@@ -29,7 +29,7 @@ func run_checks() -> void:
 	for i in range(6):
 		var tile := game.get_node("RoadTile%d" % i) as Node3D
 		var box := tile.transform * AssetVisual.bounds(tile)
-		check(absf(box.size.x - 18.0) < 0.01, "Road width must match collision")
+		check(absf(box.size.x - 8.4) < 0.01, "Road must leave visible forest shoulders inside walkable ground")
 		check(absf(box.size.z - 25.0) < 0.01, "Road tile length must match collision")
 		check(absf(box.end.y) < 0.001 and box.position.y >= -0.021, "Visible road must meet collision at y=0")
 		var mesh := tile.get_child(0) as MeshInstance3D

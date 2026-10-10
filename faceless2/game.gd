@@ -130,18 +130,25 @@ func _spawn_asset(path: String, pos: Vector3, rot_y := 0.0, target_extent := 0.0
 	var inst := packed.instantiate()
 	if not (inst is Node3D):
 		return null
-	var n := inst as Node3D
+	# Keep gameplay anchors at the visible object's base. Imported origins can be
+	# hundreds of units away; using those for interaction made pickups unreachable.
+	var n := Node3D.new()
+	n.name = path.get_file().get_basename().to_pascal_case()
 	n.position = pos
 	n.rotation.y = rot_y
 	add_child(n)
+	var pivot := Node3D.new()
+	n.add_child(pivot)
+	var content := inst as Node3D
+	pivot.add_child(content)
+	AssetVisual.prepare_world(content, path)
 	if target_extent > 0.0:
 		var box := AssetVisual.bounds(n)
 		var largest := maxf(box.size.x,maxf(box.size.y,box.size.z))
 		if largest > 0.001:
 			var factor := target_extent/largest
-			n.scale = Vector3.ONE*factor
-			# Put the lowest visible point on the requested ground height.
-			n.position = pos - n.basis * Vector3(box.get_center().x, box.position.y, box.get_center().z)
+			content.position -= Vector3(box.get_center().x, box.position.y, box.get_center().z)
+			pivot.scale = Vector3.ONE * factor
 	for mesh in n.find_children("*", "MeshInstance3D", true, false):
 		mesh.visibility_range_end = 95.0
 		mesh.visibility_range_end_margin = 10.0
@@ -168,9 +175,12 @@ func _build_road() -> void:
 	# The source patch is an irregular showcase mesh with gaps at its edges.
 	# Reuse its original PBR texture on continuous, upward-facing gameplay planes.
 	var road_material := surface.get_active_material(0).duplicate() as BaseMaterial3D
-	road_material.albedo_color = Color(0.32, 0.34, 0.36)
+	road_material.albedo_color = Color(0.26, 0.24, 0.21)
 	road_material.roughness = 0.94
+	road_material.roughness_texture = null
 	road_material.metallic = 0.0
+	road_material.metallic_texture = null
+	road_material.normal_scale = 0.45
 	road_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	road_material.uv1_scale = Vector3(3.0, 4.0, 1.0)
 	for i in range(6):
@@ -180,7 +190,7 @@ func _build_road() -> void:
 		add_child(tile)
 		var visual := MeshInstance3D.new()
 		var plane := PlaneMesh.new()
-		plane.size = Vector2(18.0, 25.0)
+		plane.size = Vector2(8.4, 25.0)
 		plane.material = road_material
 		visual.mesh = plane
 		visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -189,7 +199,7 @@ func _build_road() -> void:
 	var shoulder := PlaneMesh.new()
 	shoulder.size = Vector2(70.0, 150.0)
 	var soil := road_material.duplicate() as BaseMaterial3D
-	soil.albedo_color = Color(0.18, 0.22, 0.20)
+	soil.albedo_color = Color(0.105, 0.14, 0.10)
 	soil.uv1_scale = Vector3(12.0, 25.0, 1.0)
 	shoulder.material = soil
 	forest_floor.mesh = shoulder
@@ -205,7 +215,7 @@ func _build_world() -> void:
 	environment.background_color = Color(0.008,0.014,0.025)
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color(0.38,0.46,0.58)
-	environment.ambient_light_energy = 0.42
+	environment.ambient_light_energy = 0.30
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	environment.adjustment_enabled = true
 	environment.adjustment_brightness = 1.30
@@ -219,7 +229,7 @@ func _build_world() -> void:
 	var moon := DirectionalLight3D.new()
 	moon.rotation_degrees = Vector3(-48,-18,0)
 	moon.light_color = Color(0.56,0.66,0.84)
-	moon.light_energy = 0.75
+	moon.light_energy = 0.52
 	moon.shadow_enabled = true
 	moon.directional_shadow_max_distance = 45.0
 	moon_light = moon
@@ -232,17 +242,18 @@ func _build_world() -> void:
 
 	# Every visible object below is an original Sketchfab GLB, normalized to a sane game scale.
 	_build_road()
-	_spawn_asset("res://assets/checkpoint_gate.glb",Vector3(0,0,8),0.0,8.0)
-	_spawn_asset("res://assets/surveillance_tower.glb",Vector3(-6.4,0,-20),0.2,8.2)
-	_spawn_asset("res://assets/abandoned_bus_stop.glb",Vector3(6.0,0,-43),PI,4.5)
-	_spawn_asset("res://assets/ranger_cabin.glb",Vector3(-6.0,0,-69),0.15,6.0)
+	var booth := _spawn_asset("res://assets/checkpoint_gate.glb",Vector3(-5.7,0,8),0.0,3.0)
+	var tower := _spawn_asset("res://assets/surveillance_tower.glb",Vector3(-6.4,0,-20),0.2,8.2)
+	var shelter := _spawn_asset("res://assets/abandoned_bus_stop.glb",Vector3(6.0,0,-43),PI,4.5)
+	var cabin := _spawn_asset("res://assets/ranger_cabin.glb",Vector3(-6.0,0,-69),0.15,6.0)
 	_spawn_asset("res://assets/dead_zone_fence.glb",Vector3(0,0,-94),0.0,12.0)
 
-	# Structure collision volumes, placed away from the playable road center.
-	_static_box(Vector3(-5.7,1.4,8),Vector3(3.0,2.8,3.0),_mat(Color.WHITE))
-	_static_box(Vector3(-6.4,2.4,-20),Vector3(3.4,4.8,3.4),_mat(Color.WHITE))
-	_static_box(Vector3(6.0,1.3,-43),Vector3(4.8,2.6,2.7),_mat(Color.WHITE))
-	_static_box(Vector3(-6.0,1.7,-69),Vector3(6.2,3.4,5.0),_mat(Color.WHITE))
+	# Static structures collide with their visible geometry, leaving doorways
+	# and the space under the lookout open instead of filling them with boxes.
+	AssetVisual.add_static_collision(booth)
+	AssetVisual.add_static_collision(tower)
+	AssetVisual.add_static_collision(shelter)
+	AssetVisual.add_static_collision(cabin)
 
 	# Cleaner forest spacing: fewer clusters, always outside the road barriers.
 	for z in range(4,-103,-12):
@@ -286,8 +297,8 @@ func _build_world() -> void:
 		_spawn_asset("res://assets/street_lamp.glb",Vector3(4.8,0,float(z)),0.0,4.2)
 		var light := OmniLight3D.new()
 		light.position = Vector3(4.5,3.6,float(z))
-		light.omni_range = 15.5
-		light.light_energy = 1.2
+		light.omni_range = 10.0
+		light.light_energy = 1.1
 		light.light_color = Color(1.0,0.76,0.48)
 		light.distance_fade_enabled = true
 		light.distance_fade_begin = 28.0
@@ -481,7 +492,7 @@ func _apply_settings() -> void:
 		player.viewmodel_viewport.msaa_3d = Viewport.MSAA_2X if q < 2 else Viewport.MSAA_4X
 	if environment:
 		environment.adjustment_brightness=float(settings["brightness"])
-		environment.ambient_light_energy=0.42*float(settings["night_visibility"])
+		environment.ambient_light_energy=0.30*float(settings["night_visibility"])
 		environment.fog_density=0.004/max(float(settings["night_visibility"]),0.5)
 
 func _run_mid_cinematic(beat: String) -> void:
@@ -517,6 +528,7 @@ func _start_new_game() -> void:
 	world_detail.refresh_relays()
 	effects.clear_effects()
 	_spawn_player_and_enemies(false)
+	_save_checkpoint()
 	_update_objective()
 	_start_cinematic_intro()
 	interface.refresh_state()

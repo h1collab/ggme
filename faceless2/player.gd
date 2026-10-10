@@ -43,6 +43,7 @@ var pitch := 0.0
 var look_touch := -1
 var sprint_touch := false
 var crouched := false
+var body_shape: CollisionShape3D
 var alive := true
 var controls_enabled := true
 var bob_time := 0.0
@@ -70,6 +71,7 @@ func _ready() -> void:
 	shape.shape = capsule
 	shape.position.y = 0.88
 	add_child(shape)
+	body_shape = shape
 
 	camera = Camera3D.new()
 	camera.position = Vector3(0,1.58,0)
@@ -251,7 +253,7 @@ func _apply_weapon_pose() -> void:
 		var left := hands_model.get_node("LeftHand") as Node3D
 		right.position = Vector3(0.03, -0.10, 0.08) if current_weapon == "PISTOL" else Vector3(0.04, -0.12, 0.15)
 		right.rotation_degrees = Vector3(20, 15, -15)
-		left.position = Vector3(-0.03, -0.10, 0.01) if current_weapon == "PISTOL" else Vector3(-0.035, -0.11, -0.23)
+		left.position = Vector3(-0.03, -0.10, 0.01) if current_weapon == "PISTOL" else Vector3(-0.02, -0.035, -0.29)
 		left.rotation_degrees = Vector3(15, -50, 20) if current_weapon == "PISTOL" else Vector3(15, -60, 20)
 	weapon_holder.rotation_degrees = Vector3(9, 0, -12) * sprint_blend
 	hands_holder.rotation_degrees = weapon_holder.rotation_degrees
@@ -273,6 +275,7 @@ func set_controls_enabled(on: bool) -> void:
 	suppress_mouse_fire = true
 	if viewmodel_layer:
 		viewmodel_layer.visible = on and alive
+		viewmodel_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on and alive else SubViewport.UPDATE_DISABLED
 	if not on:
 		look_touch = -1
 		fire_touch = false
@@ -563,8 +566,25 @@ func set_running(on: bool) -> void:
 	sprint_touch = on
 
 func toggle_crouch() -> void:
-	if controls_enabled:
-		crouched = not crouched
+	if not controls_enabled: return
+	if crouched:
+		# Refuse to stand through a ceiling. Test the full standing capsule at
+		# the same feet position, excluding our own crouched body.
+		var query := PhysicsShapeQueryParameters3D.new()
+		var standing := CapsuleShape3D.new()
+		standing.radius = 0.36
+		standing.height = 1.72
+		query.shape = standing
+		query.transform = global_transform * Transform3D(Basis.IDENTITY, Vector3(0, 0.88, 0))
+		query.exclude = [get_rid()]
+		if not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty(): return
+	crouched = not crouched
+	_update_body_height()
+
+func _update_body_height() -> void:
+	if body_shape:
+		(body_shape.shape as CapsuleShape3D).height = 1.18 if crouched else 1.72
+		body_shape.position.y = 0.61 if crouched else 0.88
 
 func take_damage(amount: float, source_position := Vector3.INF) -> void:
 	if not alive:
@@ -604,6 +624,7 @@ func restore_full() -> void:
 	sprint_touch = false
 	look_touch = -1
 	crouched = false
+	_update_body_height()
 	aiming = false
 	if game: game.set_crosshair_aiming(false)
 	if weapon_holder: _apply_weapon_pose()

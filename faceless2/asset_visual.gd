@@ -5,7 +5,9 @@ extends RefCounted
 static func bounds(root: Node3D) -> AABB:
 	var result := AABB()
 	var first := true
-	for node in root.find_children("*", "MeshInstance3D", true, false):
+	var meshes := root.find_children("*", "MeshInstance3D", true, false)
+	if root is MeshInstance3D: meshes.push_front(root)
+	for node in meshes:
 		var mesh := node as MeshInstance3D
 		if mesh.mesh == null:
 			continue
@@ -71,3 +73,36 @@ static func prepare_viewmodel(root: Node3D) -> void:
 				var material := original.duplicate() as BaseMaterial3D
 				material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 				mesh.set_surface_override_material(surface, material)
+
+static func prepare_world(root: Node3D, path: String) -> void:
+	if path.ends_with("surveillance_tower.glb"):
+		# The download includes a terrain exhibit and a stationary civilian in
+		# bright red shorts. Keep the tower and ladder for the Blackwood outpost.
+		for name in ["Plano_004_0", "Cubo_0", "Plano_006_0", "Plano_007_0", "Plano_008_0", "Cube_0", "Cube_1", "Cilindro_0"]:
+			for node in root.find_children(name, "MeshInstance3D", true, false): node.free()
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		for surface in range(mesh.mesh.get_surface_count()):
+			var original := mesh.get_active_material(surface)
+			if original is BaseMaterial3D:
+				var material := original.duplicate() as BaseMaterial3D
+				material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+				if path.ends_with("pine_cluster.glb"):
+					material.roughness = 0.95
+					material.roughness_texture = null
+					material.metallic = 0
+					material.metallic_texture = null
+					material.metallic_specular = 0.15
+				mesh.set_surface_override_material(surface, material)
+
+static func add_static_collision(root: Node3D) -> void:
+	if root == null: return
+	# Use the normalized visible geometry instead of a disconnected box.
+	for node in root.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		if mesh.mesh == null or mesh.skin != null: continue
+		var body := StaticBody3D.new()
+		mesh.add_child(body)
+		var collider := CollisionShape3D.new()
+		collider.shape = mesh.mesh.create_trimesh_shape()
+		body.add_child(collider)
