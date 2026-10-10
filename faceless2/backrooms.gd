@@ -34,6 +34,7 @@ var completed := false
 var failed := false
 var notice := "寻找林岚留下的三段录音，跟随电梯信号离开。"
 var crew: Dictionary = {}
+var remote_water_steps: Dictionary = {}
 var ambience: AudioStreamPlayer
 var footsteps: AudioStreamPlayer
 var hum: AudioStreamPlayer
@@ -159,6 +160,7 @@ func _load_level(index: int) -> void:
 	level = LevelScript.new()
 	add_child(level)
 	level.build(stage)
+	remote_water_steps.clear()
 	if is_instance_valid(player): player.reset_to(level.spawn)
 	if is_instance_valid(story): story.reset_layer(stage)
 	if is_instance_valid(ambience):
@@ -347,14 +349,25 @@ func receive_state(state: Dictionary) -> void:
 	lift_active = bool(state.get("lift_active", false))
 	lift_elapsed = float(state.get("lift_elapsed", 0.0))
 	level.animate_lift(lift_elapsed if lift_active else 0.0)
-	if lift_active and lift_epoch != old_lift_epoch:
-		if player.position.distance_to(level.exit_position) < 3.1 and not ui.modal:
-			player.begin_lift_ride()
-	elif not lift_active and player.lift_riding:
+	if lift_active:
+		if lift_epoch != old_lift_epoch:
+			lift_close_started = false
+			lift_motor_started = false
+			if is_instance_valid(lift_door_audio) and lift_door_audio.stream != null: lift_door_audio.play()
+			story.play_voice("elevator")
+			if player.position.distance_to(level.exit_position) < 3.1 and not ui.modal:
+				player.begin_lift_ride()
+		if not lift_close_started and lift_elapsed >= 2.15:
+			lift_close_started = true
+			if is_instance_valid(lift_door_audio) and lift_door_audio.stream != null: lift_door_audio.play()
+		if not lift_motor_started and lift_elapsed >= 3.3:
+			lift_motor_started = true
+			if is_instance_valid(lift_motor_audio) and lift_motor_audio.stream != null: lift_motor_audio.play()
+	elif player.lift_riding:
 		player.end_lift_ride()
 	if running and not was_running: story.say("[无线电] 如果听见不属于你的脚步，别追。先找齐三段录音。", 10)
 	for i in range(3):
-		if repaired[i] and not previous_repaired[i]: story.say(story.MEMORY_TEXT[stage][i], 9)
+		if repaired[i] and not previous_repaired[i]: story.say(story.MEMORY_TEXT[stage][i], 9, "tape_%d_%d" % [stage, i])
 
 func update_crew(poses: Dictionary) -> void:
 	var local_id := multiplayer.get_unique_id()
@@ -362,6 +375,16 @@ func update_crew(poses: Dictionary) -> void:
 		if not poses.has(id) or id == local_id: remove_crew(id)
 	for id in poses:
 		if id == local_id: continue
+		# Reconstruct remote footsteps from validated ENet position updates;
+		# never mirror their camera or call another peer's controls.
+		if stage == 2:
+			var step_position: Vector3 = poses[id].p
+			if remote_water_steps.has(id):
+				if step_position.distance_to(remote_water_steps[id]) > 0.95:
+					level.add_water_step(step_position)
+					remote_water_steps[id] = step_position
+			else:
+				remote_water_steps[id] = step_position
 		if not crew.has(id):
 			crew[id] = _crew_avatar(id)
 			crew[id].position = poses[id].p
@@ -385,6 +408,7 @@ func remove_crew(id: int) -> void:
 	if crew.has(id):
 		crew[id].queue_free()
 		crew.erase(id)
+	remote_water_steps.erase(id)
 
 func clear_crew() -> void:
 	for id in crew.keys(): remove_crew(id)

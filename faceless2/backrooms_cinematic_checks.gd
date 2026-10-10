@@ -22,7 +22,7 @@ func run() -> void:
 	game.ui.close_panels()
 	check(game.player.viewmodel_root != null, "Licensed arm-only skinned GLB instantiated")
 	check(game.player.walk_animation != null and game.player.walk_animation.get_animation_list().size() > 0, "Original Cesium walk animation preserved")
-	var arm_meshes := game.player.viewmodel_root.find_children("*", "MeshInstance3D", true, false)
+	var arm_meshes: Array = game.player.viewmodel_root.find_children("*", "MeshInstance3D", true, false)
 	check(arm_meshes.size() > 0 and arm_meshes[0].mesh != null, "First-person arms render original authored geometry")
 	check(game.story.voice_audio != null, "Generated neural narration player exists")
 	check(ResourceLoader.exists("res://audio/voice/brief_0.ogg"), "Kokoro Mandarin first briefing is packaged")

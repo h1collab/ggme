@@ -61,13 +61,14 @@ func _ready() -> void:
 		for arm_mesh in arms.find_children("*", "MeshInstance3D", true, false):
 			arm_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for anim in arms.find_children("*", "AnimationPlayer", true, false):
-			if anim.get_animation_list().is_empty(): continue
-			walk_animation = anim
-			var clip: StringName = anim.get_animation_list()[0]
-			anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-			anim.play(clip)
-			anim.speed_scale = 0
-			break
+			for clip in anim.get_animation_list():
+				if clip == "RESET": continue
+				walk_animation = anim
+				anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+				anim.play(clip)
+				anim.speed_scale = 0
+				break
+			if is_instance_valid(walk_animation): break
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
