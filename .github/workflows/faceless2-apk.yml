@@ -179,7 +179,7 @@ jobs:
           assert not missing, f'Chinese story font missing glyphs: {missing}'
           print('Build-time source asset inventory, all-GLB geometry and Chinese font: PASS')
           PYCODE
-          for script in backrooms backrooms_level backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks virtual_joystick touch_action; do
+          for script in backrooms_level backrooms_story backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks virtual_joystick touch_action; do
             godot --headless --path app --script "scripts/$script.gd" --check-only
           done
           timeout 180 godot --headless --path app --script scripts/backrooms_checks.gd 2>&1 | tee qa/runtime-checks.log
