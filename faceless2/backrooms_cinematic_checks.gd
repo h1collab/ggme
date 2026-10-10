@@ -70,8 +70,8 @@ func run() -> void:
 	# End all live streaming decoders/particle emitters before tearing down
 	# the imported skinned GLB scene. Godot may otherwise retain audio
 	# playback resources beyond the final SceneTree tick in headless mode.
-	for class_name in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
-		for sound in game.find_children("*", class_name, true, false):
+	for audio_kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
+		for sound in game.find_children("*", audio_kind, true, false):
 			sound.stop()
 			sound.stream = null
 	for emitter in game.find_children("*", "CPUParticles3D", true, false):

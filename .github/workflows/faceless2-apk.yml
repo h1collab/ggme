@@ -169,7 +169,7 @@ jobs:
           for f in required: assert (root/f).is_file() and (root/f).stat().st_size > 100, f
           print('Build-time source asset inventory: PASS')
           PYCODE
-          for script in backrooms backrooms_level backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story virtual_joystick touch_action; do
+          for script in backrooms backrooms_level backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks virtual_joystick touch_action; do
             godot --headless --path app --script "scripts/$script.gd" --check-only
           done
           timeout 180 godot --headless --path app --script scripts/backrooms_checks.gd 2>&1 | tee qa/runtime-checks.log
