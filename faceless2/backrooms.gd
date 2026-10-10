@@ -80,9 +80,6 @@ func _ready() -> void:
 func _audio() -> void:
 	ambience = AudioStreamPlayer.new()
 	if ResourceLoader.exists("res://audio/roomtone.wav"): ambience.stream = load("res://audio/roomtone.wav")
-	if ambience.stream is AudioStreamWAV:
-		ambience.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-		ambience.stream.loop_end = int(ambience.stream.get_length() * ambience.stream.mix_rate)
 	ambience.volume_db = -19
 	add_child(ambience)
 	if ambience.stream != null: ambience.play()

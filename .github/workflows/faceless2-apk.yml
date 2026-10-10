@@ -32,6 +32,7 @@ jobs:
           import shutil, re
           for folder in ['scripts', 'assets', 'audio']:
               root=Path('app', folder)
+              root.mkdir(parents=True, exist_ok=True)
               for item in root.iterdir():
                   if item.is_file(): item.unlink()
           source=Path('faceless2')

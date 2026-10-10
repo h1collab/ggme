@@ -199,6 +199,10 @@ func intro() -> void:
 
 func menu() -> void:
 	_clear("menu")
+	if not game.running:
+		game.player.reset_to(Vector3(0, 0.05, 0))
+		game.player.yaw = -0.42
+		game.player.rotation.y = -0.42
 	_card(panels, Rect2(0, 0, 730, 900), Color(0.025, 0.04, 0.032, 0.97))
 	_image(panels, "res://ui/game_icon.png", Rect2(66, 58, 92, 92))
 	_label(panels, "ZORIX / FIELD RECORDINGS", Vector2(185, 80), 480, 20, ACCENT)
@@ -228,7 +232,7 @@ func close_panels() -> void:
 
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
-	_card(panels, Rect2(0, 0, 1600, 900), Color(0.025, 0.04, 0.035, 0.98))
+	_card(panels, Rect2(0, 0, 1600, 900), Color(0.025, 0.04, 0.035, 1.0))
 	_label(panels, "ZORIX / NIGHT RELAY", Vector2(72, 45), 800, 18, ACCENT)
 	_label(panels, title, Vector2(72, 105), 1250, 42)
 	_button(panels, "BACK", Rect2(1320, 48, 205, 62), func(): close_panels() if game.running else menu())

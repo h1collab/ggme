@@ -62,7 +62,7 @@ func build(level: int) -> void:
 	for i in range(3):
 		var housing := _box("SecurityCamera", cameras[i].origin, Vector3(0.25, 0.13, 0.33), _plain(Color(0.18, 0.2, 0.19), 0.6), false)
 		housing.get_child(0).layers = 2
-		_sign("CAM / 0%d" % (i + 1), cameras[i].origin + Vector3(0, -0.2, 0), 0.014)
+		_sign("CAM / 0%d" % (i + 1), cameras[i].origin + Vector3(0, -0.3, 0), 0.004, 2)
 	_exit()
 	if index == 1: _service_details()
 	elif index == 2: _pool_details()
@@ -144,7 +144,7 @@ func _fixture(pos: Vector3, channel: int) -> void:
 	add_child(light)
 	fixtures.append({"light":light, "mesh":diffuser, "channel":channel})
 
-func _sign(text: String, pos: Vector3, scale_size: float = 0.019) -> Label3D:
+func _sign(text: String, pos: Vector3, scale_size: float = 0.019, render_layer: int = 1) -> Label3D:
 	var sign := Label3D.new()
 	sign.text = text
 	sign.position = pos
@@ -154,10 +154,12 @@ func _sign(text: String, pos: Vector3, scale_size: float = 0.019) -> Label3D:
 	sign.outline_size = 0
 	sign.no_depth_test = false
 	sign.shaded = true
+	sign.layers = render_layer
 	var lines := text.split("\n")
 	var longest := 0
 	for line in lines: longest = maxi(longest, line.length())
-	_box("SignPlate", pos + Vector3(0, 0, -0.015), Vector3(longest * scale_size * 26 * 0.58 + 0.10, lines.size() * scale_size * 32 + 0.09, 0.025), _plain(Color(0.13, 0.16, 0.14)), false)
+	var backing := _box("SignPlate", pos + Vector3(0, 0, -0.015), Vector3(longest * scale_size * 26 * 0.58 + 0.10, lines.size() * scale_size * 32 + 0.09, 0.025), _plain(Color(0.13, 0.16, 0.14)), false)
+	backing.get_child(0).layers = render_layer
 	add_child(sign)
 	return sign
 
