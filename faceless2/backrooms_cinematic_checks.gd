@@ -66,7 +66,7 @@ func run() -> void:
 	game.ui.close_panels()
 	var start_door: float = game.level.lift_left.position.x
 	game.player.reset_to(game.level.exit_position)
-	for i in range(4): game.apply_action("collect", i, game.level.relays[i] + Vector3(0, 0, 0.9), false)
+	for i in range(3): game.apply_action("collect", i, game.level.relays[i] + Vector3(0, 0, 0.9), false)
 	game.apply_action("pickup", 1, game.level.key_position, false)
 	game.apply_action("assemble", 0, game.level.console_position, false)
 	game.apply_action("transfer", 0, game.level.exit_position, false)
