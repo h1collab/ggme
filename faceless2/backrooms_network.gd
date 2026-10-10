@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 12
+const PROTOCOL := 13
 const MAX_CREW := 4
 var game: Node
 var peer: ENetMultiplayerPeer
@@ -104,7 +104,7 @@ func _map_router(token: int, selected_port: int) -> void:
 	var public_ip := ""
 	var mapped := false
 	if result == UPNP.UPNP_RESULT_SUCCESS and gateway.get_gateway() != null:
-		mapped = gateway.add_port_mapping(selected_port, selected_port, "Zorix Backrooms", "UDP", 3600) == UPNP.UPNP_RESULT_SUCCESS
+		mapped = gateway.add_port_mapping(selected_port, selected_port, "Faceless 2", "UDP", 3600) == UPNP.UPNP_RESULT_SUCCESS
 		if mapped: public_ip = gateway.query_external_address()
 	_mapping_complete.call_deferred(token, selected_port, gateway, mapped, public_ip)
 
@@ -159,7 +159,7 @@ func _hello(version: int, key: String) -> void:
 func _welcome(state: Dictionary, spawn: Vector3) -> void:
 	if mode != "client": return
 	members[1] = true
-	status = "Connected / cooperative shift"
+	status = "Connected / Faceless 2 co-op"
 	game.revision = -1
 	game.receive_state(state)
 	game.player.reset_to(spawn)
@@ -217,7 +217,7 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool) -> void:
 	if pos.distance_to(old) > elapsed * 5.0 + 0.8: return
 	poses[id] = {"p":pos, "y":yaw}
 	pose_times[id] = now
-	monitor_flags[id] = monitoring and pos.distance_to(game.level.console_position) < 3.5
+	monitor_flags[id] = false
 	game.update_crew(poses)
 
 @rpc("authority", "call_remote", "unreliable_ordered", 1)

@@ -17,12 +17,16 @@ var floor_material: ShaderMaterial
 var pool_water: MeshInstance3D
 var title := ""
 var subtitle := ""
+var architecture_meshes: Dictionary = {}
+var shadow_refresh := 0.0
+var shadow_focus := Vector3(999, 999, 999)
 
 func build(level: int) -> void:
 	index = level
-	name = "Architecture"
-	title = ["LEVEL 00 / THE OFFICES", "LEVEL 01 / SERVICE DEPTHS", "LEVEL 02 / STILL WATER"][index]
-	subtitle = ["Damp carpet. Fluorescent light. No windows.", "Concrete, copper and an unstable power grid.", "Ceramic halls. Water carries the signal."][index]
+	name = "AuthenticGLBArchitecture"
+	_load_architecture()
+	title = ["FACELESS 2 / 失联楼层", "FACELESS 2 / 地下回声", "FACELESS 2 / 静水之下"][index]
+	subtitle = ["走廊里没有出口。", "脚步比你晚半拍。", "水里有不属于你的倒影。"][index]
 	wall_material = _surface(0)
 	floor_material = _surface(1)
 	var ceiling := _surface(2)
@@ -53,22 +57,50 @@ func build(level: int) -> void:
 		for x in [-9.0, 0.0, 9.0]:
 			_fixture(Vector3(x, 3.28, z), 0 if z > -9 else (1 if z > -20 else 2))
 	_console()
-	for x in [-3.8, 3.8]:
-		var shutter := _box("IsolationShutter", Vector3(x, 4.3, 3.2), Vector3(0.14, 2.6, 3.8), _plain(Color(0.28, 0.31, 0.30), 0.84), true)
-		doors.append(shutter)
-		_box("ShutterFrame", Vector3(x, 3.13, 3.2), Vector3(0.28, 0.4, 4.1), _plain(Color(0.14, 0.17, 0.18), 0.7), false)
+	# There is no FNAF shutter control room in Faceless 2.
+	# The central corridor stays open so the player can explore freely.
 	relays.assign([Vector3(-12.8, 0, -5), Vector3(12.8, 0, -16), Vector3(-12.8, 0, -26.5)])
 	for i in range(3): _relay(i)
-	cameras = [Transform3D(Basis.from_euler(Vector3(-0.18, -0.6, 0)), Vector3(-12.0, 2.4 if index == 2 else 2.9, 0.8)), Transform3D(Basis.from_euler(Vector3(-0.2, 0.65, 0)), Vector3(12.0, 2.4 if index == 2 else 2.9, -10.0)), Transform3D(Basis.from_euler(Vector3(-0.15, -0.55, 0)), Vector3(-12.0, 2.4 if index == 2 else 2.9, -21.5))]
-	for i in range(3):
-		var housing := _box("SecurityCamera", cameras[i].origin, Vector3(0.25, 0.13, 0.33), _plain(Color(0.18, 0.2, 0.19), 0.6), false)
-		housing.get_child(0).layers = 2
-		_sign("CAM / 0%d" % (i + 1), cameras[i].origin + Vector3(0, -0.3, 0), 0.004, 2)
+	cameras.clear()
 	_exit()
 	if index == 1: _service_details()
 	elif index == 2: _pool_details()
 	else: _office_details()
 	_external_props()
+
+func _load_architecture() -> void:
+	architecture_meshes.clear()
+	var source_path := Assets.path("vendor/huuxloc_backroom.glb")
+	if not ResourceLoader.exists(source_path): return
+	var scene: PackedScene = load(source_path)
+	var source := scene.instantiate()
+	for mesh in source.find_children("*", "MeshInstance3D", true, false):
+		# Authored 3D meshes: walls/skirting, carpet and gridded ceiling.
+		# They share immutable GPU mesh resources across the whole level.
+		if mesh.mesh != null: architecture_meshes[String(mesh.name)] = mesh.mesh
+	source.free()
+
+func _architectural_mesh(label: String, dimensions: Vector3) -> MeshInstance3D:
+	var source_name := "Object_4" if label == "Floor" else ("Object_53" if label == "Ceiling" else ("Object_9" if label == "Skirting" else "Object_10"))
+	if not architecture_meshes.has(source_name): return null
+	var view := MeshInstance3D.new()
+	view.name = "LicensedGLB_%s" % label
+	view.mesh = architecture_meshes[source_name]
+	var bound := view.mesh.get_aabb()
+	var extent: Vector3 = bound.size
+	var horizontal := label in ["Wall", "Skirting"] and dimensions.x > dimensions.z
+	view.rotation.y = PI * 0.5 if horizontal else 0.0
+	if label in ["Wall", "Skirting"]:
+		var thick := minf(dimensions.x, dimensions.z)
+		var along := maxf(dimensions.x, dimensions.z)
+		view.scale = Vector3(thick / maxf(0.01, extent.x), dimensions.y / maxf(0.01, extent.y), along / maxf(0.01, extent.z))
+	else:
+		view.scale = Vector3(dimensions.x / maxf(0.01, extent.x), 1.0, dimensions.z / maxf(0.01, extent.z))
+	var local_center := -bound.get_center() * view.scale
+	view.position = local_center.rotated(Vector3.UP, view.rotation.y)
+	if label == "Floor": view.position.y += dimensions.y * 0.5
+	if label == "Ceiling": view.position.y -= dimensions.y * 0.5
+	return view
 
 func _surface(kind: int) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
@@ -89,7 +121,7 @@ void vertex(){world=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;world_normal=normalize(M
 void fragment(){
  vec2 p = surface!=0 || abs(world_normal.y)>0.5 ? world.xz : (abs(world_normal.x)>0.5 ? world.zy : world.xy);
  float broad=noise(p*1.7)*0.5+noise(p*5.1)*0.25+noise(p*17.0)*0.25;
- float grain=noise(p*145.0);
+ float grain=noise(p*63.0);
  vec3 col=vec3(0.52,0.47,0.26); float rough=0.93;
  if(theme==0){
   if(surface==0){float stripe=pow(abs(sin(p.x*34.0)),12.0);col=mix(vec3(0.53,0.47,0.28),vec3(0.62,0.56,0.36),broad)*mix(0.95,1.0,stripe);col*=1.0-0.2*(1.0-smoothstep(0.0,0.65,world.y));}
@@ -100,7 +132,7 @@ void fragment(){
  if(surface==2 && theme==1){col*=0.73;}
  if(photo_enabled){col=texture(surface_photo,p*0.5).rgb*(0.90+broad*0.10);if(theme==0 && surface==0){col*=vec3(0.90,0.86,0.69);}}
  ALBEDO=col;ROUGHNESS=rough;SPECULAR=theme==2?0.2:0.06;
- NORMAL_MAP=vec3(0.5+(grain-0.5)*0.035,0.5+(noise(p.yx*130.0)-0.5)*0.035,1.0);
+ NORMAL_MAP=vec3(0.5+(grain-0.5)*0.035,0.5+(noise(p.yx*60.0)-0.5)*0.035,1.0);
  if(concrete_pbr){NORMAL_MAP=texture(photo_normal,p*0.5).rgb;ROUGHNESS=texture(photo_rough,p*0.5).r;}
 }"""
 	material.shader = shader
@@ -125,6 +157,10 @@ func _external_props() -> void:
 		["schoolchair.glb", Vector3(-12,0,-12), 0.9, -0.4],
 		["cabinet.glb", Vector3(13.7,0,7), 1.2, -PI/2],
 		["shelf.glb", Vector3(-13.7,0,-17), 2.0, PI/2]]
+	if index != 1:
+		# A real licensed cabinet occludes the creature's torso; only its face
+		# briefly peeks over the furniture in the dark side aisle.
+		placements.append(["cabinet.glb", Vector3(-4.22, 0, -7.48), 1.42, PI / 2])
 	if index == 1:
 		placements.append(["barrel.glb",Vector3(10.8,0,-26.7),0.95,0.0])
 		placements.append(["barrel.glb",Vector3(10.0,0,-25.3),0.95,0.3])
@@ -155,23 +191,27 @@ func _plain(color: Color, roughness: float = 0.9) -> StandardMaterial3D:
 	return material
 
 func _box(label: String, pos: Vector3, dimensions: Vector3, material: Material, solid: bool) -> Node3D:
-	var root: Node3D = StaticBody3D.new() if solid else Node3D.new()
-	root.name = label
-	root.position = pos
-	add_child(root)
-	var mesh := MeshInstance3D.new()
-	var geometry := BoxMesh.new()
-	geometry.size = dimensions
-	mesh.mesh = geometry
+	var body: Node3D = StaticBody3D.new() if solid else Node3D.new()
+	body.name = label
+	body.position = pos
+	add_child(body)
+	var mesh: MeshInstance3D = null
+	if label in ["Floor", "Ceiling", "Wall", "Skirting"]: mesh = _architectural_mesh(label, dimensions)
+	if mesh == null:
+		mesh = MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = dimensions
+		mesh.mesh = box
 	mesh.material_override = material
-	root.add_child(mesh)
+	body.add_child(mesh)
 	if solid:
+		# Single primitive collision proxy, not a per-triangle mesh: cheap on phones.
 		var collision := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
 		shape.size = dimensions
 		collision.shape = shape
-		root.add_child(collision)
-	return root
+		body.add_child(collision)
+	return body
 
 func _wall(pos: Vector3, dimensions: Vector3) -> void:
 	_box("Wall", pos, dimensions, wall_material, true)
@@ -184,11 +224,11 @@ func _fixture(pos: Vector3, channel: int) -> void:
 	var light := OmniLight3D.new()
 	light.position = pos + Vector3(0, -0.3, 0)
 	light.light_color = Color(1.0, 0.91, 0.73) if index == 0 else Color(0.77, 0.89, 0.96)
-	light.light_energy = 1.3 if index == 0 else 1.8
-	light.omni_range = 10
+	light.light_energy = 1.15 if index == 0 else 1.4
+	light.omni_range = 9.2
 	light.omni_attenuation = 1.2
 	# Only the console lights cast shadows; limited budget on Android Mobile.
-	light.shadow_enabled = fixtures.size() < 3
+	light.shadow_enabled = false
 	add_child(light)
 	fixtures.append({"light":light, "mesh":diffuser, "channel":channel})
 
@@ -212,25 +252,17 @@ func _sign(text: String, pos: Vector3, scale_size: float = 0.019, render_layer: 
 	return sign
 
 func _console() -> void:
-	var enamel := _plain(Color(0.15, 0.19, 0.19), 0.6)
-	_box("ControlDesk", Vector3(0, 0.65, 6), Vector3(2.5, 1.3, 0.9), enamel, true)
-	_box("Worktop", Vector3(0, 1.33, 6), Vector3(2.65, 0.06, 1.02), _plain(Color(0.39, 0.41, 0.37), 0.75), false)
-	for i in range(3):
-		var x := (i - 1) * 0.75
-		_box("CRTFrame", Vector3(x, 1.65, 5.75), Vector3(0.66, 0.51, 0.25), enamel, false)
-		var glow := _plain(Color(0.11, 0.22, 0.2))
-		glow.emission_enabled = true
-		glow.emission = Color(0.08, 0.2, 0.15)
-		_box("CRTScreen", Vector3(x, 1.65, 5.89), Vector3(0.55, 0.39, 0.01), glow, false)
-		_sign("%02d" % (i + 1), Vector3(x, 1.65, 5.91), 0.006)
-	_box("Keyboard", Vector3(0, 1.38, 6.23), Vector3(0.6, 0.03, 0.19), _plain(Color(0.43, 0.42, 0.33)), false)
-	for x in [-1.6, 1.6]:
-		_box("StationSignSupport", Vector3(x, 2.05, 5.75), Vector3(0.045, 1.45, 0.045), enamel, false)
-	_sign("SURVEY STATION\nMONITOR / ISOLATE / REPORT", Vector3(0, 2.7, 5.8), 0.009)
+	var enamel := _plain(Color(0.11, 0.17, 0.18), 0.85)
+	_box("AbandonedReceiver", Vector3(0, 0.48, 6), Vector3(1.15, 0.95, 0.6), enamel, true)
+	var glass := _plain(Color(0.08, 0.22, 0.17), 0.48)
+	glass.emission_enabled = true
+	glass.emission = Color(0.04, 0.13, 0.09)
+	_box("AudioFrequencyDisplay", Vector3(0, 0.9, 5.67), Vector3(0.72, 0.25, 0.02), glass, false)
+	_sign("RECORDINGS / SIGNAL LOST", Vector3(0, 1.6, 5.78), 0.008)
 
 func _relay(i: int) -> void:
 	var p := relays[i]
-	var cabinet := _box("BreakerCabinet", p + Vector3(0, 0.95, 0), Vector3(0.65, 1.45, 0.4), _plain(Color(0.22, 0.27, 0.27), 0.65), true)
+	var cabinet := _box("MemoryRecorder", p + Vector3(0, 0.95, 0), Vector3(0.65, 1.45, 0.4), _plain(Color(0.22, 0.27, 0.27), 0.65), true)
 	for y in [0.4, 0.7, 1.0]:
 		_box("VentSlot", p + Vector3(0, y + 0.4, 0.208), Vector3(0.42, 0.025, 0.015), _plain(Color(0.05, 0.07, 0.07)), false)
 	var status := _plain(Color(0.68, 0.31, 0.1))
@@ -238,14 +270,14 @@ func _relay(i: int) -> void:
 	status.emission = status.albedo_color
 	var led := _box("BreakerStatus", p + Vector3(0.18, 1.4, 0.21), Vector3(0.05, 0.06, 0.02), status, false)
 	relay_visuals.append(led.get_child(0))
-	_sign("NODE %02d" % (i + 1), p + Vector3(0, 1.8, 0), 0.008)
+	_sign("TAPE %02d" % (i + 1), p + Vector3(0, 1.8, 0), 0.008)
 	cabinet.set_meta("relay", i)
 
 func _exit() -> void:
 	_box("LiftFrame", Vector3(0, 1.4, -29.5), Vector3(2.8, 2.8, 0.2), _plain(Color(0.18, 0.21, 0.2), 0.65), true)
 	for x in [-0.6, 0.6]:
 		_box("LiftDoor", Vector3(x, 1.3, -29.36), Vector3(1.17, 2.55, 0.05), _plain(Color(0.36, 0.4, 0.37), 0.63), false)
-	_sign("TRANSFER / %02d" % (index + 1), Vector3(0, 3.0, -29.2), 0.014)
+	_sign("EXIT / %02d" % (index + 1), Vector3(0, 3.0, -29.2), 0.014)
 	_sign("AUTHORIZED PERSONNEL", Vector3(0, 1.9, -29.28), 0.006)
 
 func _office_details() -> void:
@@ -291,9 +323,16 @@ void fragment(){float ripple=sin(p.x*9.0+TIME*0.6)*cos(p.z*7.0-TIME*0.4);ALBEDO=
 		_sign("SHALLOW / 0.1m", Vector3(x, 2.5, -19.8), 0.012)
 
 func update_state(closed: Array, lights_on: bool, anomaly: int, repaired: Array, time: float, focus: Vector3 = Vector3.ZERO, shadow_budget: int = 2) -> void:
-	var ordered := fixtures.duplicate()
-	ordered.sort_custom(func(a, b): return a.light.position.distance_squared_to(focus) < b.light.position.distance_squared_to(focus))
-	for i in range(ordered.size()): ordered[i].light.shadow_enabled = i < shadow_budget
+	shadow_refresh += get_process_delta_time()
+	if shadow_refresh >= 0.35 or shadow_focus.distance_to(focus) > 3.0:
+		shadow_refresh = 0
+		shadow_focus = focus
+		var ordered := fixtures.duplicate()
+		ordered.sort_custom(func(a, b): return a.light.position.distance_squared_to(focus) < b.light.position.distance_squared_to(focus))
+		for i in range(ordered.size()):
+			var light: OmniLight3D = ordered[i].light
+			var should_shadow := i < shadow_budget and light.position.distance_squared_to(focus) < 150.0
+			if light.shadow_enabled != should_shadow: light.shadow_enabled = should_shadow
 	for i in range(doors.size()):
 		doors[i].position.y = lerpf(doors[i].position.y, 1.3 if closed[i] else 4.3, 0.18)
 	for fixture in fixtures:
@@ -302,7 +341,7 @@ func update_state(closed: Array, lights_on: bool, anomaly: int, repaired: Array,
 		var diffuser: MeshInstance3D = fixture.mesh.get_child(0)
 		var material: StandardMaterial3D = diffuser.material_override
 		material.emission_energy_multiplier = (1.2 if lights_on else 0.1) * (0.1 if unstable and fmod(time, 1.6) < 0.8 else 1.0)
-		light.light_energy = (1.3 if index == 0 else 1.8) * (0.22 if not lights_on else 1.0) * (0.25 if unstable and fmod(time, 1.6) < 0.8 else 1.0)
+		light.light_energy = (1.15 if index == 0 else 1.4) * (0.22 if not lights_on else 1.0) * (0.25 if unstable and fmod(time, 1.6) < 0.8 else 1.0)
 	for i in range(3):
 		var mat: StandardMaterial3D = relay_visuals[i].material_override
 		mat.albedo_color = Color(0.18, 0.63, 0.40) if repaired[i] else Color(0.68, 0.31, 0.1)

@@ -59,7 +59,7 @@ try:
         text = (out / ('p2p-' + role + '.log')).read_text()
         assert 'ERROR:' not in text and 'FAIL:' not in text, role + '\n' + text
     assert code == 0 and 'P2P drophost: PASS' in (out / 'p2p-drophost.log').read_text()
-    print('Backrooms P2P checks: PASS / real UDP host, client, late join, wrong-key rejection, actions, movement, layer transition, graceful disconnect, killed-client slot and avatar cleanup')
+    print('Faceless 2 P2P checks: PASS / real UDP host, client, late join, wrong-key rejection, actions, movement, layer transition, graceful disconnect, killed-client slot and avatar cleanup')
 finally:
     for process in processes.values():
         if process.poll() is None:

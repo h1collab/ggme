@@ -2,43 +2,31 @@ extends Control
 
 const Joystick = preload("virtual_joystick.gd")
 const TouchAction = preload("touch_action.gd")
-const PAPER := Color(0.87, 0.87, 0.79)
-const MUTED := Color(0.51, 0.57, 0.53)
-const ACCENT := Color(0.70, 0.78, 0.54)
+const PAPER := Color(0.88, 0.90, 0.84)
+const MUTED := Color(0.56, 0.64, 0.61)
+const ACCENT := Color(0.67, 0.88, 0.73)
 var game: Node
 var canvas: Control
 var hud: Control
 var panels: Control
 var joystick: Control
 var modal := true
-var monitoring := false
+var monitoring := false  # Kept for stable ENet wire arguments; no CCTV mode.
 var result_shown := false
 var run_held := false
-var selected_camera := 0
-var monitor_view: SubViewport
-var monitor_camera: Camera3D
 var status_label: Label
 var goal_label: Label
 var prompt_label: Label
-var meter_label: Label
-var console_status: Label
+var objective_label: Label
+var subtitle_label: Label
+var notice_label: Label
 var room_status: Label
 var address_field: LineEdit
 var port_field: SpinBox
 var key_field: LineEdit
 var upnp_box: CheckBox
-var door_buttons: Array = []
-var camera_buttons: Array = []
-var light_button: Button
-var fan_button: Button
-var generator_button: Button
 var intro_timer: Timer
-var intro_elapsed := 0.0
-var notice_label: Label
-var monitor_notice: Label
 var panel_kind := ""
-var objective_label: Label
-var subtitle_label: Label
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
@@ -57,19 +45,6 @@ func _ready() -> void:
 	panels = Control.new()
 	panels.size = Vector2(1600, 900)
 	canvas.add_child(panels)
-	monitor_view = SubViewport.new()
-	monitor_view.size = Vector2i(960, 540)
-	monitor_view.world_3d = game.get_viewport().world_3d
-	monitor_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	monitor_view.msaa_3d = Viewport.MSAA_DISABLED
-	add_child(monitor_view)
-	monitor_camera = Camera3D.new()
-	monitor_camera.fov = 72
-	monitor_camera.current = true
-	monitor_camera.near = 0.05
-	monitor_camera.cull_mask = 1
-	monitor_view.add_child(monitor_camera)
-	retarget_camera()
 
 func _fit() -> void:
 	var extent := get_viewport().get_visible_rect().size
@@ -81,19 +56,18 @@ func _fit() -> void:
 		var safe_position := Vector2(safe.position) * physical_to_canvas
 		factor = minf(safe_size.x / 1600, safe_size.y / 900)
 		canvas.position = safe_position + (safe_size - Vector2(1600, 900) * factor) * 0.5
-		print("ANDROID_LAYOUT / logical=", extent, " physical=", get_window().size, " safe=", safe)
 	else: canvas.position = (extent - Vector2(1600, 900) * factor) * 0.5
 	canvas.scale = Vector2.ONE * factor
 
-func _style(color: Color, border: Color = Color(0.25, 0.30, 0.25)) -> StyleBoxFlat:
+func _style(color: Color, border: Color = Color(0.26, 0.32, 0.30)) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
 	style.border_color = border
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(3)
+	style.set_corner_radius_all(5)
 	return style
 
-func _card(parent: Node, rect: Rect2, color: Color = Color(0.045, 0.06, 0.05, 0.96)) -> Panel:
+func _card(parent: Node, rect: Rect2, color: Color = Color(0.025, 0.042, 0.04, 0.95)) -> Panel:
 	var panel := Panel.new()
 	panel.position = rect.position
 	panel.size = rect.size
@@ -108,10 +82,9 @@ func _label(parent: Node, text: String, pos: Vector2, width: float, font_size: i
 	label.add_theme_color_override("font_color", color)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.size = Vector2(width, font_size * 2.8)
+	label.size = Vector2(width, font_size * 3.0)
 	parent.add_child(label)
 	label.text = text
-	label.size = Vector2(width, font_size * 2.8)
 	return label
 
 func _button(parent: Node, text: String, rect: Rect2, callback: Callable, touch: bool = false) -> Button:
@@ -120,70 +93,64 @@ func _button(parent: Node, text: String, rect: Rect2, callback: Callable, touch:
 	button.size = rect.size
 	button.add_theme_font_size_override("font_size", 23)
 	button.add_theme_color_override("font_color", PAPER)
-	button.add_theme_stylebox_override("normal", _style(Color(0.08, 0.10, 0.085, 0.96)))
-	button.add_theme_stylebox_override("hover", _style(Color(0.17, 0.22, 0.15), ACCENT))
-	button.add_theme_stylebox_override("pressed", _style(Color(0.25, 0.31, 0.19), ACCENT))
+	button.add_theme_stylebox_override("normal", _style(Color(0.07, 0.095, 0.09, 0.97)))
+	button.add_theme_stylebox_override("hover", _style(Color(0.14, 0.23, 0.19), ACCENT))
+	button.add_theme_stylebox_override("pressed", _style(Color(0.19, 0.35, 0.27), ACCENT))
 	button.pressed.connect(callback)
 	parent.add_child(button)
-	# Shape after the final font/theme and tree are available.
 	button.text = text
-	button.size = rect.size
 	return button
 
 func _image(parent: Node, path: String, rect: Rect2, crop: bool = false) -> TextureRect:
-	var image := TextureRect.new()
-	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	image.position = rect.position
-	image.size = rect.size
+	var img := TextureRect.new()
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	img.position = rect.position
+	img.size = rect.size
 	var texture: Texture2D = load(path)
 	if crop:
 		var atlas := AtlasTexture.new()
 		atlas.atlas = texture
 		atlas.region = Rect2(291, 297, 769, 767)
 		texture = atlas
-	image.texture = texture
-	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(image)
-	return image
+	img.texture = texture
+	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(img)
+	return img
 
 func _build_hud() -> void:
 	hud = Control.new()
 	hud.size = Vector2(1600, 900)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(hud)
-	_card(hud, Rect2(38, 30, 520, 94), Color(0.035, 0.05, 0.04, 0.86))
-	status_label = _label(hud, "", Vector2(58, 43), 480, 20, ACCENT)
-	goal_label = _label(hud, "", Vector2(58, 76), 480, 18)
-	_card(hud, Rect2(1020, 30, 360, 94), Color(0.035, 0.05, 0.04, 0.86))
-	meter_label = _label(hud, "", Vector2(1040, 43), 330, 21)
-	_button(hud, "II", Rect2(1410, 30, 135, 76), open_pause, true)
-	prompt_label = _label(hud, "", Vector2(460, 695), 680, 22, ACCENT)
+	_card(hud, Rect2(38, 28, 525, 105), Color(0.018, 0.035, 0.033, 0.82))
+	status_label = _label(hud, "", Vector2(55, 43), 492, 22, ACCENT)
+	goal_label = _label(hud, "", Vector2(55, 83), 492, 18)
+	_card(hud, Rect2(1020, 28, 350, 90), Color(0.018, 0.035, 0.033, 0.82))
+	notice_label = _label(hud, "", Vector2(1036, 45), 315, 18, MUTED)
+	_button(hud, "II", Rect2(1410, 32, 135, 72), open_pause, true)
+	_card(hud, Rect2(38, 148, 680, 91), Color(0.018, 0.035, 0.033, 0.82))
+	objective_label = _label(hud, "", Vector2(55, 161), 650, 22, ACCENT)
+	prompt_label = _label(hud, "", Vector2(470, 685), 660, 25, ACCENT)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	notice_label = _label(hud, "", Vector2(475, 754), 650, 19)
-	notice_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var cross := _label(hud, "·", Vector2(787, 432), 26, 25)
+	subtitle_label = _label(hud, "", Vector2(340, 585), 920, 23, PAPER)
+	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var cross := _label(hud, "·", Vector2(786, 429), 30, 27)
 	cross.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	joystick = Joystick.new()
-	joystick.position = Vector2(72, 645)
-	joystick.size = Vector2(190, 190)
+	joystick.position = Vector2(68, 642)
+	joystick.size = Vector2(195, 195)
 	hud.add_child(joystick)
-	_button(hud, "USE / E", Rect2(1340, 670, 205, 82), func(): game.interact(), true)
-	_button(hud, "TORCH / F", Rect2(1340, 780, 205, 68), func(): game.player.torch.visible = not game.player.torch.visible, true)
-	var run := _button(hud, "RUN", Rect2(305, 750, 150, 78), func(): pass, true)
+	_button(hud, "USE / E", Rect2(1340, 667, 205, 79), func(): game.interact(), true)
+	_button(hud, "LIGHT / F", Rect2(1340, 770, 205, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
+	var run := _button(hud, "RUN", Rect2(305, 755, 155, 75), func(): pass, true)
 	run.button_down.connect(func(): run_held = true)
 	run.button_up.connect(func(): run_held = false)
-	_label(hud, "DRAG RIGHT TO LOOK", Vector2(1020, 846), 315, 16, MUTED)
-	_card(hud, Rect2(38, 148, 660, 86), Color(0.025, 0.04, 0.035, 0.84))
-	objective_label = _label(hud, "", Vector2(58, 163), 620, 21, ACCENT)
-	subtitle_label = _label(hud, "", Vector2(460, 600), 760, 24, PAPER)
-	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_label(hud, "DRAG RIGHT TO LOOK", Vector2(1010, 846), 320, 17, MUTED)
 
 func _clear(kind: String) -> void:
-	# A panel must never leave the player locked in a scripted attention hold.
 	if is_instance_valid(game) and is_instance_valid(game.player): game.player.cancel_focus()
 	panel_kind = kind
-	print("UI_SCREEN / " + kind)
 	for child in panels.get_children():
 		panels.remove_child(child)
 		child.queue_free()
@@ -193,21 +160,18 @@ func _clear(kind: String) -> void:
 	joystick.reset()
 	hud.visible = false
 	panels.visible = true
-	monitor_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	console_status = null
-	monitor_notice = null
 	room_status = null
 
 func intro() -> void:
 	_clear("intro")
-	_card(panels, Rect2(0, 0, 1600, 900), Color(0.025, 0.04, 0.055))
-	_image(panels, _brand_file("team_logo.jpg"), Rect2(650, 190, 300, 300), true)
-	var text := _label(panels, "Made By Zorix GAme Team", Vector2(350, 545), 900, 40)
-	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var detail := _label(panels, "A SURVEY OF IMPOSSIBLE SPACES", Vector2(350, 625), 900, 18, MUTED)
+	_card(panels, Rect2(0, 0, 1600, 900), Color(0.018, 0.032, 0.038))
+	_image(panels, _brand_file("team_logo.jpg"), Rect2(655, 180, 290, 290), true)
+	var title := _label(panels, "Made By Zorix GAme Team", Vector2(350, 525), 900, 40)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var detail := _label(panels, "FACELESS 2 / AN ATMOSPHERIC HORROR STORY", Vector2(350, 615), 900, 21, MUTED)
 	detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_button(panels, "CONTINUE", Rect2(660, 740, 280, 62), menu)
+	_button(panels, "CONTINUE", Rect2(660, 748, 280, 67), menu)
 	intro_timer = Timer.new()
 	intro_timer.one_shot = true
 	intro_timer.wait_time = 3.2
@@ -217,144 +181,129 @@ func intro() -> void:
 
 func menu() -> void:
 	_clear("menu")
-	if not game.running:
-		game.player.reset_to(Vector3(0, 0.05, 0))
-		game.player.yaw = -0.42
-		game.player.rotation.y = -0.42
-	_card(panels, Rect2(0, 0, 730, 900), Color(0.025, 0.04, 0.032, 0.97))
-	_image(panels, _brand_file("game_icon.png"), Rect2(66, 58, 92, 92))
-	_label(panels, "ZORIX / FIELD RECORDINGS", Vector2(185, 80), 480, 20, ACCENT)
-	_label(panels, "BACKROOMS", Vector2(65, 218), 700, 68)
-	_label(panels, "NIGHT RELAY", Vector2(70, 307), 620, 36, ACCENT)
-	_label(panels, "找回失联搭档的记录。\n维持供电，走过三层没有出口的空间。", Vector2(72, 405), 590, 25, MUTED)
-	_button(panels, "开始剧情调查     →", Rect2(72, 535, 570, 80), func(): game.start_solo())
-	_button(panels, "COOPERATIVE / DIRECT P2P", Rect2(72, 635, 570, 72), open_lobby)
-	_button(panels, "FIELD GUIDE", Rect2(72, 728, 275, 64), open_guide)
-	_button(panels, "ABOUT US", Rect2(367, 728, 275, 64), open_about)
-	_button(panels, "SETTINGS", Rect2(1220, 45, 305, 65), open_settings)
-	_label(panels, "三层空间  /  1–4 人  /  环境与目击恐怖", Vector2(72, 835), 620, 16, MUTED)
-	_card(panels, Rect2(1040, 640, 490, 154), Color(0.03, 0.05, 0.035, 0.86))
-	_label(panels, "00 / THE OFFICES", Vector2(1066, 666), 440, 25, ACCENT)
-	_label(panels, "林岚的求救来自这栋楼。\n但它在十年前就被拆除了。", Vector2(1066, 709), 430, 20)
+	_card(panels, Rect2(0, 0, 775, 900), Color(0.02, 0.035, 0.034, 0.97))
+	_image(panels, _brand_file("game_icon.png"), Rect2(70, 50, 90, 90))
+	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
+	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
+	_label(panels, "THE SIGNAL BELOW", Vector2(73, 323), 640, 31, ACCENT)
+	_label(panels, "搭档在一栋已拆除的楼里失联。\n出口消失了，黑暗里有东西正在模仿脚步。", Vector2(72, 411), 600, 26, MUTED)
+	_button(panels, "开始探索     →", Rect2(72, 538, 600, 76), func(): game.start_solo())
+	_button(panels, "DIRECT CO-OP / 1–4", Rect2(72, 631, 600, 74), open_lobby)
+	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
+	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
+	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
+	_label(panels, "录音线索  /  环境恐怖  /  偶发黑暗目击", Vector2(73, 843), 640, 18, MUTED)
+	_card(panels, Rect2(1050, 655, 460, 154), Color(0.02, 0.038, 0.036, 0.82))
+	_label(panels, "00 / THE DISAPPEARED OFFICES", Vector2(1072, 681), 420, 21, ACCENT)
+	_label(panels, "它早已被拆除。\n可灯仍然亮着。", Vector2(1072, 727), 420, 22)
+
+func _page(title: String, kind: String) -> void:
+	_clear(kind)
+	_card(panels, Rect2(0, 0, 1600, 900), Color(0.02, 0.036, 0.034, 1.0))
+	_label(panels, "FACELESS 2  /  ZORIX GAme TEAM", Vector2(72, 47), 1050, 19, ACCENT)
+	_label(panels, title, Vector2(72, 108), 1240, 40)
+	_button(panels, "BACK", Rect2(1320, 45, 204, 70), func(): close_panels() if game.running else menu())
 
 func open_briefing() -> void:
 	_page(game.story.BRIEFINGS[game.stage][0], "briefing")
-	var briefing := _label(panels, game.story.BRIEFINGS[game.stage][1], Vector2(75, 235), 1410, 31)
-	briefing.size.y = 220
-	_card(panels, Rect2(75, 475, 1400, 150), Color(0.06, 0.08, 0.055))
-	_label(panels, "本层目标", Vector2(100, 492), 1320, 26, ACCENT)
-	_label(panels, game.story.BRIEFINGS[game.stage][2], Vector2(100, 540), 1310, 25)
-	_label(panels, "移动：WASD / 左摇杆    交互：E / USE    手电：F / TORCH\n听到脚步时可以停下观察；手动移动视角可打断自动转头。", Vector2(75, 660), 1400, 22, MUTED)
-	_button(panels, "我明白了 / 进入本层", Rect2(75, 775, 1380, 78), close_panels)
+	var message := _label(panels, game.story.BRIEFINGS[game.stage][1], Vector2(76, 226), 1430, 30)
+	message.size.y = 235
+	_card(panels, Rect2(76, 487, 1400, 134), Color(0.065, 0.089, 0.073))
+	_label(panels, "下一步", Vector2(98, 502), 1200, 25, ACCENT)
+	_label(panels, game.story.BRIEFINGS[game.stage][2], Vector2(98, 554), 1300, 23)
+	_label(panels, "WASD / 左摇杆移动  ·  E / USE拾取录音  ·  F / LIGHT手电\n右侧拖动观察。镜头永远可以手动控制。", Vector2(76, 653), 1390, 22, MUTED)
+	_button(panels, "进入黑暗 / CONTINUE", Rect2(76, 764, 1380, 80), close_panels)
 
 func close_panels() -> void:
 	panel_kind = "play"
-	print("UI_SCREEN / play")
 	modal = false
 	monitoring = false
 	result_shown = false
 	panels.visible = false
 	hud.visible = true
-	monitor_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if OS.has_feature("android") else Input.MOUSE_MODE_CAPTURED
 
-func _page(title: String, kind: String) -> void:
-	_clear(kind)
-	_card(panels, Rect2(0, 0, 1600, 900), Color(0.025, 0.04, 0.035, 1.0))
-	_label(panels, "ZORIX / NIGHT RELAY", Vector2(72, 45), 800, 18, ACCENT)
-	_label(panels, title, Vector2(72, 105), 1250, 42)
-	_button(panels, "BACK", Rect2(1320, 48, 205, 62), func(): close_panels() if game.running else menu())
-
 func open_guide() -> void:
-	_page("任务与操作说明", "guide")
+	_page("探索方式", "guide")
 	var entries := [
-		["01 / 你为什么在这里", "你进入了失联搭档林岚最后发出求救的建筑。恢复中继，就能追踪她的记录并启动返回电梯。"],
-		["02 / 先修复三个节点", "跟随左上角的方向与距离提示；走到节点附近按 E 或 USE。每个节点恢复 9% 电力。"],
-		["03 / 再观察监控", "回调查站查看三个摄像头，报告出现闪烁的那一路。正确报告三次；误报会扣除 6% 电力。"],
-		["04 / 管理电力并撤离", "闸门降低干扰但耗电；风扇降温；备用充电增加热量且需冷却。坚持三分钟至 06:00，再到走廊尽头乘电梯。"],
-		["05 / 脚步声与同行者", "未知身影会在特定区域短暂露面，然后躲回暗处。别追逐它。多人可以分工维修和监控；联机菜单不会暂停公共计时。"]]
+		["真实空间", "三层办公室、地下机房和静水大厅。找到三份录音才能解锁电梯。"],
+		["恐惧来自环境", "观察昏暗的墙角、听水声与远处的脚步。怪物不会追杀你。"],
+		["自由视角", "剧情自动转头默认关闭；即使启用，手动滑动也能立刻打断。"],
+		["直接联机", "最多四人 P2P。线索共享，但每个人的惊吓和镜头独立。"]]
 	for i in range(entries.size()):
-		var y := 212 + i * 125
-		_label(panels, entries[i][0], Vector2(76, y), 430, 25, ACCENT)
-		_label(panels, entries[i][1], Vector2(530, y), 940, 23)
+		var y := 225 + i * 132
+		_label(panels, entries[i][0], Vector2(77, y), 450, 26, ACCENT)
+		_label(panels, entries[i][1], Vector2(526, y), 945, 24)
 
 func open_about() -> void:
-	_page("ABOUT US", "about")
-	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 240, 370, 370), true)
-	_label(panels, "Zorix GAme Team", Vector2(580, 254), 830, 45)
-	_label(panels, "Made By Zorix GAme Team", Vector2(584, 336), 800, 26, ACCENT)
-	_label(panels, "BACKROOMS / NIGHT RELAY\nAn atmospheric cooperative survey game.\nTension through space, observation and resource choices.", Vector2(584, 418), 865, 27)
-	_button(panels, "OFFICIAL WEBSITE  /  zorix.it  ↗", Rect2(584, 600, 830, 72), func(): OS.shell_open("https://zorix.it"))
-	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 694, 830, 72), open_credits)
-	_label(panels, "BUILD 0.12.0 / ANDROID", Vector2(584, 792), 830, 18, MUTED)
+	_page("ABOUT / FACELESS 2", "about")
+	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 248, 357, 357), true)
+	_label(panels, "Zorix GAme Team", Vector2(580, 244), 840, 45)
+	_label(panels, "Made By Zorix GAme Team", Vector2(584, 335), 850, 27, ACCENT)
+	_label(panels, "FACELESS 2 / THE SIGNAL BELOW\nExploration-driven atmospheric horror.\nLicensed real GLB architecture, local animated sightings and P2P co-op.", Vector2(584, 414), 875, 26)
+	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
+	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
+	_label(panels, "BUILD 0.13.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
-	_page("ASSET CREDITS / LICENSES", "credits")
-	_label(panels, "All third-party models, textures and sounds have identified redistributable licenses.", Vector2(76, 194), 1440, 21, ACCENT)
-	var credits := [
-		"Monster: HorrorGameMaker / City Building Game Art - CC0",
-		"Furniture: Poly Haven - CC0",
-		"Photographic surfaces: ambientCG / Poly Haven - CC0",
-		"Creature footsteps: GboxMikeFozzy / OpenGameArt - CC0",
-		"Breathing, machinery, water: Freesound recordings - CC0",
-		"Crew avatar: Cesium Man (2017) / Cesium - CC BY 4.0",
-		"Chinese font: Noto Sans SC / SIL Open Font License 1.1"]
-	for i in range(credits.size()):
-		_label(panels, credits[i], Vector2(94, 255 + i * 62), 1390, 23)
-	_button(panels, "FULL ASSET CREDITS / SOURCES", Rect2(94, 755, 660, 65), func(): OS.shell_open("https://github.com/h1collab/ggme/blob/fix/faceless2-rendering-polish/faceless2/ASSET_CREDITS.md"))
-	_button(panels, "CESIUM / CC BY 4.0", Rect2(795, 755, 620, 65), func(): OS.shell_open("https://creativecommons.org/licenses/by/4.0/"))
+	_page("授权素材 / CREDITS", "credits")
+	var lines := [
+		"Architecture: Huuxloc / BackRooms GLB — CC BY 4.0 (modified)",
+		"Monster: City Building Game Art / HorrorGameMaker — CC0",
+		"Furniture: Poly Haven — CC0",
+		"Surfaces: ambientCG / Poly Haven — CC0",
+		"Sound: Freesound / GboxMikeFozzy — CC0",
+		"Crew: Cesium Man / Cesium — CC BY 4.0",
+		"Chinese font: Noto Sans SC — OFL 1.1"]
+	for i in range(lines.size()): _label(panels, lines[i], Vector2(80, 222 + i * 67), 1410, 24)
+	_button(panels, "FULL CREDITS / AUTHORS & LINKS", Rect2(80, 763, 685, 68), func(): OS.shell_open("https://github.com/h1collab/ggme/blob/fix/faceless2-rendering-polish/faceless2/ASSET_CREDITS.md"))
+	_button(panels, "CC BY 4.0", Rect2(802, 763, 605, 68), func(): OS.shell_open("https://creativecommons.org/licenses/by/4.0/"))
 
 func open_pause() -> void:
-	_page("SURVEY MENU", "pause")
-	_label(panels, "Solo survey is paused." if game.net.mode == "solo" else "The shared shift continues while menus are open.", Vector2(75, 220), 1300, 25, MUTED)
-	_button(panels, "RETURN TO SURVEY", Rect2(75, 315, 600, 82), close_panels)
-	_button(panels, "FIELD GUIDE", Rect2(75, 425, 600, 82), open_guide)
-	_button(panels, "SESSION DETAILS", Rect2(75, 535, 600, 82), open_lobby)
-	_button(panels, "SETTINGS", Rect2(850, 535, 600, 82), open_settings)
-	_button(panels, "ASSET CREDITS", Rect2(850, 645, 600, 82), open_credits)
-	_button(panels, "LEAVE SURVEY", Rect2(75, 645, 600, 82), func(): game.net.leave(); game.running = false; menu())
-	_label(panels, game.level.title, Vector2(850, 320), 640, 28, ACCENT)
-	_label(panels, game.notice, Vector2(850, 410), 600, 25)
+	_page("暂停 / PAUSE", "pause")
+	_label(panels, "单人探索时暂停；多人房间中其他玩家继续移动。", Vector2(76, 226), 1410, 26, MUTED)
+	_button(panels, "CONTINUE", Rect2(75, 327, 620, 80), close_panels)
+	_button(panels, "CONTROLS", Rect2(75, 445, 620, 78), open_guide)
+	_button(panels, "SETTINGS", Rect2(825, 445, 620, 78), open_settings)
+	_button(panels, "ASSET CREDITS", Rect2(825, 565, 620, 78), open_credits)
+	_button(panels, "LEAVE", Rect2(75, 565, 620, 78), func(): game.net.leave(); game.running = false; menu())
 
 func open_lobby() -> void:
-	_page("COOPERATIVE / DIRECT P2P", "lobby")
-	_label(panels, "1–4 CREW / HOST A ROOM OR JOIN BY ADDRESS", Vector2(75, 205), 1420, 22, ACCENT)
-	_card(panels, Rect2(72, 270, 690, 470))
-	_card(panels, Rect2(800, 270, 730, 470))
-	_label(panels, "HOST ADDRESS", Vector2(105, 297), 605, 18, MUTED)
+	_page("DIRECT P2P / 1–4", "lobby")
+	_card(panels, Rect2(72, 245, 690, 494))
+	_card(panels, Rect2(800, 245, 730, 494))
+	_label(panels, "HOST ADDRESS", Vector2(105, 275), 605, 20, MUTED)
 	address_field = LineEdit.new()
-	address_field.position = Vector2(105, 342)
-	address_field.size = Vector2(610, 65)
-	address_field.placeholder_text = "192.168.1.20 or public host address"
-	address_field.add_theme_font_size_override("font_size", 25)
+	address_field.position = Vector2(105, 325)
+	address_field.size = Vector2(610, 62)
+	address_field.placeholder_text = "192.168.1.20 / public IP"
+	address_field.add_theme_font_size_override("font_size", 24)
 	panels.add_child(address_field)
-	_label(panels, "UDP PORT", Vector2(105, 434), 215, 18, MUTED)
+	_label(panels, "UDP PORT", Vector2(105, 412), 210, 20, MUTED)
 	port_field = SpinBox.new()
-	port_field.position = Vector2(105, 475)
-	port_field.size = Vector2(225, 60)
+	port_field.position = Vector2(105, 455)
+	port_field.size = Vector2(225, 58)
 	port_field.min_value = 1024
 	port_field.max_value = 65535
 	port_field.value = 24711
-	port_field.get_line_edit().add_theme_font_size_override("font_size", 25)
 	panels.add_child(port_field)
-	_label(panels, "ROOM KEY / OPTIONAL", Vector2(365, 434), 350, 18, MUTED)
+	_label(panels, "ROOM KEY", Vector2(368, 412), 350, 20, MUTED)
 	key_field = LineEdit.new()
-	key_field.position = Vector2(365, 475)
-	key_field.size = Vector2(350, 60)
+	key_field.position = Vector2(368, 455)
+	key_field.size = Vector2(345, 58)
 	key_field.max_length = 24
 	key_field.secret = true
 	panels.add_child(key_field)
 	upnp_box = CheckBox.new()
-	upnp_box.text = "Try UPnP mapping for a public room"
-	upnp_box.position = Vector2(105, 559)
-	upnp_box.size = Vector2(600, 54)
-	upnp_box.add_theme_font_size_override("font_size", 21)
+	upnp_box.text = "尝试 UPnP 映射公网端口"
+	upnp_box.position = Vector2(105, 538)
+	upnp_box.size = Vector2(610, 53)
 	panels.add_child(upnp_box)
-	_button(panels, "HOST NEW SURVEY", Rect2(105, 640, 290, 65), _host)
-	_button(panels, "JOIN ROOM", Rect2(425, 640, 290, 65), _join)
-	_label(panels, "HOW TO CONNECT", Vector2(835, 304), 620, 26, ACCENT)
-	_label(panels, "Same Wi-Fi: enter the host's local IP and UDP port.\n\nInternet: share the public endpoint after UPnP mapping, or forward that UDP port manually. Carrier NAT may require a reachable host.\n\nThe host must stay online. No automatic matchmaking or relay is configured.", Vector2(835, 367), 620, 24)
-	room_status = _label(panels, game.net.status if is_instance_valid(game.net) else "Offline", Vector2(76, 770), 1450, 24, ACCENT)
+	_button(panels, "HOST", Rect2(105, 638, 292, 68), _host)
+	_button(panels, "JOIN", Rect2(425, 638, 290, 68), _join)
+	_label(panels, "CONNECTING", Vector2(835, 280), 610, 27, ACCENT)
+	_label(panels, "同一 Wi-Fi：输入房主局域网 IP 和 UDP 端口。\n\n公网：房主需要能被访问的公网地址、UPnP 或手动端口映射。\n\n无中继、无万能 NAT 穿透。房主离开则全员回到菜单。", Vector2(835, 355), 615, 25)
+	room_status = _label(panels, game.net.status, Vector2(76, 777), 1420, 22, ACCENT)
 
 func _host() -> void:
 	var result: Error = game.net.host(int(port_field.value), key_field.text, upnp_box.button_pressed)
@@ -366,121 +315,62 @@ func _join() -> void:
 	game.running = false
 	game.net.join(address_field.text, int(port_field.value), key_field.text)
 
-func open_monitor() -> void:
-	_clear("monitor")
-	monitoring = true
-	_card(panels, Rect2(0, 0, 1600, 900), Color(0.025, 0.04, 0.033, 0.99))
-	_label(panels, "SURVEY STATION / LIVE CIRCUIT MONITOR", Vector2(55, 35), 1220, 27, ACCENT)
-	_button(panels, "LOWER MONITOR", Rect2(1260, 28, 290, 60), close_panels)
-	_card(panels, Rect2(55, 125, 1000, 568))
-	var feed := TextureRect.new()
-	feed.position = Vector2(58, 128)
-	feed.size = Vector2(994, 559)
-	feed.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	feed.texture = monitor_view.get_texture()
-	panels.add_child(feed)
-	_card(panels, Rect2(58, 615, 994, 72), Color(0.02, 0.035, 0.025, 0.8))
-	monitor_notice = _label(panels, "", Vector2(78, 621), 947, 21, ACCENT)
-	_label(panels, "LIVE / 24 V   ·   OBSERVE FLUORESCENT FLICKER", Vector2(78, 142), 900, 20, ACCENT)
-	camera_buttons.clear()
-	for i in range(3):
-		camera_buttons.append(_button(panels, "CAM / %02d" % (i + 1), Rect2(55 + i * 340, 716, 320, 72), func(): select_camera(i)))
-	_button(panels, "REPORT FAULT ON SELECTED FEED", Rect2(55, 811, 1000, 60), func(): game.net.request("report", selected_camera))
-	console_status = _label(panels, _monitor_status(), Vector2(1095, 116), 450, 24)
-	door_buttons.clear()
-	for i in range(2):
-		door_buttons.append(_button(panels, "%s SHUTTER / %s" % ["LEFT" if i == 0 else "RIGHT", "CLOSED" if game.doors[i] else "OPEN"], Rect2(1090, 295 + i * 85, 455, 66), func(): game.net.request("door", i)))
-	light_button = _button(panels, "HALL LIGHTS / " + ("ON" if game.lights_on else "OFF"), Rect2(1090, 470, 455, 66), func(): game.net.request("lights"))
-	fan_button = _button(panels, "VENTILATION / " + ("ON" if game.fan_on else "OFF"), Rect2(1090, 555, 455, 66), func(): game.net.request("fan"))
-	generator_button = _button(panels, "BACKUP CHARGE +12%", Rect2(1090, 640, 455, 66), func(): game.net.request("generator"))
-	_label(panels, "Shutters slow interference.\nClosed shutters consume more power.\nFan cools; backup charge adds heat.", Vector2(1100, 745), 435, 21, MUTED)
-	retarget_camera()
-	monitor_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-
-func select_camera(index: int) -> void:
-	selected_camera = clampi(index, 0, 2)
-	retarget_camera()
-
-func retarget_camera() -> void:
-	if not is_instance_valid(monitor_camera): return
-	monitor_camera.transform = game.level.cameras[selected_camera]
-	var targets := [Vector3(-8, 2.1, -5), Vector3(8, 2.1, -16), Vector3(-8, 2.1, -27)]
-	monitor_camera.look_at(targets[selected_camera], Vector3.UP)
-
 func open_result() -> void:
-	_page("SURVEY COMPLETE" if game.completed else "SURVEY INTERRUPTED", "result")
+	_page("录音已送出" if game.completed else "探索中断", "result")
 	result_shown = true
-	_label(panels, game.notice, Vector2(75, 265), 1390, 34, ACCENT)
-	_label(panels, "Layers surveyed / %d of 3\nCircuit reports / %d\nReserve remaining / %d%%" % [3 if game.completed else game.stage, game.reports, int(game.power)], Vector2(75, 375), 1340, 29)
-	if game.net.mode != "client":
-		_button(panels, "RESTART THIS LAYER", Rect2(75, 650, 620, 86), func(): game.start_shift(game.stage); close_panels())
-	_button(panels, "LEAVE TO MAIN MENU", Rect2(760, 650, 700, 86), func(): game.net.leave(); game.running = false; menu())
+	_label(panels, game.notice, Vector2(76, 260), 1410, 33, ACCENT)
+	_label(panels, "已发现录音 / %d of 3\n抵达层级 / %d of 3" % [game.repaired.count(true), game.stage + 1], Vector2(76, 388), 1360, 29)
+	if game.net.mode != "client": _button(panels, "RESTART THIS LAYER", Rect2(76, 666, 625, 82), func(): game.start_shift(game.stage); close_panels())
+	_button(panels, "MAIN MENU", Rect2(790, 666, 620, 82), func(): game.net.leave(); game.running = false; menu())
 
 func refresh() -> void:
 	if not is_instance_valid(game.level): return
-	status_label.text = "%s   /   %02d:%02d" % [game.level.title, 2 + int(game.elapsed / 45), int(fmod(game.elapsed / 45, 1.0) * 60)]
-	goal_label.text = "NODES %d/3   ·   REPORTS %d/3   ·   %s" % [game.repaired.count(true), game.reports, "SOLO" if game.net.mode == "solo" else "CREW %d/4" % max(1, game.net.poses.size())]
-	meter_label.text = "POWER %d%%   /   SIGNAL %d%%\nSTAMINA %d%%" % [int(game.power), int(game.signal_pressure), int(game.player.stamina)]
+	status_label.text = game.level.title
+	goal_label.text = "RECORDINGS %d/3  ·  %s" % [game.repaired.count(true), "SOLO" if game.net.mode == "solo" else "CREW %d/4" % max(1, game.net.poses.size())]
+	notice_label.text = "STAMINA %d%%\n%d / 3 TAPES" % [int(game.player.stamina), game.repaired.count(true)]
 	prompt_label.text = game.prompt()
-	notice_label.text = game.notice
 	var objective: Dictionary = game.next_objective()
 	var offset: Vector3 = objective.position - game.player.position
 	var facing := Vector3(0, 0, -1).rotated(Vector3.UP, game.player.yaw)
 	var angle := facing.signed_angle_to(Vector3(offset.x, 0, offset.z).normalized(), Vector3.UP)
 	var direction := "前方" if absf(angle) < 0.65 else ("后方" if absf(angle) > 2.5 else ("左侧" if angle > 0 else "右侧"))
-	objective_label.text = "下一步：%s\n%s / 距离 %dm" % [objective.text, direction, int(offset.length())]
+	objective_label.text = "下一步：%s\n%s / %dm" % [objective.text, direction, int(offset.length())]
 	subtitle_label.text = game.story.subtitle
-	if is_instance_valid(monitor_notice): monitor_notice.text = game.notice
 	if is_instance_valid(room_status): room_status.text = game.net.status
-	if panel_kind == "monitor":
-		for child in panels.get_children():
-			if child is Label or child is Button: child.queue_redraw()
-	if is_instance_valid(console_status):
-		console_status.text = _monitor_status()
-		for i in range(2): door_buttons[i].text = "%s SHUTTER / %s" % ["LEFT" if i == 0 else "RIGHT", "CLOSED" if game.doors[i] else "OPEN"]
-		light_button.text = "HALL LIGHTS / " + ("ON" if game.lights_on else "OFF")
-		fan_button.text = "VENTILATION / " + ("ON" if game.fan_on else "OFF")
-		var cooldown := maxf(0, game.generator_ready - game.elapsed)
-		generator_button.text = "BACKUP CHARGE +12%" if cooldown <= 0 else "BACKUP COOLING / %ds" % int(ceil(cooldown))
-		generator_button.disabled = cooldown > 0
-		for i in range(3): camera_buttons[i].modulate = ACCENT if i == selected_camera else Color.WHITE
 
 func open_settings() -> void:
-	_page("画面、音量与视角", "settings")
-	_label(panels, "RENDER QUALITY", Vector2(75, 245), 700, 27, ACCENT)
+	_page("图像、音量与操控", "settings")
+	_label(panels, "3D QUALITY / 手机优先稳定流畅", Vector2(76, 222), 1250, 25, ACCENT)
 	for i in range(3):
-		var names := ["PERFORMANCE / 60%", "BALANCED / 80%", "HIGH / NATIVE"]
-		_button(panels, names[i], Rect2(75 + i * 490, 320, 455, 78), func(): game.set_quality(i))
+		var labels := ["PERFORMANCE / 58%", "BALANCED / 74%", "HIGH / 91%"]
+		_button(panels, labels[i], Rect2(76 + i * 488, 306, 455, 76), func(): game.set_quality(i))
 	var turn := CheckBox.new()
-	turn.text = "剧情自动转头与短暂停步（手动看向别处可打断）"
-	turn.position = Vector2(75, 435)
-	turn.size = Vector2(1390, 64)
+	turn.text = "允许剧情轻微自动转头（默认关闭；手动可打断）"
+	turn.position = Vector2(75, 429)
+	turn.size = Vector2(1390, 62)
 	turn.button_pressed = game.auto_turn
 	turn.toggled.connect(func(value: bool): game.auto_turn = value; game.player.cancel_focus(); game.save_settings())
 	panels.add_child(turn)
-	_label(panels, "视角灵敏度", Vector2(75, 535), 700, 25, ACCENT)
+	_label(panels, "视角灵敏度", Vector2(75, 521), 1100, 24, ACCENT)
 	var sensitivity := HSlider.new()
-	sensitivity.position = Vector2(75, 590)
-	sensitivity.size = Vector2(1390, 64)
+	sensitivity.position = Vector2(75, 584)
+	sensitivity.size = Vector2(1390, 51)
 	sensitivity.min_value = 0.5
 	sensitivity.max_value = 2.0
 	sensitivity.step = 0.05
 	sensitivity.value = game.sensitivity
 	sensitivity.value_changed.connect(func(value: float): game.sensitivity = value; game.save_settings())
 	panels.add_child(sensitivity)
-	_label(panels, "主音量", Vector2(75, 695), 700, 25, ACCENT)
+	_label(panels, "主音量", Vector2(75, 678), 1100, 24, ACCENT)
 	var volume := HSlider.new()
-	volume.position = Vector2(75, 760)
-	volume.size = Vector2(1390, 64)
+	volume.position = Vector2(75, 740)
+	volume.size = Vector2(1390, 52)
 	volume.min_value = 0
 	volume.max_value = 1
 	volume.step = 0.05
 	volume.value = game.audio_volume
 	volume.value_changed.connect(game.set_audio_volume)
 	panels.add_child(volume)
-
-func _monitor_status() -> String:
-	return "%02d:%02d / SHIFT\nPOWER %d%%\nSIGNAL %d%% / HEAT %d%%\nREPORTS %d/3" % [2 + int(game.elapsed / 45), int(fmod(game.elapsed / 45, 1.0) * 60), int(game.power), int(game.signal_pressure), int(game.heat), game.reports]
 
 func _brand_file(filename: String) -> String:
 	var packaged := "res://ui/" + filename

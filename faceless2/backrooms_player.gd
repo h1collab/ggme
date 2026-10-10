@@ -127,4 +127,4 @@ func begin_attention() -> void:
 	focus_allowed = true
 	# Always bounded, and cancelled immediately when a menu opens or the
 	# player moves the camera. Never lock movement when focus is disabled.
-	attention_hold = 3.7
+	attention_hold = 0.0

@@ -1,35 +1,21 @@
-# Backrooms / Night Relay (v0.12.0)
+# Faceless 2 — The Signal Below
 
-An atmospheric, narrative-led Backrooms horror game by **Zorix GAme Team**. You play a maintenance investigator from the Zorix anomalous-building unit, tracing a distress signal from a colleague inside an office tower that was demolished. Three connected spaces—offices, maintenance corridors and flooded pool halls—each contain a story briefing, repair objectives, cameras and a brief, locally staged creature sighting. The sighting emphasizes tension instead of combat.
+Atmospheric first-person Backrooms-inspired horror by **Zorix GAme Team**. This is **Faceless 2**, not an FNAF-style monitoring/night-shift game. The original logo, icon, `Made By Zorix GAme Team` opening and https://zorix.it About link are retained.
 
-The intro must read **Made By Zorix GAme Team**. The supplied icon and team logo are preserved in `faceless2/branding/`. [Team website](https://zorix.it).
+## Experience
 
-## Playing
+Explore three linked spaces (disappeared offices, service depths, still water) and recover three audio memories in each level to trace a lost partner. There are no timed power-survival rounds, mandatory CCTV flicker reports, shooter mechanics, or hostile chases. The monster uses a licensed externally authored skinned GLB with `Walk2` animation: spatially recorded footsteps and breath lead short, rare local sightings where a face peeks from darkness, hesitates and retreats. Scripted camera assist is **off by default**, optional and interruptible.
 
-Open root `project.godot` in **Godot 4.7.2** (root `main.tscn` is the entry scene). Restore licensed external assets first for a local run:
+The architecture uses Huuxloc's genuine CC BY 4.0 BackRooms GLB walls, trim, carpet and ceiling mesh components as instanced modules, with photography-based CC0 materials and separate simplified colliders for performance. Poly Haven CC0 furniture GLBs and Cesium Man CC BY 4.0 coop player remain. See [credits](faceless2/ASSET_CREDITS.md) and [font license](faceless2/OFL.txt). No AI-generated meshes were added.
 
-```sh
-python -m pip install Pillow==11.3.0 fonttools==4.61.1
-python faceless2/fetch_backrooms_assets.py faceless2/assets/vendor
-python faceless2/backrooms_audio.py audio
-# The creature's original authored GLB is stored as exact, sha-verified segments in Git.
-cat faceless2/assets/entity.glb.part[0-9][0-9] > faceless2/assets/entity.glb
-sha256sum faceless2/assets/entity.glb
-# expected bf74395119a9c93aa13c46ec15d7facca2a314f9637e11de237a3bebb8ca9961
-godot --headless --path . --import
-godot --path .
-```
+## Build and QA
 
-WASD/Shift/E/F/Escape on keyboard; joystick, right-side look and USE/TORCH/RUN on touch. Auto-look during creature sightings may be disabled in Settings and is interruptible by manual camera movement. Each floor requires fixing three relays, correctly identifying three camera faults, managing power, and reaching the elevator after the 02:00–06:00 shift.
+Use Godot 4.7.2. Main scene is `main.tscn` (the Android Actions workflow assembles the same scripts and licensed assets in `app/`). The [Android workflow](.github/workflows/faceless2-apk.yml) imports with Godot, runs three-layer gameplay/story tests and real independent headless ENet/UDP host, clients and disconnect checks, then exports the `faceless2-v013-zorix.apk` Android **debug** build (version 0.13.0/code 13). No emulator, APK installation, image capture or graphical tests are used.
 
-## Multiplayer
+Use WASD + mouse, Shift to run, E to collect/interact, F flashlight or touch joystick/look/buttons. Render-quality presets favor mobile stability; dynamic scaling is bounded. The original artworks are in `faceless2/branding`.
 
-Solo mode or **2–4 players** using native ENet/UDP P2P. Default UDP port **24711**, optional password and opt-in UPnP. The host owns shared progress and state; story sightings and camera focus are per-player and must not control remote players. No matchmaking, dedicated relay, universal NAT traversal or host migration is provided. Public-network sessions require a reachable host.
+## Direct P2P
 
-## Android and verification
+ENet UDP default port 24711, protocol 13, up to four, host owns shared clues/stage. Internet hosting needs a reachable UDP endpoint and may need manual port forwarding/optional UPnP; no relay or universal NAT traversal. Sightings stay local and cannot force remote camera orientation. See [implementation details](faceless2/README.md).
 
-[Android build workflow](.github/workflows/faceless2-apk.yml) builds debug-signed **`backrooms-v12-zorix.apk`**, version **0.12.0**, code **12**. It restores a pinned engine base, reconstructs and checks the authored CC0 creature GLB, downloads/checks pinned CC0/CC-BY external assets, generates sound, imports in Godot 4.7.2, and runs runtime, narrative and independent-process ENet/UDP headless checks before exporting the APK. Download from a **successful run on the development branch**, and verify that its commit matches the intended code. This repo intentionally never runs an Android emulator, installs an APK or captures graphical screenshots in CI; headless passes do not establish device FPS, rendering polish or touch usability. The APK is an unsigned-for-production debug build.
-
-Asset provenance and redistribution licenses: [asset credits](faceless2/ASSET_CREDITS.md), [asset lockfile](faceless2/backrooms_assets.json), [SIL OFL](faceless2/OFL.txt). Creature: HorrorGameMaker/City Building Game Art (CC0); crew mesh: Cesium Man (CC BY 4.0). GLBs, captured surfaces and recorded audio are external licensed resources, not AI-generated meshes. `faceless2/assets/entity.glb.part*` concatenates to the unchanged converted GLB (original geometry, rig, animation and embedded 1024px textures); the segments are not independent models. Current production scope is a tested prototype, not a claim of AAA-level visuals.
-
-See [full gameplay/network documentation](faceless2/README.md). Prior game source remains in `faceless2/legacy/`.
+Android rendering quality, FPS, thermals and touch correctness require separate real-device validation; headless tests cannot demonstrate AAA quality or stutter-free behavior on every phone. PR updates do not merge to main without approval.
