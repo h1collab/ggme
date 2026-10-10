@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 11
+const PROTOCOL := 12
 const MAX_CREW := 4
 var game: Node
 var peer: ENetMultiplayerPeer
@@ -163,7 +163,9 @@ func _welcome(state: Dictionary, spawn: Vector3) -> void:
 	game.revision = -1
 	game.receive_state(state)
 	game.player.reset_to(spawn)
-	game.ui.close_panels()
+	# Briefing is local UI only; the host controls shared time and never
+	# drives the joining player's camera. The client can dismiss it anytime.
+	game.ui.open_briefing()
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _reject(reason: String) -> void:

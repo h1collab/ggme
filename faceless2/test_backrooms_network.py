@@ -15,13 +15,14 @@ out.mkdir(parents=True, exist_ok=True)
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
     s.bind(('127.0.0.1', 0))
     port = s.getsockname()[1]
+script = 'faceless2/backrooms_network_checks.gd' if (Path(args.project) / 'faceless2/backrooms_network_checks.gd').exists() else 'scripts/backrooms_network_checks.gd'
 processes = {}
 handles = []
 
 def start(role):
     handle = (out / ('p2p-' + role + '.log')).open('w')
     handles.append(handle)
-    processes[role] = subprocess.Popen([args.godot, '--headless', '--path', args.project, '--script', 'scripts/backrooms_network_checks.gd', '--', '--role=' + role, '--port=' + str(port)], stdout=handle, stderr=subprocess.STDOUT)
+    processes[role] = subprocess.Popen([args.godot, '--headless', '--path', args.project, '--script', script, '--', '--role=' + role, '--port=' + str(port)], stdout=handle, stderr=subprocess.STDOUT)
 
 def wait_marker(role, marker, seconds):
     deadline = time.monotonic() + seconds

@@ -1,4 +1,4 @@
-name: Build Backrooms Night Relay v11 Android APK
+name: Build Backrooms Night Relay v12 Android APK
 
 on:
   workflow_dispatch:
@@ -14,9 +14,18 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
+      - name: Restore verified CC0 monster GLB
+        shell: bash
+        run: |
+          # Stored as byte-range Git blobs to avoid per-request upload limits.
+          # Concatenation reproduces the exact licensed FBX-converted GLB.
+          cat faceless2/assets/entity.glb.part[0-9][0-9] > faceless2/assets/entity.glb
+          echo "bf74395119a9c93aa13c46ec15d7facca2a314f9637e11de237a3bebb8ca9961  faceless2/assets/entity.glb" | sha256sum -c -
+          test "$(git hash-object faceless2/assets/entity.glb)" = "f5e33713655ecc8e238451e556796a8791d73248"
+
       - name: Restore verified Godot base
         shell: bash
         run: |
@@ -26,10 +35,10 @@ jobs:
           mkdir app
           unzip -q upgrade.zip -d app
 
-      - name: Apply monster-free Backrooms project and Android permissions
+      - name: Apply Backrooms story, external models and Android permissions
         shell: bash
         run: |
-          python -m pip install --disable-pip-version-check Pillow==11.3.0
+          python -m pip install --disable-pip-version-check Pillow==11.3.0 fonttools==4.61.1
           python - <<'PYCODE'
           from pathlib import Path
           from PIL import Image
@@ -40,8 +49,11 @@ jobs:
               for item in root.iterdir():
                   if item.is_file(): item.unlink()
           source=Path('faceless2')
-          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_checks.gd','backrooms_network_checks.gd','virtual_joystick.gd','touch_action.gd']:
+          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_network_checks.gd','virtual_joystick.gd','touch_action.gd']:
               shutil.copy2(source/name, Path('app/scripts')/name)
+          shutil.copy2(source/'assets/entity.glb', 'app/assets/entity.glb')
+          shutil.copy2(source/'ASSET_CREDITS.md', 'app/ASSET_CREDITS.md')
+          shutil.copy2(source/'OFL.txt', 'app/OFL.txt')
           Path('app/main.tscn').write_text((source/'main.tscn').read_text().replace('res://faceless2/', 'res://scripts/'))
           shutil.copy2(source/'branding/game_icon.png', 'app/ui/game_icon.png')
           shutil.copy2(source/'branding/team_logo.jpg', 'app/ui/team_logo.jpg')
@@ -61,8 +73,15 @@ jobs:
           p=Path('app/export_presets.cfg'); s=p.read_text()
           s=s.replace('Escape Black Pine','Backrooms Night Relay').replace('School Brawl','Backrooms Night Relay')
           s=s.replace('res://ui/icon.svg','res://ui/game_icon.png')
-          s=re.sub(r'(?m)^version/code=.*','version/code=11',s)
-          s=re.sub(r'(?m)^version/name=.*','version/name="0.11.0"',s)
+          s=re.sub(r'(?m)^version/code=.*','version/code=12',s)
+          s=re.sub(r'(?m)^version/name=.*','version/name="0.12.0"',s)
+          # Export all resources: scripts load imported GLBs, audio and textures by path.
+          # A resource-only selection is unsafe for dynamic ResourceLoader paths.
+          s=re.sub(r'(?m)^export_filter=.*', 'export_filter="all_resources"', s)
+          s=re.sub(r'(?m)^include_filter=.*', 'include_filter="ASSET_CREDITS.md,OFL.txt"', s)
+          s=re.sub(r'(?m)^exclude_filter=.*', 'exclude_filter=""', s)
+          for setting in ['launcher_icons/main_192x192','launcher_icons/adaptive_foreground_432x432','launcher_icons/adaptive_background_432x432','splash_screen/icon']:
+              s=re.sub(r'(?m)^'+re.escape(setting)+r'=.*', setting+'="res://ui/game_icon.png"', s)
           for architecture in ['arm64-v8a','x86_64']:
               s=re.sub(r'(?m)^architectures/'+architecture+'=.*', 'architectures/'+architecture+'=true', s)
           for name in ['internet','access_network_state']:
@@ -72,6 +91,7 @@ jobs:
           p.write_text(s)
           PYCODE
           python faceless2/backrooms_audio.py app/audio
+          python faceless2/fetch_backrooms_assets.py app/assets/vendor
           mkdir -p qa
 
       - name: Set up Java 17
@@ -118,14 +138,22 @@ jobs:
         shell: bash
         run: |
           godot --headless --path app --import
-          for script in backrooms backrooms_level backrooms_player backrooms_ui backrooms_network virtual_joystick touch_action; do
+          python - <<'PYCODE'
+          from pathlib import Path
+          root=Path('app')
+          required=['assets/entity.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','ui/game_icon.png','ui/team_logo.jpg']
+          for f in required: assert (root/f).is_file() and (root/f).stat().st_size > 100, f
+          print('Build-time source asset inventory: PASS')
+          PYCODE
+          for script in backrooms backrooms_level backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story virtual_joystick touch_action; do
             godot --headless --path app --script "scripts/$script.gd" --check-only
           done
           timeout 180 godot --headless --path app --script scripts/backrooms_checks.gd 2>&1 | tee qa/runtime-checks.log
+          timeout 180 godot --headless --path app --script scripts/backrooms_story_checks.gd 2>&1 | tee qa/story-checks.log
           python faceless2/test_backrooms_network.py --godot godot --project app --output qa 2>&1 | tee qa/network-checks.log
           python - <<'PYCODE'
           from pathlib import Path
-          for name, marker in [("runtime-checks.log","Backrooms runtime checks: PASS"),("network-checks.log","Backrooms P2P checks: PASS")]:
+          for name, marker in [("runtime-checks.log","Backrooms runtime checks: PASS"),("network-checks.log","Backrooms P2P checks: PASS"),("story-checks.log","Backrooms story checks: PASS")]:
               text=Path("qa",name).read_text()
               assert marker in text and "ERROR:" not in text and "FAIL" not in text, name
           PYCODE
@@ -135,7 +163,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Backrooms v11 APK
+      - name: Export Backrooms v12 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -143,21 +171,21 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/backrooms-v11-zorix.apk
-          test -s app/build/backrooms-v11-zorix.apk
+          godot --headless --path app --export-debug Android build/backrooms-v12-zorix.apk
+          test -s app/build/backrooms-v12-zorix.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: backrooms-v11-zorix-apk
-          path: app/build/backrooms-v11-zorix.apk
+          name: backrooms-v12-zorix-apk
+          path: app/build/backrooms-v12-zorix.apk
           if-no-files-found: error
 
       - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backrooms-v11-headless-qa
+          name: backrooms-v12-headless-qa
           path: qa
           if-no-files-found: error

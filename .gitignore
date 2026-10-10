@@ -4,3 +4,8 @@
 **/__pycache__/
 *.gd.uid
 *.import
+
+/faceless2/assets/vendor/
+
+# Reassembled in CI from reviewed, hash-verified binary segments.
+/faceless2/assets/entity.glb

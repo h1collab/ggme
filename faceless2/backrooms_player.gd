@@ -10,6 +10,10 @@ var stamina := 100.0
 var sprinting := false
 var step_clock := 0.0
 var motion_clock := 0.0
+var focus_seconds := 0.0
+var focus_target := Vector3.ZERO
+var attention_hold := 0.0
+var focus_allowed := false
 
 func _ready() -> void:
 	name = "LocalCrew"
@@ -52,6 +56,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		look(event.relative * 1.15)
 
 func look(delta: Vector2) -> void:
+	if delta.length() > 1: cancel_focus()
 	yaw -= delta.x * 0.0021 * game.sensitivity
 	pitch = clampf(pitch - delta.y * 0.0021 * game.sensitivity, -1.25, 1.25)
 	rotation.y = yaw
@@ -62,6 +67,14 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		aim_pointer = -1
 		return
+	if focus_seconds > 0:
+		focus_seconds = maxf(0, focus_seconds - delta)
+		var direction := focus_target - camera.global_position
+		yaw = lerp_angle(yaw, atan2(-direction.x, -direction.z), minf(1, delta * 7))
+		pitch = lerpf(pitch, clampf(atan2(direction.y, Vector2(direction.x, direction.z).length()), -1.0, 1.0), minf(1, delta * 7))
+		rotation.y = yaw
+		camera.rotation.x = pitch
+	attention_hold = maxf(0, attention_hold - delta)
 	var input := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_W): input.y -= 1
 	if Input.is_physical_key_pressed(KEY_S): input.y += 1
@@ -69,6 +82,7 @@ func _physics_process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_D): input.x += 1
 	if is_instance_valid(game.ui.joystick): input += game.ui.joystick.value
 	input = input.limit_length(1.0)
+	if attention_hold > 0: input = Vector2.ZERO
 	sprinting = (Input.is_physical_key_pressed(KEY_SHIFT) or game.ui.run_held) and stamina > 5 and input.length() > 0.1
 	stamina = clampf(stamina + (-18.0 if sprinting else 12.0) * delta, 0, 100)
 	var direction := transform.basis * Vector3(input.x, 0, input.y)
@@ -91,6 +105,7 @@ func _physics_process(delta: float) -> void:
 		game.footstep()
 
 func reset_to(pos: Vector3) -> void:
+	cancel_focus()
 	position = pos
 	velocity = Vector3.ZERO
 	yaw = 0
@@ -98,3 +113,18 @@ func reset_to(pos: Vector3) -> void:
 	rotation = Vector3.ZERO
 	camera.rotation = Vector3.ZERO
 	stamina = 100
+
+func begin_focus(target: Vector3) -> void:
+	focus_target = target
+	focus_seconds = 1.2
+
+func cancel_focus() -> void:
+	focus_seconds = 0
+	attention_hold = 0
+	focus_allowed = false
+
+func begin_attention() -> void:
+	focus_allowed = true
+	# Always bounded, and cancelled immediately when a menu opens or the
+	# player moves the camera. Never lock movement when focus is disabled.
+	attention_hold = 3.7

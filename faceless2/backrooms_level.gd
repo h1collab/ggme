@@ -1,4 +1,5 @@
 extends Node3D
+const Assets = preload("backrooms_assets.gd")
 
 # Architectural dimensions in metres. All walkable surfaces have matching physics.
 var index := 0
@@ -67,6 +68,7 @@ func build(level: int) -> void:
 	if index == 1: _service_details()
 	elif index == 2: _pool_details()
 	else: _office_details()
+	_external_props()
 
 func _surface(kind: int) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
@@ -74,6 +76,11 @@ func _surface(kind: int) -> ShaderMaterial:
 	shader.code = """shader_type spatial;
 uniform int theme = 0;
 uniform int surface = 0;
+uniform sampler2D surface_photo: source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D photo_normal: hint_normal, filter_linear_mipmap, repeat_enable;
+uniform sampler2D photo_rough: filter_linear_mipmap, repeat_enable;
+uniform bool photo_enabled = false;
+uniform bool concrete_pbr = false;
 varying vec3 world;
 varying vec3 world_normal;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -91,13 +98,54 @@ void fragment(){
  else {vec2 tile=fract(p*2.0);float aa=max(fwidth(p.x),fwidth(p.y))*2.0;float grout=smoothstep(0.025-aa,0.025+aa,min(tile.x,tile.y))*smoothstep(0.025-aa,0.025+aa,1.0-max(tile.x,tile.y));col=mix(vec3(0.35,0.42,0.41),vec3(0.70,0.79,0.76),grout)*(0.97+broad*0.04);rough=surface==1?0.38:0.5;}
  if(surface==2 && theme==0){vec2 tile=fract(p*1.667);float seam=step(0.02,min(tile.x,tile.y))*step(max(tile.x,tile.y),0.98);col=mix(vec3(0.25),vec3(0.60,0.59,0.53),seam);}
  if(surface==2 && theme==1){col*=0.73;}
+ if(photo_enabled){col=texture(surface_photo,p*0.5).rgb*(0.90+broad*0.10);if(theme==0 && surface==0){col*=vec3(0.90,0.86,0.69);}}
  ALBEDO=col;ROUGHNESS=rough;SPECULAR=theme==2?0.2:0.06;
  NORMAL_MAP=vec3(0.5+(grain-0.5)*0.035,0.5+(noise(p.yx*130.0)-0.5)*0.035,1.0);
+ if(concrete_pbr){NORMAL_MAP=texture(photo_normal,p*0.5).rgb;ROUGHNESS=texture(photo_rough,p*0.5).r;}
 }"""
 	material.shader = shader
 	material.set_shader_parameter("theme", index)
 	material.set_shader_parameter("surface", kind)
+	var photos := [["wallpaper.jpg", "carpet.jpg", "ceiling.jpg"], ["concrete.jpg", "concrete.jpg", "concrete.jpg"], ["pooltile.jpg", "poolfloor.jpg", "pooltile.jpg"]]
+	var photo_path := Assets.path("vendor/" + photos[index][kind])
+	if ResourceLoader.exists(photo_path):
+		material.set_shader_parameter("surface_photo", load(photo_path))
+		material.set_shader_parameter("photo_enabled", true)
+	if index == 1 and ResourceLoader.exists(Assets.path("vendor/concrete_normal.jpg")):
+		material.set_shader_parameter("photo_normal", load(Assets.path("vendor/concrete_normal.jpg")))
+		material.set_shader_parameter("photo_rough", load(Assets.path("vendor/concrete_rough.jpg")))
+		material.set_shader_parameter("concrete_pbr", true)
 	return material
+
+func _external_props() -> void:
+	var placements := [
+		["schooldesk.glb", Vector3(-8,0,-7.1), 0.76, 0.0],
+		["schooldesk.glb", Vector3(8,0,-7.1), 0.76, PI],
+		["schoolchair.glb", Vector3(-8,0,6), 0.9, 0.3],
+		["schoolchair.glb", Vector3(-12,0,-12), 0.9, -0.4],
+		["cabinet.glb", Vector3(13.7,0,7), 1.2, -PI/2],
+		["shelf.glb", Vector3(-13.7,0,-17), 2.0, PI/2]]
+	if index == 1:
+		placements.append(["barrel.glb",Vector3(10.8,0,-26.7),0.95,0.0])
+		placements.append(["barrel.glb",Vector3(10.0,0,-25.3),0.95,0.3])
+	var prop_id := 0
+	for item in placements:
+		var file: String = "vendor/" + item[0]
+		if not ResourceLoader.exists(Assets.path(file)): continue
+		var body := StaticBody3D.new()
+		body.name = "ScannedProp_%02d_%s" % [prop_id, item[0].trim_suffix(".glb")]
+		prop_id += 1
+		body.position = item[1]
+		body.rotation.y = item[3]
+		add_child(body)
+		var model := Assets.fitted(file, item[2])
+		body.add_child(model)
+		var shape := BoxShape3D.new()
+		shape.size = model.get_meta("dimensions")
+		var collision := CollisionShape3D.new()
+		collision.shape = shape
+		collision.position.y = shape.size.y * 0.5
+		body.add_child(collision)
 
 func _plain(color: Color, roughness: float = 0.9) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -205,11 +253,6 @@ func _office_details() -> void:
 	for i in range(16):
 		var x := -14.8 if i % 2 == 0 else 14.8
 		_box("WallpaperPeel", Vector3(x, 0.48, -2.0 - i * 1.7), Vector3(0.01, 0.11 + i % 3 * 0.05, 0.32), dirt, false)
-	for x in [-8.0, 8.0]:
-		_box("ForgottenTable", Vector3(x, 0.71, -7.1), Vector3(1.6, 0.08, 0.7), _plain(Color(0.29, 0.23, 0.13)), true)
-		for dx in [-0.65, 0.65]:
-			for dz in [-0.23, 0.23]: _box("TableLeg", Vector3(x + dx, 0.35, -7.1 + dz), Vector3(0.05, 0.7, 0.05), dirt, false)
-		_box("ArchiveBox", Vector3(x, 0.94, -7.1), Vector3(0.4, 0.4, 0.35), _plain(Color(0.42, 0.34, 0.21)), false)
 
 func _service_details() -> void:
 	var pipe_mat := _plain(Color(0.23, 0.28, 0.26), 0.7)
@@ -287,7 +330,7 @@ func _vault(center_x: float) -> void:
 	var vault := MeshInstance3D.new()
 	vault.name = "TiledBarrelVault"
 	vault.mesh = mesh
-	var double_sided := ShaderMaterial.new()
+	var double_sided := wall_material.duplicate() as ShaderMaterial
 	var vault_shader := Shader.new()
 	vault_shader.code = wall_material.shader.code.replace("shader_type spatial;", "shader_type spatial; render_mode cull_disabled;")
 	double_sided.shader = vault_shader

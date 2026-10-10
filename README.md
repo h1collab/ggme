@@ -1,31 +1,35 @@
-# Backrooms / Night Relay
+# Backrooms / Night Relay (v0.12.0)
 
-A monster-free, atmospheric Backrooms game by **Zorix GAme Team**, with three explorable layers and up to four-player direct P2P cooperation.
+An atmospheric, narrative-led Backrooms horror game by **Zorix GAme Team**. You play a maintenance investigator from the Zorix anomalous-building unit, tracing a distress signal from a colleague inside an office tower that was demolished. Three connected spaces—offices, maintenance corridors and flooded pool halls—each contain a story briefing, repair objectives, cameras and a brief, locally staged creature sighting. The sighting emphasizes tension instead of combat.
 
-Observe actual live surveillance feeds, identify fluorescent circuit faults, repair three nodes, manage reserve power and physical isolation shutters, and complete each 02:00–06:00 shift to reach the next layer. Yellow-wall offices, maintenance corridors and vaulted pool rooms provide different materials and lighting. There are no hostile creatures, weapons or jump scares in this version.
+The intro must read **Made By Zorix GAme Team**. The supplied icon and team logo are preserved in `faceless2/branding/`. [Team website](https://zorix.it).
 
-## Run the current game
+## Playing
 
-Use Godot **4.7.2**. The repository's root `project.godot` opens the current Backrooms main scene. Assets are procedural and the supplied branding is included; no Sketchfab account is required.
+Open root `project.godot` in **Godot 4.7.2** (root `main.tscn` is the entry scene). Restore licensed external assets first for a local run:
 
 ```sh
+python -m pip install Pillow==11.3.0 fonttools==4.61.1
+python faceless2/fetch_backrooms_assets.py faceless2/assets/vendor
 python faceless2/backrooms_audio.py audio
+# The creature's original authored GLB is stored as exact, sha-verified segments in Git.
+cat faceless2/assets/entity.glb.part[0-9][0-9] > faceless2/assets/entity.glb
+sha256sum faceless2/assets/entity.glb
+# expected bf74395119a9c93aa13c46ec15d7facca2a314f9637e11de237a3bebb8ca9961
 godot --headless --path . --import
 godot --path .
 ```
 
-Keyboard: WASD, Shift, E, F, Escape. Android: left joystick, right-side look, independent USE/TORCH/RUN touch controls. Quality and sensitivity settings are saved locally.
+WASD/Shift/E/F/Escape on keyboard; joystick, right-side look and USE/TORCH/RUN on touch. Auto-look during creature sightings may be disabled in Settings and is interruptible by manual camera movement. Each floor requires fixing three relays, correctly identifying three camera faults, managing power, and reaching the elevator after the 02:00–06:00 shift.
 
-## Android APK
+## Multiplayer
 
-The [Backrooms build workflow](.github/workflows/faceless2-apk.yml) runs Godot **headless-only** gameplay, collision and real ENet/UDP cooperation tests, then exports `backrooms-v11-zorix.apk` (0.11.0 / code 11). APKs are built for delivery, never installed or run by the test pipeline. Graphical capture and emulator tests are disabled at the user's request. Download the APK artifact from the latest successful run on the development branch.
+Solo mode or **2–4 players** using native ENet/UDP P2P. Default UDP port **24711**, optional password and opt-in UPnP. The host owns shared progress and state; story sightings and camera focus are per-player and must not control remote players. No matchmaking, dedicated relay, universal NAT traversal or host migration is provided. Public-network sessions require a reachable host.
 
-The root Android export preset selects only the new main scene, its dependencies, supplied branding and generated audio. The packaged workflow also supplies a PNG team boot splash. APKs are debug-signed test builds; production signing and physical-device performance validation remain release work.
+## Android and verification
 
-## Cooperative play
+[Android build workflow](.github/workflows/faceless2-apk.yml) builds debug-signed **`backrooms-v12-zorix.apk`**, version **0.12.0**, code **12**. It restores a pinned engine base, reconstructs and checks the authored CC0 creature GLB, downloads/checks pinned CC0/CC-BY external assets, generates sound, imports in Godot 4.7.2, and runs runtime, narrative and independent-process ENet/UDP headless checks before exporting the APK. Download from a **successful run on the development branch**, and verify that its commit matches the intended code. This repo intentionally never runs an Android emulator, installs an APK or captures graphical screenshots in CI; headless passes do not establish device FPS, rendering polish or touch usability. The APK is an unsigned-for-production debug build.
 
-Host a room and share your IP and UDP port (default **24711**), or join a host address. Same-network hosting works directly; Internet play needs a reachable public endpoint, optional UPnP mapping or manual port forwarding. There is no external matchmaking/relay service or guaranteed traversal of carrier NAT. The host stays online and owns shared progress.
+Asset provenance and redistribution licenses: [asset credits](faceless2/ASSET_CREDITS.md), [asset lockfile](faceless2/backrooms_assets.json), [SIL OFL](faceless2/OFL.txt). Creature: HorrorGameMaker/City Building Game Art (CC0); crew mesh: Cesium Man (CC BY 4.0). GLBs, captured surfaces and recorded audio are external licensed resources, not AI-generated meshes. `faceless2/assets/entity.glb.part*` concatenates to the unchanged converted GLB (original geometry, rig, animation and embedded 1024px textures); the segments are not independent models. Current production scope is a tested prototype, not a claim of AAA-level visuals.
 
-See [game rules, networking details, testing and limitations](faceless2/README.md). [Official website](https://zorix.it).
-
-Previous game source is preserved in `faceless2/legacy/` and ignored by Godot. The historical School Brawl workflow runs only on its historical branch or manual dispatch.
+See [full gameplay/network documentation](faceless2/README.md). Prior game source remains in `faceless2/legacy/`.
