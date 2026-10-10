@@ -23,6 +23,8 @@ var lift_left: MeshInstance3D
 var lift_right: MeshInstance3D
 var lift_lamp: OmniLight3D
 var lift_cab: Node3D
+var lift_indicator: Label3D
+var shaft_markers: Array[Node3D] = []
 var lift_progress := 0.0
 var title := ""
 var subtitle := ""
@@ -310,6 +312,27 @@ func _exit() -> void:
 	lift_lamp.shadow_enabled = false
 	add_child(lift_lamp)
 	_sign("LIFT  /  LEVEL %02d" % (index + 1), Vector3(0, 3.17, -28.20), 0.010)
+	lift_indicator = Label3D.new()
+	lift_indicator.name = "InteriorFloorDisplay"
+	lift_indicator.text = "L%02d / WAIT" % (index + 1)
+	lift_indicator.position = Vector3(0, 2.34, -28.31)
+	lift_indicator.rotation.y = PI
+	lift_indicator.pixel_size = 0.0042
+	lift_indicator.font_size = 43
+	lift_indicator.modulate = Color(0.67, 0.96, 0.81)
+	lift_indicator.outline_size = 0
+	lift_indicator.shaded = false
+	add_child(lift_indicator)
+	# Scrolling slit lights appear through a narrow rear shaft window.
+	# These give a strong descent cue without moving collision bodies or
+	# requiring a real-time reflection or second off-screen environment.
+	var marker_mat := _plain(Color(0.12, 0.30, 0.34), 0.5)
+	marker_mat.emission_enabled = true
+	marker_mat.emission = Color(0.05, 0.22, 0.23)
+	marker_mat.emission_energy_multiplier = 0.8
+	for i in range(5):
+		var marker: Node3D = _box("PassingShaftLight", Vector3(1.08, 0.6 + float(i) * 0.45, -29.38), Vector3(0.06, 0.08, 0.026), marker_mat, false)
+		shaft_markers.append(marker)
 	animate_lift(0.0)
 
 func animate_lift(t: float) -> void:
@@ -322,9 +345,13 @@ func animate_lift(t: float) -> void:
 	lift_left.position.x = -1.06 * gap
 	lift_right.position.x = 1.06 * gap
 	lift_lamp.light_energy = 0.18 + 0.85 * gap + (0.1 * sin(t * 24.0) if t > 3.2 else 0.0)
-	# The outside world is sealed during descent. Stay inside the collidable
-	# building; first-person movement is accompanied by visual vibration.
-	lift_cab.position.y = (sin(t*18.0) * 0.012 if t > 3.25 else 0.0)
+	# Passing shaft markers and a changing floor readout imply downward
+	# acceleration; collision geometry stays static for safe P2P gameplay.
+	if is_instance_valid(lift_indicator):
+		lift_indicator.text = "L%02d / ↓  %02dm" % [index + 1, int(maxf(t - 3.2, 0.0) * 9.0)] if t > 3.2 else ("L%02d / BOARD" % (index + 1) if gap > 0.04 else "L%02d / WAIT" % (index + 1))
+	for i in range(shaft_markers.size()):
+		shaft_markers[i].position.y = 0.45 + fposmod((float(i) * 0.52) + maxf(t - 3.2, 0.0) * 2.1, 2.2)
+	lift_cab.position.y = (sin(t * 18.0) * 0.012 if t > 3.25 else 0.0)
 
 func add_water_step(at: Vector3) -> bool:
 	if index != 2 or not is_instance_valid(pool_water): return false

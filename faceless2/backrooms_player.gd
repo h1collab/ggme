@@ -189,7 +189,13 @@ func begin_lift_ride() -> void:
 	cancel_focus()
 	# Set into the visible cabin when boarding starts; controls remain usable
 	# after a finite host-controlled sequence, or if a menu is opened.
-	position = Vector3(0, 0.05, -27.7)
+	position = Vector3(0, 0.05, -28.86)
+	# One-time voluntary boarding view faces the inner doors; all look input
+	# works immediately afterward. Never rotate a remote player's camera.
+	yaw = PI
+	rotation.y = yaw
+	pitch = 0.0
+	camera.rotation.x = 0.0
 	velocity = Vector3.ZERO
 
 func end_lift_ride() -> void:
