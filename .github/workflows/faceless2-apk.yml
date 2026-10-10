@@ -143,6 +143,7 @@ jobs:
           PYCODE
           VK_DRIVER_FILES=/tmp/qa-lvp.json LP_NUM_THREADS=2 timeout 720 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/backrooms_visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
           test "$(find qa -name '*.png' | wc -l)" -eq 18
+          python faceless2/test_backrooms_visual.py --directory qa | tee qa/rendered-controls.log
           python - <<'PYCODE'
           from pathlib import Path
           for name, marker in [("runtime-checks.log","Backrooms runtime checks: PASS"),("network-checks.log","Backrooms P2P checks: PASS"),("visual-checks.log","Backrooms visual captures: PASS")]:
@@ -207,7 +208,7 @@ jobs:
           script: python faceless2/test_backrooms_android.py --godot godot --project app --apk app/build/backrooms-v11-zorix.apk --output qa
 
       - name: Upload APK
-        if: always() && hashFiles('app/build/backrooms-v11-zorix.apk') != ''
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: backrooms-v11-zorix-apk

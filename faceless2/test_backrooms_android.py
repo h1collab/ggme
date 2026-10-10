@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 import subprocess
 import time
 from PIL import Image
+from test_backrooms_visual import check_monitor
 
 p = argparse.ArgumentParser()
 p.add_argument('--godot', default='godot')
@@ -36,7 +37,7 @@ def wait_marker(marker, limit=45):
     deadline = time.monotonic() + limit
     while time.monotonic() < deadline:
         text = logs()
-        if any(x in text for x in ['FATAL EXCEPTION', 'SCRIPT ERROR', 'Parse Error', 'Fatal signal']):
+        if any(x in text for x in ['FATAL EXCEPTION', 'SCRIPT ERROR', 'Parse Error', 'ERROR:', 'Fatal signal']):
             raise RuntimeError(text)
         if marker in text: return
         time.sleep(.5)
@@ -52,6 +53,7 @@ def capture(name):
     colors = image.resize((128, 72)).getcolors(128 * 72)
     assert colors is None or len(colors) > 100, 'Blank Android frame'
     image.save(out / (name + '.png'))
+    if 'monitor' in name: check_monitor(out / (name + '.png'))
 
 def tap(x, y):
     adb('shell', 'input', 'tap', str(int(width * x)), str(int(height * y)))
@@ -65,6 +67,7 @@ def walk_to_console():
 
 host = None
 host_log = None
+solo_text = ''
 try:
     # AOSP's own device tests preconfirm the first-fullscreen system tutorial.
     # Use a 720p device surface to keep CPU Vulkan rendering practical in CI.
@@ -103,6 +106,10 @@ try:
     # Hide an IME if one appeared, preserving the Godot lobby.
     if 'mInputShown=true' in adb('shell', 'dumpsys', 'input_method'):
         adb('shell', 'input', 'keyevent', '4')
+    solo_text = logs()
+    (out / 'android-solo-logcat.log').write_text(solo_text)
+    (out / 'android-solo-system-logcat.log').write_text(adb('logcat', '-d'))
+    assert 'ERROR:' not in solo_text, solo_text
     adb('logcat', '-c')
     tap(.356, .746)
     wait_marker('UI_SCREEN / play', 35)
@@ -120,7 +127,7 @@ try:
     adb('shell', 'am', 'force-stop', package)
     code = host.wait(timeout=25)
     assert code == 0 and 'P2P androidhost: PASS' in (out / 'android-p2p-host.log').read_text()
-    text = logs()
+    text = solo_text + '\n' + logs()
     assert not any(x in text for x in ['FATAL EXCEPTION', 'SCRIPT ERROR', 'Parse Error', 'ERROR:', 'Fatal signal']), text
     print('Android APK checks: PASS / install, launch, landscape, touch movement, live monitor, actual P2P join, shutter replication, disconnect')
 except Exception:

@@ -123,8 +123,11 @@ func _mapping_complete(token: int, selected_port: int, gateway: UPNP, mapped: bo
 func _exit_tree() -> void:
 	if upnp_thread != null and upnp_thread.is_started(): upnp_thread.wait_to_finish()
 
-func _peer_connected(_id: int) -> void:
-	pass # A connection is not a member until the version/password handshake passes.
+func _peer_connected(id: int) -> void:
+	# An app killed by Android cannot send a normal leave message. Bound
+	# reliable-packet timeout so its avatar and room slot are reclaimed.
+	if mode == "host": peer.get_peer(id).set_timeout(32, 5000, 15000)
+	# Membership still requires the version/password handshake.
 
 func _peer_disconnected(id: int) -> void:
 	members.erase(id)
@@ -136,6 +139,7 @@ func _peer_disconnected(id: int) -> void:
 	game.remove_crew(id)
 
 func _connected() -> void:
+	peer.get_peer(1).set_timeout(32, 5000, 15000)
 	_hello.rpc_id(1, PROTOCOL, password)
 
 @rpc("any_peer", "call_remote", "reliable", 0)
