@@ -142,6 +142,11 @@ jobs:
           s=s.replace('config/icon="res://ui/icon.svg"','config/icon="res://ui/game_icon.png"')
           s=re.sub(r'boot_splash/bg_color=.*', 'boot_splash/bg_color=Color(1, 1, 1, 1)', s)
           s=s.replace('boot_splash/fullsize=false','boot_splash/fullsize=true')
+          # Keep shader work runnable while Mobile pipeline jobs wait for it.
+          s=re.sub(r'(?m)^worker_pool/(max_threads|low_priority_thread_ratio)=.*\n?', '', s)
+          if '[threading]' not in s:
+              s += '\n[threading]\n'
+          s=s.replace('[threading]', '[threading]\nworker_pool/max_threads=8\nworker_pool/low_priority_thread_ratio=1.0', 1)
           p.write_text(s)
           p=Path("app/export_presets.cfg")
           p.write_text(p.read_text().replace("res://ui/icon.svg","res://ui/game_icon.png"))

@@ -114,3 +114,5 @@ relay objectives, evidence, radio scenes and checkpoint saves are retained.
 - Android output: `faceless-2-v9-zorix.apk`, version code 9 / name 0.9.0. QA screenshots and logs are published in `faceless-2-v9-visual-qa`. Desktop/software Vulkan captures do not establish physical Android device frame rates. Existing low-poly model geometry and procedural character animation still limit visual realism.
 
 Visual QA pins and verifies the exact Mesa software driver used locally. For llvmpipe captures only, gravel is decoded to identical source pixels before sampling; physical GPUs retain exported compressed textures. Camera poses, models, shaders, lighting, quality and output resolution stay the same. Per-stage/per-frame progress is logged to distinguish loading from rendering stalls.
+
+The project uses eight worker threads with a 1.0 low-priority thread ratio. This is a tested workaround for Mobile shader/pipeline compilation stalls on cold caches in this asset set (upstream report: https://github.com/godotengine/godot/issues/123060). Cold-cache captures are checked separately from warm-cache rendering; hardware Android performance remains unmeasured.
