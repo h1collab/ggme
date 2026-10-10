@@ -27,3 +27,7 @@ godot --headless --path . --export-debug Android build/escape-black-pine.apk
 构建成功后，在 Actions 对应运行的 Artifacts 下载 `escape-black-pine-apk`。
 
 > `payload/` 是旧版原生 C++ 构建留下的历史文件，新 Godot 工作流不再读取它。
+
+## Current Android build: Backrooms / Night Relay v0.11.0
+
+The current development branch replaces monster/combat gameplay with three Backrooms layers and FNAF-inspired live surveillance, power, isolation shutters, anomaly reporting and cooperative exploration. Native ENet direct P2P supports up to four players. See [gameplay, connection instructions, testing and APK build](faceless2/README.md). The workflow exports `backrooms-v11-zorix.apk` with the supplied Zorix branding.
