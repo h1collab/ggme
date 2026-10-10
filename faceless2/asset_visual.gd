@@ -102,7 +102,8 @@ static func prepare_world(root: Node3D, path: String) -> void:
 					material.roughness_texture = null
 					material.metallic = 0
 					material.metallic_texture = null
-					material.metallic_specular = 0.15
+					# Thin atlas foliage otherwise catches a white plastic-like sky reflection.
+					material.metallic_specular = 0.0
 				mesh.set_surface_override_material(surface, material)
 
 static func add_static_collision(root: Node3D) -> void:

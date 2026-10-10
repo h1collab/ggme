@@ -96,7 +96,8 @@ func _build_forest() -> void:
 			material.roughness_texture = null
 			material.metallic = 0
 			material.metallic_texture = null
-			material.metallic_specular = 0.15
+			# Keep distant foliage as matte as the nearby tree instances.
+			material.metallic_specular = 0.0
 			material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 			batch.material_override = material
 		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

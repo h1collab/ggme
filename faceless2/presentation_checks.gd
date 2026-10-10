@@ -54,6 +54,18 @@ func run() -> void:
 	check(material != null and not material.get_shader_parameter("forest_floor"), "Road and forest materials must remain distinct")
 	for x in [-8.8,-4.2,0.0,4.2,8.8]:
 		check(is_zero_approx(game.GroundSurface.forest_height(x, -47)), "Accessible ground must stay aligned with collision")
+	var foliage_count := 0
+	for mesh in game.find_children("*","MeshInstance3D",true,false):
+		if mesh.mesh == null: continue
+		for surface in range(mesh.mesh.get_surface_count()):
+			var mat := mesh.get_active_material(surface) as BaseMaterial3D
+			if mat != null and mat.resource_name == "M_TreeAtlas":
+				foliage_count += 1
+				check(mat.metallic_specular <= 0.01 and mat.roughness >= 0.9, "Nearby foliage must not retain white plastic-like reflections")
+	check(foliage_count > 0, "Foliage material test must cover visible nearby trees")
+	for batch in game.world_detail.forest_batches:
+		var mat := batch.material_override as BaseMaterial3D
+		check(mat != null and mat.metallic_specular <= 0.01 and mat.roughness >= 0.9, "Distant forest must match matte nearby foliage")
 	var rectangles: Array[Rect2] = []
 	for control in ui.touch_controls.get_children():
 		if control is Button:
