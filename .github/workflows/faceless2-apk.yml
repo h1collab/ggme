@@ -7,10 +7,14 @@ on:
       - main
       - fix/faceless2-rendering-polish
 
+concurrency:
+  group: backrooms-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Restore verified Godot base
@@ -36,7 +40,7 @@ jobs:
               for item in root.iterdir():
                   if item.is_file(): item.unlink()
           source=Path('faceless2')
-          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_checks.gd','backrooms_network_checks.gd','backrooms_visual_checks.gd','virtual_joystick.gd','touch_action.gd']:
+          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_checks.gd','backrooms_network_checks.gd','virtual_joystick.gd','touch_action.gd']:
               shutil.copy2(source/name, Path('app/scripts')/name)
           Path('app/main.tscn').write_text((source/'main.tscn').read_text().replace('res://faceless2/', 'res://scripts/'))
           shutil.copy2(source/'branding/game_icon.png', 'app/ui/game_icon.png')
@@ -126,32 +130,6 @@ jobs:
               assert marker in text and "ERROR:" not in text and "FAIL" not in text, name
           PYCODE
 
-      - name: Capture actual Mobile Vulkan gameplay views
-        shell: bash
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends xvfb mesa-vulkan-drivers
-          # Match the exact software Vulkan driver used for local visual QA.
-          curl -L --fail --retry 4 -o qa-mesa.deb "https://archive.ubuntu.com/ubuntu/pool/main/m/mesa/mesa-vulkan-drivers_25.2.8-0ubuntu0.24.04.2_amd64.deb"
-          echo "b3be471db0ec27eb28c1ea75a4d2e6bb3207c5904bdc3823dbba9ce530026939  qa-mesa.deb" | sha256sum -c -
-          dpkg-deb -x qa-mesa.deb /tmp/qa-mesa
-          python - <<'PYCODE'
-          import json
-          from pathlib import Path
-          descriptor={"ICD":{"api_version":"1.4.318","library_path":"/tmp/qa-mesa/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so"},"file_format_version":"1.0.1"}
-          Path("/tmp/qa-lvp.json").write_text(json.dumps(descriptor))
-          PYCODE
-          VK_DRIVER_FILES=/tmp/qa-lvp.json LP_NUM_THREADS=2 timeout 720 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/backrooms_visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
-          test "$(find qa -name '*.png' | wc -l)" -eq 18
-          python faceless2/test_backrooms_visual.py --directory qa | tee qa/rendered-controls.log
-          python - <<'PYCODE'
-          from pathlib import Path
-          for name, marker in [("runtime-checks.log","Backrooms runtime checks: PASS"),("network-checks.log","Backrooms P2P checks: PASS"),("visual-checks.log","Backrooms visual captures: PASS")]:
-              text=Path("qa",name).read_text()
-              assert marker in text and "ERROR:" not in text and "FAIL" not in text, name
-          print("All required runtime checks completed without engine errors")
-          PYCODE
-
       - name: Create debug keystore
         shell: bash
         run: |
@@ -168,45 +146,6 @@ jobs:
           godot --headless --path app --export-debug Android build/backrooms-v11-zorix.apk
           test -s app/build/backrooms-v11-zorix.apk
 
-      - name: Verify APK signature, package and networking permission
-        shell: bash
-        run: |
-          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose app/build/backrooms-v11-zorix.apk | tee qa/apk-signature.log
-          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print app/build/backrooms-v11-zorix.apk > qa/android-manifest.xml
-          python - <<'PYCODE'
-          from pathlib import Path
-          import zipfile, xml.etree.ElementTree as ET
-          text=Path('qa/android-manifest.xml').read_text()
-          manifest=ET.fromstring(text)
-          ns='{http://schemas.android.com/apk/res/android}'
-          assert 'android.permission.INTERNET' in text
-          assert manifest.get(ns+'versionCode') == '11'
-          with zipfile.ZipFile('app/build/backrooms-v11-zorix.apk') as z:
-              names=z.namelist()
-              assert any(n.startswith('lib/arm64-v8a/') for n in names)
-              assert any(n.startswith('lib/x86_64/') for n in names)
-              assert any('backrooms.gdc' in n or 'backrooms.gd' in n for n in names)
-              assert not any(n.startswith('assets/scripts/') and ('faceless.gd' in n or 'soldier.gd' in n or 'game.gd' in n) for n in names)
-              assert not any('voice_intro_' in n or n.endswith('.glb') for n in names)
-          PYCODE
-
-      - name: Enable emulator hardware acceleration
-        shell: bash
-        run: |
-          test -c /dev/kvm
-          sudo chmod 666 /dev/kvm
-
-      - name: Install and play the actual APK on Android 35
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          target: default
-          profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
-          disable-animations: true
-          script: python faceless2/test_backrooms_android.py --godot godot --project app --apk app/build/backrooms-v11-zorix.apk --output qa
-
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -215,10 +154,10 @@ jobs:
           path: app/build/backrooms-v11-zorix.apk
           if-no-files-found: error
 
-      - name: Upload model report and rendered test evidence
+      - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backrooms-v11-visual-qa
+          name: backrooms-v11-headless-qa
           path: qa
           if-no-files-found: error

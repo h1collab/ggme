@@ -55,6 +55,38 @@ func run() -> void:
 		game.net.leave()
 		await wait_seconds(1)
 
+	elif role == "drophost":
+		check(game.net.host(port, "survey11", false) == OK, "Abrupt disconnect host opened")
+		game.start_shift(0)
+		game.power = 75
+		print("DROP_HOST_READY")
+		for i in range(120):
+			if game.net.members.size() == 2: break
+			await wait_seconds(0.1)
+		check(game.net.members.size() == 2, "Real headless client joined")
+		for i in range(100):
+			if game.doors[0]: break
+			await wait_seconds(0.1)
+		check(game.doors[0], "Reliable shutter action reached host")
+		print("DROP_ACTION_RECEIVED")
+		for i in range(200):
+			if game.net.members.size() == 1: break
+			await wait_seconds(0.1)
+		check(game.net.members.size() == 1, "Killed client releases room slot without graceful leave")
+		check(game.crew.is_empty(), "Killed client avatar removed")
+	elif role == "dropclient":
+		check(game.net.join("127.0.0.1", port, "survey11") == OK, "Abrupt disconnect client opened")
+		await wait_join()
+		check(game.running and game.power == 75, "Initial shared state received")
+		game.ui.open_monitor()
+		game.net.request("door", 0)
+		for i in range(100):
+			if game.doors[0]: break
+			await wait_seconds(0.1)
+		check(game.doors[0], "Reliable shutter action replicated")
+		if not failure: print("DROP_ACTION_REPLICATED")
+		await wait_seconds(40)
+		check(false, "Client must be killed by the headless test orchestrator")
 	elif role == "androidhost":
 		check(game.net.host(port, "", false) == OK, "Android integration host opened")
 		game.start_shift(0)

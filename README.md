@@ -18,7 +18,7 @@ Keyboard: WASD, Shift, E, F, Escape. Android: left joystick, right-side look, in
 
 ## Android APK
 
-The [Backrooms build workflow](.github/workflows/faceless2-apk.yml) creates `backrooms-v11-zorix.apk` (0.11.0 / code 11), validates real gameplay and four-process ENet sessions, captures all nine surveillance views, checks the APK signature and Internet permission, then installs and operates the APK in an Android 35 emulator. Download the APK artifact from the latest successful run on the development branch.
+The [Backrooms build workflow](.github/workflows/faceless2-apk.yml) runs Godot **headless-only** gameplay, collision and real ENet/UDP cooperation tests, then exports `backrooms-v11-zorix.apk` (0.11.0 / code 11). APKs are built for delivery, never installed or run by the test pipeline. Graphical capture and emulator tests are disabled at the user's request. Download the APK artifact from the latest successful run on the development branch.
 
 The root Android export preset selects only the new main scene, its dependencies, supplied branding and generated audio. The packaged workflow also supplies a PNG team boot splash. APKs are debug-signed test builds; production signing and physical-device performance validation remain release work.
 
