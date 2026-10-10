@@ -140,7 +140,7 @@ jobs:
           Path("/tmp/qa-lvp.json").write_text(json.dumps(descriptor))
           PYCODE
           VK_DRIVER_FILES=/tmp/qa-lvp.json LP_NUM_THREADS=2 timeout 720 xvfb-run -a godot --path app --audio-driver Dummy --rendering-method mobile --resolution 1280x720 --script scripts/backrooms_visual_checks.gd -- --output="$GITHUB_WORKSPACE/qa" 2>&1 | tee qa/visual-checks.log
-          test "$(find qa -name '*.png' | wc -l)" -eq 11
+          test "$(find qa -name '*.png' | wc -l)" -eq 18
           python - <<'PYCODE'
           from pathlib import Path
           for name, marker in [("runtime-checks.log","Backrooms runtime checks: PASS"),("network-checks.log","Backrooms P2P checks: PASS"),("visual-checks.log","Backrooms visual captures: PASS")]:
@@ -169,16 +169,19 @@ jobs:
         shell: bash
         run: |
           "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose app/build/backrooms-v11-zorix.apk | tee qa/apk-signature.log
-          "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging app/build/backrooms-v11-zorix.apk | tee qa/apk-package.log
+          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print app/build/backrooms-v11-zorix.apk > qa/android-manifest.xml
           python - <<'PYCODE'
           from pathlib import Path
-          import zipfile
-          text=Path('qa/apk-package.log').read_text()
+          import zipfile, xml.etree.ElementTree as ET
+          text=Path('qa/android-manifest.xml').read_text()
+          manifest=ET.fromstring(text)
+          ns='{http://schemas.android.com/apk/res/android}'
           assert 'android.permission.INTERNET' in text
-          assert "versionCode='11'" in text
-          assert 'x86_64' in text and 'arm64-v8a' in text
+          assert manifest.get(ns+'versionCode') == '11'
           with zipfile.ZipFile('app/build/backrooms-v11-zorix.apk') as z:
               names=z.namelist()
+              assert any(n.startswith('lib/arm64-v8a/') for n in names)
+              assert any(n.startswith('lib/x86_64/') for n in names)
               assert any('backrooms.gdc' in n or 'backrooms.gd' in n for n in names)
               assert not any(n.startswith('assets/scripts/') and ('faceless.gd' in n or 'soldier.gd' in n or 'game.gd' in n) for n in names)
               assert not any('voice_intro_' in n or n.endswith('.glb') for n in names)
@@ -202,6 +205,7 @@ jobs:
           script: python faceless2/test_backrooms_android.py --godot godot --project app --apk app/build/backrooms-v11-zorix.apk --output qa
 
       - name: Upload APK
+        if: always() && hashFiles('app/build/backrooms-v11-zorix.apk') != ''
         uses: actions/upload-artifact@v4
         with:
           name: backrooms-v11-zorix-apk

@@ -58,7 +58,7 @@ func build(level: int) -> void:
 		_box("ShutterFrame", Vector3(x, 3.13, 3.2), Vector3(0.28, 0.4, 4.1), _plain(Color(0.14, 0.17, 0.18), 0.7), false)
 	relays.assign([Vector3(-12.8, 0, -5), Vector3(12.8, 0, -16), Vector3(-12.8, 0, -26.5)])
 	for i in range(3): _relay(i)
-	cameras = [Transform3D(Basis.from_euler(Vector3(-0.18, -0.6, 0)), Vector3(-13.8, 2.9, 0.8)), Transform3D(Basis.from_euler(Vector3(-0.2, 0.65, 0)), Vector3(13.8, 2.9, -10.0)), Transform3D(Basis.from_euler(Vector3(-0.15, -0.55, 0)), Vector3(-13.8, 2.9, -21.5))]
+	cameras = [Transform3D(Basis.from_euler(Vector3(-0.18, -0.6, 0)), Vector3(-12.0, 2.4 if index == 2 else 2.9, 0.8)), Transform3D(Basis.from_euler(Vector3(-0.2, 0.65, 0)), Vector3(12.0, 2.4 if index == 2 else 2.9, -10.0)), Transform3D(Basis.from_euler(Vector3(-0.15, -0.55, 0)), Vector3(-12.0, 2.4 if index == 2 else 2.9, -21.5))]
 	for i in range(3):
 		var housing := _box("SecurityCamera", cameras[i].origin, Vector3(0.25, 0.13, 0.33), _plain(Color(0.18, 0.2, 0.19), 0.6), false)
 		housing.get_child(0).layers = 2

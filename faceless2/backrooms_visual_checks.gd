@@ -72,6 +72,13 @@ func run() -> void:
 	game.notice = "All three layers surveyed. Your crew made it through."
 	game.ui.open_result()
 	await shot("10-survey-complete")
+	for layer in range(3):
+		game.start_shift(layer)
+		game.ui.open_monitor()
+		for cam in range(3):
+			if (layer == 0 and cam == 0) or (layer == 1 and cam == 1): continue
+			game.ui.select_camera(cam)
+			await shot("%02d-layer-%02d-camera-%02d" % [captures, layer, cam + 1])
 	game.ui.monitor_view.world_3d = null
 	game.net.leave()
 	game.queue_free()

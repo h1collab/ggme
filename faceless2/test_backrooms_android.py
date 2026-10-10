@@ -2,7 +2,7 @@
 import argparse
 import io
 from pathlib import Path
-import re
+import xml.etree.ElementTree as ET
 import subprocess
 import time
 from PIL import Image
@@ -15,9 +15,16 @@ p.add_argument('--output', default='qa')
 args = p.parse_args()
 out = Path(args.output)
 out.mkdir(parents=True, exist_ok=True)
-text = (out / 'apk-package.log').read_text()
-package = re.search(r"package: name='([^']+)'", text).group(1)
-activity = re.search(r"launchable-activity: name='([^']+)'", text).group(1)
+manifest = ET.fromstring((out / 'android-manifest.xml').read_text())
+ns = '{http://schemas.android.com/apk/res/android}'
+package = manifest.get('package')
+activity = None
+for candidate in manifest.findall('application/activity'):
+    for intent in candidate.findall('intent-filter'):
+        if any(a.get(ns + 'name') == 'android.intent.action.MAIN' for a in intent.findall('action')):
+            activity = candidate.get(ns + 'name')
+assert package and activity, 'APK launcher activity missing'
+if activity.startswith('.'): activity = package + activity
 
 def adb(*params, binary=False):
     return subprocess.check_output(['adb', *params], timeout=40, text=not binary)
