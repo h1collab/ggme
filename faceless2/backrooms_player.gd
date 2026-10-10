@@ -1,6 +1,15 @@
 extends CharacterBody3D
 
+const Assets = preload("backrooms_assets.gd")
 var game: Node
+var viewmodel_root: Node3D
+var walk_animation: AnimationPlayer
+var stride_spring := Vector2.ZERO
+var viewmodel_motion := Vector3.ZERO
+var lift_riding := false
+var lift_clock := 0.0
+var last_grounded := false
+var landing_dip := 0.0
 var camera: Camera3D
 var torch: SpotLight3D
 var yaw := 0.0
@@ -38,6 +47,27 @@ func _ready() -> void:
 	torch.spot_angle = 36
 	torch.shadow_enabled = true
 	camera.add_child(torch)
+	# The gloves/arms are mesh triangles extracted from licensed Cesium Man;
+	# the original rig, skin and walk animation remain intact in the derived GLB.
+	var asset_path := Assets.path("vendor/first_person_arms.glb")
+	if ResourceLoader.exists(asset_path):
+		viewmodel_root = Node3D.new()
+		viewmodel_root.name = "CesiumFirstPersonHands"
+		viewmodel_root.position = Vector3(0.0, -1.49, -0.59)
+		viewmodel_root.rotation.y = PI
+		camera.add_child(viewmodel_root)
+		var arms: Node3D = load(asset_path).instantiate()
+		viewmodel_root.add_child(arms)
+		for arm_mesh in arms.find_children("*", "MeshInstance3D", true, false):
+			arm_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for anim in arms.find_children("*", "AnimationPlayer", true, false):
+			if anim.get_animation_list().is_empty(): continue
+			walk_animation = anim
+			var clip: StringName = anim.get_animation_list()[0]
+			anim.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+			anim.play(clip)
+			anim.speed_scale = 0
+			break
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -67,7 +97,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		aim_pointer = -1
 		return
-	if focus_seconds > 0:
+	if focus_seconds > 0 and not lift_riding:
 		focus_seconds = maxf(0, focus_seconds - delta)
 		var direction := focus_target - camera.global_position
 		yaw = lerp_angle(yaw, atan2(-direction.x, -direction.z), minf(1, delta * 7))
@@ -82,7 +112,7 @@ func _physics_process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_D): input.x += 1
 	if is_instance_valid(game.ui.joystick): input += game.ui.joystick.value
 	input = input.limit_length(1.0)
-	if attention_hold > 0: input = Vector2.ZERO
+	if attention_hold > 0 or lift_riding: input = Vector2.ZERO
 	sprinting = (Input.is_physical_key_pressed(KEY_SHIFT) or game.ui.run_held) and stamina > 5 and input.length() > 0.1
 	stamina = clampf(stamina + (-18.0 if sprinting else 12.0) * delta, 0, 100)
 	var direction := transform.basis * Vector3(input.x, 0, input.y)
@@ -92,17 +122,35 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor(): velocity.y -= 18.0 * delta
 	else: velocity.y = -0.1
 	move_and_slide()
+	if is_on_floor() and not last_grounded: landing_dip = 0.045
+	last_grounded = is_on_floor()
+	landing_dip = move_toward(landing_dip, 0.0, delta * 0.18)
 	if position.y < -2:
 		position = game.level.spawn
 		velocity = Vector3.ZERO
 	var moving := Vector2(velocity.x, velocity.z).length() > 0.3
 	motion_clock += delta * (10 if sprinting else 7) if moving else delta
 	var bob := sin(motion_clock) * (0.022 if moving else 0.001)
-	camera.position.y = lerpf(camera.position.y, 1.58 + bob, delta * 10)
+	var cabin_vibration := sin(lift_clock * 19.0) * 0.009 if lift_riding and lift_clock >= 3.15 else 0.0
+	if lift_riding: lift_clock += delta
+	camera.position.y = lerpf(camera.position.y, 1.58 + bob - landing_dip + cabin_vibration, minf(delta * 10,1.0))
+	if is_instance_valid(viewmodel_root):
+		# Inertial arm sway + gait cycle; zero per-frame GLB allocations.
+		var moving_strength := clampf(Vector2(velocity.x,velocity.z).length()/4.3, 0.0, 1.0)
+		var target := Vector3(-input.x*0.033 + sin(motion_clock)*0.028*moving_strength,
+			-1.49 - 0.027*absf(sin(motion_clock))*moving_strength + landing_dip*0.6,
+			-0.59 - 0.035*moving_strength)
+		viewmodel_root.position = viewmodel_root.position.lerp(target, minf(delta*8.0, 1.0))
+		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.028, minf(delta*5.0,1.0))
+		viewmodel_root.visible = not lift_riding or lift_clock < 3.0
+		if is_instance_valid(walk_animation): walk_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
 	step_clock -= delta
 	if moving and is_on_floor() and step_clock <= 0:
 		step_clock = 0.34 if sprinting else 0.52
-		game.footstep()
+		if not game.level.add_water_step(position):
+			game.footstep()
+		else:
+			game.water_footstep()
 
 func reset_to(pos: Vector3) -> void:
 	cancel_focus()
@@ -113,6 +161,10 @@ func reset_to(pos: Vector3) -> void:
 	rotation = Vector3.ZERO
 	camera.rotation = Vector3.ZERO
 	stamina = 100
+	lift_riding = false
+	lift_clock = 0.0
+	landing_dip = 0.0
+	last_grounded = false
 
 func begin_focus(target: Vector3) -> void:
 	focus_target = target
@@ -128,3 +180,19 @@ func begin_attention() -> void:
 	# Always bounded, and cancelled immediately when a menu opens or the
 	# player moves the camera. Never lock movement when focus is disabled.
 	attention_hold = 0.0
+
+func begin_lift_ride() -> void:
+	if lift_riding: return
+	# Local near-elevator participant only. Other P2P cameras never change.
+	lift_riding = true
+	lift_clock = 0.0
+	cancel_focus()
+	# Set into the visible cabin when boarding starts; controls remain usable
+	# after a finite host-controlled sequence, or if a menu is opened.
+	position = Vector3(0, 0.05, -27.7)
+	velocity = Vector3.ZERO
+
+func end_lift_ride() -> void:
+	lift_riding = false
+	lift_clock = 0.0
+	if is_instance_valid(viewmodel_root): viewmodel_root.visible = true

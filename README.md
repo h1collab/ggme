@@ -10,12 +10,20 @@ The architecture uses Huuxloc's genuine CC BY 4.0 BackRooms GLB walls, trim, car
 
 ## Build and QA
 
-Use Godot 4.7.2. Main scene is `main.tscn` (the Android Actions workflow assembles the same scripts and licensed assets in `app/`). The [Android workflow](.github/workflows/faceless2-apk.yml) imports with Godot, runs three-layer gameplay/story tests and real independent headless ENet/UDP host, clients and disconnect checks, then exports the `faceless2-v013-zorix.apk` Android **debug** build (version 0.13.0/code 13). No emulator, APK installation, image capture or graphical tests are used.
+Use Godot 4.7.2. Main scene is `main.tscn` (the Android Actions workflow assembles the same scripts and licensed assets in `app/`). The [Android workflow](.github/workflows/faceless2-apk.yml) imports with Godot, runs three-layer gameplay/story tests and real independent headless ENet/UDP host, clients and disconnect checks, then exports the `faceless2-v014-zorix.apk` Android **debug** build (version 0.14.0/code 14). No emulator, APK installation, image capture or graphical tests are used.
 
 Use WASD + mouse, Shift to run, E to collect/interact, F flashlight or touch joystick/look/buttons. Render-quality presets favor mobile stability; dynamic scaling is bounded. The original artworks are in `faceless2/branding`.
 
 ## Direct P2P
 
-ENet UDP default port 24711, protocol 13, up to four, host owns shared clues/stage. Internet hosting needs a reachable UDP endpoint and may need manual port forwarding/optional UPnP; no relay or universal NAT traversal. Sightings stay local and cannot force remote camera orientation. See [implementation details](faceless2/README.md).
+ENet UDP default port 24711, protocol 14, up to four, host owns shared clues/stage. Internet hosting needs a reachable UDP endpoint and may need manual port forwarding/optional UPnP; no relay or universal NAT traversal. Sightings stay local and cannot force remote camera orientation. See [implementation details](faceless2/README.md).
 
 Android rendering quality, FPS, thermals and touch correctness require separate real-device validation; headless tests cannot demonstrate AAA quality or stutter-free behavior on every phone. PR updates do not merge to main without approval.
+
+## v0.14: animation and recorded narration
+
+The water halls now have on-foot contact ripples and subtle droplets with positional splash Foley. Lift rides physically animate sliding doors and a 6.2-second boarding/descending sequence before stage transfer; lift state is host-authoritative, but camera movement is local to those boarding. The first-person arms are the animated, licensed Cesium Man rig with leg/torso triangles removed (derived GLB; see `faceless2/create_viewmodel.py`). This does not fabricate limbs with primitives.
+
+Chinese dialogue is synthesized **at build time** using the Apache-2.0-licensed **Kokoro-82M-v1.1-zh** neural model; the 15 generated OGG files are packaged, the model is not. No device/system TTS, no fal.ai. Players can toggle or replay generated audio from settings/HUD, and keep subtitles even with speech disabled. `faceless2/generate_sound.py` independently produces the short splash/lift Foley. Credits: [full licensing](faceless2/ASSET_CREDITS.md).
+
+The mobile renderer intentionally uses a bounded shader/particle/lighting budget and limits dynamic resolution. Neither this CI nor Godot headless mode proves a commercial AAA visual result, stable physical-device FPS, touch correctness or thermal behavior.

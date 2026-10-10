@@ -42,6 +42,16 @@ var quality := 1
 var sensitivity := 1.0
 var auto_turn := false
 var audio_volume := 0.8
+var voice_enabled := true
+var splash_audio: AudioStreamPlayer3D
+var lift_door_audio: AudioStreamPlayer3D
+var lift_motor_audio: AudioStreamPlayer3D
+const LIFT_RIDE_DURATION := 6.2
+var lift_active := false
+var lift_elapsed := 0.0
+var lift_epoch := 0
+var lift_motor_started := false
+var lift_close_started := false
 var frame_ema := 0.0167
 var auto_scale_timer := 0.0
 var story: Node3D
@@ -88,6 +98,7 @@ func _ready() -> void:
 		sensitivity = clampf(float(config.get_value("controls", "sensitivity", 1.0)), 0.5, 2.0)
 		auto_turn = bool(config.get_value("controls", "auto_turn", false))
 		audio_volume = clampf(float(config.get_value("audio", "volume", 0.8)), 0, 1)
+		voice_enabled = bool(config.get_value("audio", "generated_voice", true))
 	set_audio_volume(audio_volume)
 	set_quality(quality)
 	ui.intro()
@@ -108,6 +119,28 @@ func _audio() -> void:
 	if ResourceLoader.exists("res://audio/relay.wav"): hum.stream = load("res://audio/relay.wav")
 	hum.volume_db = -17
 	add_child(hum)
+	splash_audio = _spatial_foley("splash.wav", -13)
+	lift_door_audio = _spatial_foley("elevator_door.wav", -9)
+	lift_motor_audio = _spatial_foley("elevator_move.wav", -15)
+	lift_door_audio.position = Vector3(0, 1.2, -28.5)
+	lift_motor_audio.position = Vector3(0, 1.3, -28.5)
+
+func _spatial_foley(filename: String, volume: float) -> AudioStreamPlayer3D:
+	var sound := AudioStreamPlayer3D.new()
+	var audio_path := "res://audio/" + filename
+	if not ResourceLoader.exists(audio_path): audio_path = "res://faceless2/audio/" + filename
+	if ResourceLoader.exists(audio_path): sound.stream = load(audio_path)
+	sound.volume_db = volume
+	sound.unit_size = 2.0
+	sound.max_distance = 18
+	add_child(sound)
+	return sound
+
+func water_footstep() -> void:
+	if is_instance_valid(splash_audio) and splash_audio.stream != null:
+		splash_audio.position = player.position + Vector3(0, 0.08, 0)
+		splash_audio.pitch_scale = randf_range(0.88, 1.13)
+		splash_audio.play()
 
 func footstep() -> void:
 	footsteps.pitch_scale = randf_range(0.94, 1.06) * (1.0 if stage != 2 else 0.8)
@@ -118,6 +151,11 @@ func _load_level(index: int) -> void:
 		remove_child(level)
 		level.queue_free()
 	stage = clampi(index, 0, 2)
+	lift_active = false
+	lift_elapsed = 0.0
+	lift_close_started = false
+	lift_motor_started = false
+	if is_instance_valid(player): player.end_lift_ride()
 	level = LevelScript.new()
 	add_child(level)
 	level.build(stage)
@@ -183,6 +221,7 @@ func _process(delta: float) -> void:
 		level.update_state(doors, true, anomaly, repaired, elapsed, player.position, [0, 1, 2][quality])
 		if ambience.stream != null and not ambience.playing: ambience.play()
 		story.update(delta)
+		level.update_water(delta)
 	for id in crew:
 		var actor: Node3D = crew[id]
 		var target: Vector3 = actor.get_meta("target", actor.position)
@@ -198,6 +237,27 @@ func _process(delta: float) -> void:
 func _tick(delta: float) -> void:
 	# Exploration is not a shift-management simulation. Time is ambient only.
 	elapsed += delta
+	if lift_active:
+		lift_elapsed = minf(lift_elapsed + delta, LIFT_RIDE_DURATION)
+		level.animate_lift(lift_elapsed)
+		if not lift_close_started and lift_elapsed >= 2.15:
+			lift_close_started = true
+			if lift_door_audio.stream != null: lift_door_audio.play()
+		if not lift_motor_started and lift_elapsed >= 3.3:
+			lift_motor_started = true
+			if lift_motor_audio.stream != null: lift_motor_audio.play()
+		if lift_elapsed >= LIFT_RIDE_DURATION:
+			lift_active = false
+			if is_instance_valid(player): player.end_lift_ride()
+			if stage < 2:
+				start_shift(stage + 1)
+				if net.mode == "solo": ui.open_briefing()
+			else:
+				completed = true
+				notice = "记录已传回地面，但回声里的第二个人仍没有离开。"
+				story.say("[终末录音] 你已经离开了那里。可是有人和你一起上来了。", 9.0, "ending")
+				revision += 1
+		return
 	if elapsed >= next_anomaly:
 		# Sparse fluorescent flickers, not a camera-report mini-game.
 		anomaly = randi_range(0, 2)
@@ -215,11 +275,11 @@ func prompt() -> String:
 			return "录音 %02d / 已记录" % (i + 1) if repaired[i] else "E / 拾取录音 %02d" % (i + 1)
 	if player.position.distance_to(level.console_position) < 2.9: return "E / 收听调查终端"
 	if player.position.distance_to(level.exit_position) < 2.8:
-		return "E / 进入电梯" if transfer_ready() else "电梯无信号 / 仍有失联录音未找到"
+		return "正在下降 / 电梯门已关闭" if lift_active else ("E / 进入电梯" if transfer_ready() else "电梯无信号 / 仍有失联录音未找到")
 	return ""
 
 func interact() -> void:
-	if not running or failed or completed: return
+	if not running or failed or completed or lift_active: return
 	for i in range(3):
 		if player.position.distance_to(level.relays[i]) < 2.5:
 			net.request("collect", i)
@@ -236,22 +296,26 @@ func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) ->
 			if index < 0 or index >= 3 or pos.distance_to(level.relays[index]) >= 2.5 or repaired[index]: return
 			repaired[index] = true
 			notice = "录音 %02d 已保存 / %d of 3。" % [index + 1, repaired.count(true)]
-			story.say(story.MEMORY_TEXT[stage][index], 9)
+			story.say(story.MEMORY_TEXT[stage][index], 9, "tape_%d_%d" % [stage, index])
 		"transfer":
-			if not transfer_ready() or pos.distance_to(level.exit_position) >= 2.8: return
-			if stage < 2:
-				start_shift(stage + 1)
-				if net.mode == "solo": ui.open_briefing()
-			else:
-				completed = true
-				notice = "你带回了林岚的录音，电梯门打开。门外的走廊却没有脚步声。"
+			if not transfer_ready() or lift_active or pos.distance_to(level.exit_position) >= 2.8: return
+			lift_active = true
+			lift_elapsed = 0.0
+			lift_epoch += 1
+			lift_close_started = false
+			lift_motor_started = false
+			notice = "电梯已启动 / 开门，进舱，关门，然后下降。"
+			level.animate_lift(0)
+			if player.position.distance_to(level.exit_position) < 3.0 and not ui.modal: player.begin_lift_ride()
+			if lift_door_audio.stream != null: lift_door_audio.play()
+			story.say("[电梯广播] 信号已经恢复。请进入轿厢。", 5.0, "elevator")
 		_:
 			return
 	revision += 1
 	if hum.stream != null: hum.play()
 
 func snapshot() -> Dictionary:
-	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running}
+	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running,"lift_active":lift_active,"lift_elapsed":lift_elapsed,"lift_epoch":lift_epoch}
 
 func receive_state(state: Dictionary) -> void:
 	if net.authoritative(): return
@@ -259,6 +323,7 @@ func receive_state(state: Dictionary) -> void:
 	var next_stage := int(state.get("stage", 0))
 	var previous_repaired: Array = repaired.duplicate()
 	var was_running := running
+	var old_lift_epoch := lift_epoch
 	if next_stage != stage:
 		_load_level(next_stage)
 		ui.open_briefing()
@@ -278,6 +343,15 @@ func receive_state(state: Dictionary) -> void:
 	notice = state.notice
 	revision = state.revision
 	running = state.running
+	lift_epoch = int(state.get("lift_epoch", 0))
+	lift_active = bool(state.get("lift_active", false))
+	lift_elapsed = float(state.get("lift_elapsed", 0.0))
+	level.animate_lift(lift_elapsed if lift_active else 0.0)
+	if lift_active and lift_epoch != old_lift_epoch:
+		if player.position.distance_to(level.exit_position) < 3.1 and not ui.modal:
+			player.begin_lift_ride()
+	elif not lift_active and player.lift_riding:
+		player.end_lift_ride()
 	if running and not was_running: story.say("[无线电] 如果听见不属于你的脚步，别追。先找齐三段录音。", 10)
 	for i in range(3):
 		if repaired[i] and not previous_repaired[i]: story.say(story.MEMORY_TEXT[stage][i], 9)
@@ -316,7 +390,7 @@ func clear_crew() -> void:
 	for id in crew.keys(): remove_crew(id)
 
 func _exit_tree() -> void:
-	for audio in [ambience, footsteps, hum]:
+	for audio in [ambience, footsteps, hum, splash_audio, lift_door_audio, lift_motor_audio]:
 		if is_instance_valid(audio):
 			audio.stop()
 			audio.stream = null
@@ -336,6 +410,7 @@ func save_settings() -> void:
 	config.set_value("controls", "sensitivity", sensitivity)
 	config.set_value("controls", "auto_turn", auto_turn)
 	config.set_value("audio", "volume", audio_volume)
+	config.set_value("audio", "generated_voice", voice_enabled)
 	config.save("user://faceless2.cfg")
 
 func set_audio_volume(value: float) -> void:

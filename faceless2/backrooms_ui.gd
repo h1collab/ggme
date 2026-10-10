@@ -18,6 +18,7 @@ var status_label: Label
 var goal_label: Label
 var prompt_label: Label
 var objective_label: Label
+var subtitle_backdrop: Panel
 var subtitle_label: Label
 var notice_label: Label
 var room_status: Label
@@ -123,17 +124,18 @@ func _build_hud() -> void:
 	hud.size = Vector2(1600, 900)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child(hud)
-	_card(hud, Rect2(38, 28, 525, 105), Color(0.018, 0.035, 0.033, 0.82))
-	status_label = _label(hud, "", Vector2(55, 43), 492, 22, ACCENT)
-	goal_label = _label(hud, "", Vector2(55, 83), 492, 18)
-	_card(hud, Rect2(1020, 28, 350, 90), Color(0.018, 0.035, 0.033, 0.82))
-	notice_label = _label(hud, "", Vector2(1036, 45), 315, 18, MUTED)
+	_card(hud, Rect2(28, 22, 500, 102), Color(0.013, 0.028, 0.028, 0.80))
+	status_label = _label(hud, "", Vector2(48, 40), 457, 22, ACCENT)
+	goal_label = _label(hud, "", Vector2(48, 79), 457, 18)
+	_card(hud, Rect2(1120, 24, 266, 100), Color(0.013, 0.028, 0.028, 0.80))
+	notice_label = _label(hud, "", Vector2(1135, 42), 242, 18, MUTED)
 	_button(hud, "II", Rect2(1410, 32, 135, 72), open_pause, true)
-	_card(hud, Rect2(38, 148, 680, 91), Color(0.018, 0.035, 0.033, 0.82))
-	objective_label = _label(hud, "", Vector2(55, 161), 650, 22, ACCENT)
+	_card(hud, Rect2(28, 138, 585, 95), Color(0.013, 0.028, 0.028, 0.73))
+	objective_label = _label(hud, "", Vector2(48, 154), 551, 21, ACCENT)
 	prompt_label = _label(hud, "", Vector2(470, 685), 660, 25, ACCENT)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle_label = _label(hud, "", Vector2(340, 585), 920, 23, PAPER)
+	subtitle_backdrop = _card(hud, Rect2(360, 585, 880, 83), Color(0.018, 0.026, 0.029, 0.70))
+	subtitle_label = _label(hud, "", Vector2(382, 598), 836, 22, PAPER)
 	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var cross := _label(hud, "·", Vector2(786, 429), 30, 27)
 	cross.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -143,10 +145,17 @@ func _build_hud() -> void:
 	hud.add_child(joystick)
 	_button(hud, "USE / E", Rect2(1340, 667, 205, 79), func(): game.interact(), true)
 	_button(hud, "LIGHT / F", Rect2(1340, 770, 205, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
+	_button(hud, "REPLAY VOICE", Rect2(1060, 770, 255, 73), _replay_generated_voice, true)
 	var run := _button(hud, "RUN", Rect2(305, 755, 155, 75), func(): pass, true)
 	run.button_down.connect(func(): run_held = true)
 	run.button_up.connect(func(): run_held = false)
 	_label(hud, "DRAG RIGHT TO LOOK", Vector2(1010, 846), 320, 17, MUTED)
+
+func _replay_generated_voice() -> void:
+	if game.story.last_voice_key.is_empty():
+		game.story.play_voice("brief_%d" % game.stage)
+	else:
+		game.story.play_voice(game.story.last_voice_key)
 
 func _clear(kind: String) -> void:
 	if is_instance_valid(game) and is_instance_valid(game.player): game.player.cancel_focus()
@@ -213,6 +222,7 @@ func open_briefing() -> void:
 	_label(panels, game.story.BRIEFINGS[game.stage][2], Vector2(98, 554), 1300, 23)
 	_label(panels, "WASD / 左摇杆移动  ·  E / USE拾取录音  ·  F / LIGHT手电\n右侧拖动观察。镜头永远可以手动控制。", Vector2(76, 653), 1390, 22, MUTED)
 	_button(panels, "进入黑暗 / CONTINUE", Rect2(76, 764, 1380, 80), close_panels)
+	game.story.play_voice("brief_%d" % game.stage)
 
 func close_panels() -> void:
 	panel_kind = "play"
@@ -243,7 +253,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / THE SIGNAL BELOW\nExploration-driven atmospheric horror.\nLicensed real GLB architecture, local animated sightings and P2P co-op.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.13.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.14.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page("授权素材 / CREDITS", "credits")
@@ -254,7 +264,8 @@ func open_credits() -> void:
 		"Surfaces: ambientCG / Poly Haven — CC0",
 		"Sound: Freesound / GboxMikeFozzy — CC0",
 		"Crew: Cesium Man / Cesium — CC BY 4.0",
-		"Chinese font: Noto Sans SC — OFL 1.1"]
+		"Chinese font: Noto Sans SC — OFL 1.1",
+		"Generated voice: Kokoro-82M-v1.1-zh — Apache 2.0"]
 	for i in range(lines.size()): _label(panels, lines[i], Vector2(80, 222 + i * 67), 1410, 24)
 	_button(panels, "FULL CREDITS / AUTHORS & LINKS", Rect2(80, 763, 685, 68), func(): OS.shell_open("https://github.com/h1collab/ggme/blob/fix/faceless2-rendering-polish/faceless2/ASSET_CREDITS.md"))
 	_button(panels, "CC BY 4.0", Rect2(802, 763, 605, 68), func(): OS.shell_open("https://creativecommons.org/licenses/by/4.0/"))
@@ -327,33 +338,34 @@ func refresh() -> void:
 	if not is_instance_valid(game.level): return
 	status_label.text = game.level.title
 	goal_label.text = "RECORDINGS %d/3  ·  %s" % [game.repaired.count(true), "SOLO" if game.net.mode == "solo" else "CREW %d/4" % max(1, game.net.poses.size())]
-	notice_label.text = "STAMINA %d%%\n%d / 3 TAPES" % [int(game.player.stamina), game.repaired.count(true)]
+	notice_label.text = "耐力 %d%%\n线索 %d/3" % [int(game.player.stamina), game.repaired.count(true)]
 	prompt_label.text = game.prompt()
 	var objective: Dictionary = game.next_objective()
 	var offset: Vector3 = objective.position - game.player.position
 	var facing := Vector3(0, 0, -1).rotated(Vector3.UP, game.player.yaw)
 	var angle := facing.signed_angle_to(Vector3(offset.x, 0, offset.z).normalized(), Vector3.UP)
 	var direction := "前方" if absf(angle) < 0.65 else ("后方" if absf(angle) > 2.5 else ("左侧" if angle > 0 else "右侧"))
-	objective_label.text = "下一步：%s\n%s / %dm" % [objective.text, direction, int(offset.length())]
+	objective_label.text = "电梯正在运行，请保持安静。" if game.lift_active else "下一步：%s\n%s / %dm" % [objective.text, direction, int(offset.length())]
 	subtitle_label.text = game.story.subtitle
+	subtitle_backdrop.visible = not game.story.subtitle.is_empty()
 	if is_instance_valid(room_status): room_status.text = game.net.status
 
 func open_settings() -> void:
-	_page("图像、音量与操控", "settings")
-	_label(panels, "3D QUALITY / 手机优先稳定流畅", Vector2(76, 222), 1250, 25, ACCENT)
+	_page("画质、生成语音和操作", "settings")
+	_label(panels, "动态 3D 分辨率 / 水面与阴影共用手机性能预算", Vector2(76, 197), 1310, 24, ACCENT)
 	for i in range(3):
-		var labels := ["PERFORMANCE / 58%", "BALANCED / 74%", "HIGH / 91%"]
-		_button(panels, labels[i], Rect2(76 + i * 488, 306, 455, 76), func(): game.set_quality(i))
+		var labels := ["流畅 / 58%", "均衡 / 74%", "精细 / 91%"]
+		_button(panels, labels[i], Rect2(76 + i * 488, 273, 455, 73), func(): game.set_quality(i))
 	var turn := CheckBox.new()
-	turn.text = "允许剧情轻微自动转头（默认关闭；手动可打断）"
-	turn.position = Vector2(75, 429)
-	turn.size = Vector2(1390, 62)
+	turn.text = "剧情自动转头（默认关闭，手动触摸或鼠标立即取消）"
+	turn.position = Vector2(75, 375)
+	turn.size = Vector2(1390, 59)
 	turn.button_pressed = game.auto_turn
 	turn.toggled.connect(func(value: bool): game.auto_turn = value; game.player.cancel_focus(); game.save_settings())
 	panels.add_child(turn)
-	_label(panels, "视角灵敏度", Vector2(75, 521), 1100, 24, ACCENT)
+	_label(panels, "视角灵敏度", Vector2(75, 467), 1100, 24, ACCENT)
 	var sensitivity := HSlider.new()
-	sensitivity.position = Vector2(75, 584)
+	sensitivity.position = Vector2(75, 517)
 	sensitivity.size = Vector2(1390, 51)
 	sensitivity.min_value = 0.5
 	sensitivity.max_value = 2.0
@@ -361,16 +373,26 @@ func open_settings() -> void:
 	sensitivity.value = game.sensitivity
 	sensitivity.value_changed.connect(func(value: float): game.sensitivity = value; game.save_settings())
 	panels.add_child(sensitivity)
-	_label(panels, "主音量", Vector2(75, 678), 1100, 24, ACCENT)
+	_label(panels, "主音量", Vector2(75, 602), 1100, 24, ACCENT)
 	var volume := HSlider.new()
-	volume.position = Vector2(75, 740)
-	volume.size = Vector2(1390, 52)
+	volume.position = Vector2(75, 649)
+	volume.size = Vector2(1390, 51)
 	volume.min_value = 0
 	volume.max_value = 1
 	volume.step = 0.05
 	volume.value = game.audio_volume
 	volume.value_changed.connect(game.set_audio_volume)
 	panels.add_child(volume)
+	var speech := CheckBox.new()
+	speech.text = "播放神经网络预生成的中文录音（非系统 TTS，可关闭）"
+	speech.position = Vector2(75, 739)
+	speech.size = Vector2(1400, 55)
+	speech.button_pressed = game.voice_enabled
+	speech.toggled.connect(func(value: bool):
+		game.voice_enabled = value
+		if not value and is_instance_valid(game.story.voice_audio): game.story.voice_audio.stop()
+		game.save_settings())
+	panels.add_child(speech)
 
 func _brand_file(filename: String) -> String:
 	var packaged := "res://ui/" + filename

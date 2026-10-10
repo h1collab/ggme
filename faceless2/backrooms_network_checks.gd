@@ -33,7 +33,7 @@ func run() -> void:
 	game.player.set_physics_process(false)
 	game.ui.intro_timer.stop()
 	if role == "host":
-		check(game.net.host(port, "faceless13", false) == OK, "Host opened")
+		check(game.net.host(port, "faceless14", false) == OK, "Host opened")
 		game.start_shift(0)
 		print("HOST_READY")
 		await wait_seconds(3)
@@ -54,7 +54,7 @@ func run() -> void:
 		game.net.leave()
 		await wait_seconds(1)
 	elif role == "client":
-		check(game.net.join("127.0.0.1", port, "faceless13") == OK, "Client socket open")
+		check(game.net.join("127.0.0.1", port, "faceless14") == OK, "Client socket open")
 		await wait_join()
 		check(game.running and game.stage == 0 and game.repaired == [false,false,false], "Authoritative initial state received")
 		game.net.request("collect", 0)
@@ -82,7 +82,7 @@ func run() -> void:
 		check(game.player.position.distance_to(game.level.spawn) < 3, "Client safely respawned")
 		game.net.leave()
 	elif role == "late":
-		check(game.net.join("127.0.0.1", port, "faceless13") == OK, "Late client socket open")
+		check(game.net.join("127.0.0.1", port, "faceless14") == OK, "Late client socket open")
 		await wait_join()
 		for i in range(25):
 			if game.repaired[0]: break
@@ -96,7 +96,7 @@ func run() -> void:
 		await wait_join()
 		check(game.net.mode == "solo" and game.net.status.contains("mismatch"), "Wrong key rejected")
 	elif role == "drophost":
-		check(game.net.host(port, "faceless13", false) == OK, "Abrupt-disconnect host opened")
+		check(game.net.host(port, "faceless14", false) == OK, "Abrupt-disconnect host opened")
 		game.start_shift(0)
 		print("DROP_HOST_READY")
 		for i in range(120):
@@ -111,7 +111,7 @@ func run() -> void:
 			await wait_seconds(0.1)
 		check(game.net.members.size() == 1 and game.crew.is_empty(), "Killed peer seat and avatar reclaimed")
 	elif role == "dropclient":
-		check(game.net.join("127.0.0.1", port, "faceless13") == OK, "Drop client socket open")
+		check(game.net.join("127.0.0.1", port, "faceless14") == OK, "Drop client socket open")
 		await wait_join()
 		for i in range(75):
 			if game.repaired[0]: break

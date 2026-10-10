@@ -15,6 +15,8 @@ var game: Node
 var actor: Node3D
 var animation: AnimationPlayer
 var face_glimmer: OmniLight3D
+var voice_audio: AudioStreamPlayer
+var last_voice_key := ""
 var step_audio: AudioStreamPlayer3D
 var breath_audio: AudioStreamPlayer3D
 var phase := "idle"
@@ -60,6 +62,10 @@ func _ready() -> void:
 					animation.speed_scale = 0.85
 					break
 			if is_instance_valid(animation): break
+	voice_audio = AudioStreamPlayer.new()
+	voice_audio.name = "KokoroGeneratedNarration"
+	voice_audio.volume_db = -8.5
+	add_child(voice_audio)
 	step_audio = _spatial_sound("vendor/monster_step.ogg", -14)
 	breath_audio = _spatial_sound("vendor/breathing.mp3", -25)
 
@@ -103,9 +109,23 @@ func reset_layer(index: int) -> void:
 	step_audio.stop()
 	breath_audio.stop()
 
-func say(text: String, seconds: float = 7.0) -> void:
+func say(text: String, seconds: float = 7.0, voice_key: String = "") -> void:
 	subtitle = text
 	subtitle_seconds = seconds
+	if not voice_key.is_empty(): play_voice(voice_key)
+
+func play_voice(key: String) -> bool:
+	# Only pre-generated OGGs; no Android/system TTS, HTTP or runtime ML.
+	last_voice_key = key
+	if not game.voice_enabled or not is_instance_valid(voice_audio): return false
+	var res := "res://audio/voice/" + key + ".ogg"
+	if not ResourceLoader.exists(res):
+		res = "res://faceless2/audio/voice/" + key + ".ogg"
+	if not ResourceLoader.exists(res): return false
+	voice_audio.stop()
+	voice_audio.stream = load(res)
+	voice_audio.play()
+	return true
 
 func _start_sighting(again: bool = false) -> void:
 	phase = "approach"
@@ -114,7 +134,7 @@ func _start_sighting(again: bool = false) -> void:
 	revealed = false
 	if not again:
 		seen = true
-		say("[无线电] 别看脚步的方向……先听。", 5.0)
+		say("[无线电] 别看脚步的方向……先听。", 5.0, "warning")
 	else:
 		secondary_seen = true
 		# Secondary glimpses are brief, not another scripted stop.
@@ -208,6 +228,9 @@ func update(delta: float) -> void:
 				breath_audio.stop()
 
 func _exit_tree() -> void:
+	if is_instance_valid(voice_audio):
+		voice_audio.stop()
+		voice_audio.stream = null
 	for sound in [step_audio, breath_audio]:
 		if is_instance_valid(sound):
 			sound.stop()

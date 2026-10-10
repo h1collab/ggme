@@ -15,6 +15,15 @@ var lamp_material: StandardMaterial3D
 var wall_material: ShaderMaterial
 var floor_material: ShaderMaterial
 var pool_water: MeshInstance3D
+var water_material: ShaderMaterial
+var water_clock := 0.0
+var ripple_buffer: Array[Vector4] = []
+var splash_particles: CPUParticles3D
+var lift_left: MeshInstance3D
+var lift_right: MeshInstance3D
+var lift_lamp: OmniLight3D
+var lift_cab: Node3D
+var lift_progress := 0.0
 var title := ""
 var subtitle := ""
 var architecture_meshes: Dictionary = {}
@@ -274,11 +283,72 @@ func _relay(i: int) -> void:
 	cabinet.set_meta("relay", i)
 
 func _exit() -> void:
-	_box("LiftFrame", Vector3(0, 1.4, -29.5), Vector3(2.8, 2.8, 0.2), _plain(Color(0.18, 0.21, 0.2), 0.65), true)
-	for x in [-0.6, 0.6]:
-		_box("LiftDoor", Vector3(x, 1.3, -29.36), Vector3(1.17, 2.55, 0.05), _plain(Color(0.36, 0.4, 0.37), 0.63), false)
-	_sign("EXIT / %02d" % (index + 1), Vector3(0, 3.0, -29.2), 0.014)
-	_sign("AUTHORIZED PERSONNEL", Vector3(0, 1.9, -29.28), 0.006)
+	# A real six-second lift scene is shared by host/client state; player camera
+	# control remains LOCAL, never transmitted as a forced look RPC.
+	var frame := _plain(Color(0.19, 0.24, 0.24), 0.53)
+	var brushed := _plain(Color(0.35, 0.39, 0.37), 0.38)
+	var dark := _plain(Color(0.095, 0.14, 0.15), 0.67)
+	lift_cab = Node3D.new()
+	lift_cab.name = "AnimatedLiftCabin"
+	add_child(lift_cab)
+	_box("LiftBack", Vector3(0, 1.45, -29.54), Vector3(2.5, 2.9, 0.09), dark, false)
+	for x in [-1.45, 1.45]:
+		_box("LiftJamb", Vector3(x, 1.55, -28.94), Vector3(0.20, 3.1, 1.35), frame, true)
+		_box("LiftCabinWall", Vector3(x * 0.85, 1.48, -28.82), Vector3(0.06, 2.85, 1.25), brushed, false)
+	_box("LiftLintel", Vector3(0, 3.03, -28.93), Vector3(3.06, 0.15, 1.2), frame, false)
+	_box("LiftThreshold", Vector3(0, 0.017, -28.91), Vector3(2.7, 0.035, 1.48), brushed, false)
+	lift_left = _box("LiftDoorLeft", Vector3(-0.62, 1.47, -28.25), Vector3(1.24, 2.82, 0.06), brushed, false).get_child(0)
+	lift_right = _box("LiftDoorRight", Vector3(0.62, 1.47, -28.25), Vector3(1.24, 2.82, 0.06), brushed, false).get_child(0)
+	# Narrow seams and a lit floor indicator, without per-frame shadows.
+	_box("LiftCentreRail", Vector3(0, 2.92, -28.20), Vector3(0.017, 0.12, 0.012), frame, false)
+	lift_lamp = OmniLight3D.new()
+	lift_lamp.name = "LiftInteriorLight"
+	lift_lamp.position = Vector3(0, 2.65, -28.83)
+	lift_lamp.light_color = Color(0.67, 0.86, 0.77)
+	lift_lamp.light_energy = 0.18
+	lift_lamp.omni_range = 3.6
+	lift_lamp.shadow_enabled = false
+	add_child(lift_lamp)
+	_sign("LIFT  /  LEVEL %02d" % (index + 1), Vector3(0, 3.17, -28.20), 0.010)
+	animate_lift(0.0)
+
+func animate_lift(t: float) -> void:
+	lift_progress = t
+	if not is_instance_valid(lift_left): return
+	# Approach -> doors slide -> board -> close -> physical elevator shake.
+	var opening := smoothstep(0.0, 1.15, t)
+	var closing := smoothstep(2.15, 3.3, t)
+	var gap := maxf(0.0, opening - closing)
+	lift_left.position.x = -1.06 * gap
+	lift_right.position.x = 1.06 * gap
+	lift_lamp.light_energy = 0.18 + 0.85 * gap + (0.1 * sin(t * 24.0) if t > 3.2 else 0.0)
+	# The outside world is sealed during descent. Stay inside the collidable
+	# building; first-person movement is accompanied by visual vibration.
+	lift_cab.position.y = (sin(t*18.0) * 0.012 if t > 3.25 else 0.0)
+
+func add_water_step(at: Vector3) -> bool:
+	if index != 2 or not is_instance_valid(pool_water): return false
+	if at.z < -18.3 or at.z > -10.9: return false
+	if not ((-11.5 < at.x and at.x < -4.5) or (4.5 < at.x and at.x < 11.5)): return false
+	# Ring impulses are capped; shader loops over eight uniforms without
+	# allocating meshes, particle systems or textures on each step.
+	ripple_buffer.push_front(Vector4(at.x, at.z, water_clock, 0.86))
+	if ripple_buffer.size() > 8: ripple_buffer.resize(8)
+	if is_instance_valid(splash_particles):
+		splash_particles.position = Vector3(at.x, 0.075, at.z)
+		splash_particles.restart()
+	return true
+
+func update_water(delta: float) -> void:
+	if not is_instance_valid(water_material): return
+	water_clock += delta
+	# Expire impulses even if a player stops in the water.
+	for i in range(ripple_buffer.size() - 1, -1, -1):
+		if water_clock - ripple_buffer[i].z >= 2.5: ripple_buffer.remove_at(i)
+	var uniforms := PackedVector4Array()
+	for i in range(8): uniforms.push_back(ripple_buffer[i] if i < ripple_buffer.size() else Vector4(-100, -100, -100, 0))
+	water_material.set_shader_parameter("impulses", uniforms)
+	water_material.set_shader_parameter("water_seconds", water_clock)
 
 func _office_details() -> void:
 	var dirt := _plain(Color(0.27, 0.25, 0.15), 1.0)
@@ -307,20 +377,82 @@ func _service_details() -> void:
 		_sign("HIGH VOLTAGE / KEEP CLEAR", Vector3(9.0, 2.4, z + 7.16), 0.007)
 
 func _pool_details() -> void:
-	var water := ShaderMaterial.new()
+	# Conservative PBR-style fresnel and two scrolling normal octaves, with
+	# finite footfall disturbances. No expensive screen-space reflections,
+	# refraction buffers or tessellation required by the Android mobile path.
+	water_material = ShaderMaterial.new()
 	var shader := Shader.new()
 	shader.code = """shader_type spatial;
-varying vec3 p;
-void vertex(){p=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;}
-void fragment(){float ripple=sin(p.x*9.0+TIME*0.6)*cos(p.z*7.0-TIME*0.4);ALBEDO=vec3(0.055,0.24,0.25)+ripple*0.012;ROUGHNESS=0.24;SPECULAR=0.35;NORMAL_MAP=vec3(0.5+ripple*0.035,0.5+sin(p.z*11.0+TIME)*0.03,1.0);}"""
-	water.shader = shader
+render_mode cull_disabled, depth_prepass_alpha;
+uniform float water_seconds = 0.0;
+uniform vec4 impulses[8];
+varying vec3 world_point;
+float wave(vec2 p, float t) {
+ return sin(p.x*13.0+t*2.9)*0.45+sin(dot(p,vec2(5.6,8.3))-t*3.4)*0.30+sin(dot(p,vec2(-13.1,2.9))+t*1.7)*0.25;
+}
+float rings(vec2 p) {
+ float sum=0.0;
+ for(int i=0; i<8; i++) {
+  vec4 e=impulses[i]; float age=water_seconds-e.z;
+  if(age<0.0 || age>2.5) continue;
+  float radius=length(p-e.xy);
+  float front=radius-age*1.55;
+  sum+=e.w*sin(front*17.0)*exp(-abs(front)*7.0)*exp(-age*1.35);
+ }
+ return sum;
+}
+void vertex(){world_point=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;}
+void fragment(){
+ vec2 p=world_point.xz;
+ float small=wave(p,water_seconds)*0.035;
+ float ring=rings(p);
+ float h=small+ring*0.075;
+ float hx=wave(p+vec2(0.015,0.0),water_seconds)*0.035+rings(p+vec2(0.015,0.0))*0.075;
+ float hz=wave(p+vec2(0.0,0.015),water_seconds)*0.035+rings(p+vec2(0.0,0.015))*0.075;
+ vec3 n=normalize(vec3((h-hx)*33.0, 1.0,(h-hz)*33.0));
+ vec3 to_eye=normalize(CAMERA_POSITION_WORLD-world_point);
+ float fresnel=pow(1.0-max(dot(n,to_eye),0.0),4.0);
+ vec3 deep=vec3(0.055,0.16,0.16), sky=vec3(0.24,0.36,0.35);
+ ALBEDO=mix(deep,sky,fresnel*0.58)+abs(ring)*vec3(0.06,0.10,0.09);
+ ROUGHNESS=0.095+clamp(abs(ring)*0.22,0.0,0.24);
+ METALLIC=0.0; SPECULAR=0.85;
+ NORMAL=normalize(mat3(VIEW_MATRIX)*n);
+ ALPHA=0.84+fresnel*0.1;
+}"""
+	water_material.shader = shader
+	var empty := PackedVector4Array()
+	for i in range(8): empty.push_back(Vector4(-100, -100, -100, 0))
+	water_material.set_shader_parameter("impulses", empty)
 	for x in [-8.0, 8.0]:
 		_vault(x)
-		var basin := _box("ShallowWater", Vector3(x, 0.026, -14.6), Vector3(7, 0.035, 7.4), water, false)
+		var basin := _box("ShallowWater", Vector3(x, 0.057, -14.6), Vector3(7, 0.025, 7.4), water_material, false)
 		pool_water = basin.get_child(0)
 		for side in [-1.0, 1.0]:
 			_box("PoolEdge", Vector3(x + side * 3.6, 0.10, -14.6), Vector3(0.18, 0.2, 7.8), wall_material, true)
 		_sign("SHALLOW / 0.1m", Vector3(x, 2.5, -19.8), 0.012)
+	# A single bounded CPU particle emitter is reused for every local splash.
+	splash_particles = CPUParticles3D.new()
+	splash_particles.name = "FootfallSpray"
+	splash_particles.one_shot = true
+	splash_particles.emitting = false
+	splash_particles.amount = 7
+	splash_particles.lifetime = 0.32
+	splash_particles.explosiveness = 1.0
+	splash_particles.direction = Vector3.UP
+	splash_particles.spread = 53.0
+	splash_particles.initial_velocity_min = 0.5
+	splash_particles.initial_velocity_max = 1.3
+	splash_particles.gravity = Vector3(0,-6.0,0)
+	splash_particles.scale_amount_min = 0.008
+	splash_particles.scale_amount_max = 0.023
+	splash_particles.color = Color(0.62,0.81,0.80,0.63)
+	var drop := SphereMesh.new()
+	drop.radius = 0.029
+	drop.height = 0.058
+	drop.radial_segments = 5
+	drop.rings = 2
+	splash_particles.mesh = drop
+	add_child(splash_particles)
 
 func update_state(closed: Array, lights_on: bool, anomaly: int, repaired: Array, time: float, focus: Vector3 = Vector3.ZERO, shadow_budget: int = 2) -> void:
 	shadow_refresh += get_process_delta_time()
