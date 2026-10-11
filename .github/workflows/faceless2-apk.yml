@@ -40,7 +40,7 @@ jobs:
       - name: Prepare Faceless 2 exploration and CC BY architecture
         shell: bash
         env:
-          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN }}
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN || secrets.SKETCHFAB_API_TOKEN || secrets.SKETCHFAB_ACCESS_TOKEN || vars.SKETCHFAB_TOKEN || vars.SKETCHFAB_API_TOKEN }}
         run: |
           python -m pip install --disable-pip-version-check Pillow==11.3.0 fonttools==4.61.1
           python - <<'PYCODE'
