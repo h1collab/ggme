@@ -201,24 +201,42 @@ func intro() -> void:
 	add_child(intro_timer)
 	intro_timer.start()
 
+func tr(en: String, zh: String) -> String:
+	return zh if game.language == "zh" else en
+
+func rebuild_language() -> void:
+	match panel_kind:
+		"menu": menu()
+		"settings": open_settings()
+		"prologue": prologue_stage(game.prologue.phase)
+		"prologue_end": prologue_finished()
+		"lobby": open_lobby()
+		"briefing": open_briefing()
+		"pause": open_pause()
+		"guide": open_guide()
+		"about": open_about()
+		"credits": open_credits()
+		"journal": open_journal()
+		_: pass
+
 func menu() -> void:
 	_clear("menu")
 	_card(panels, Rect2(0, 0, 775, 900), Color(0.02, 0.035, 0.034, 0.97))
 	_image(panels, _brand_file("game_icon.png"), Rect2(70, 50, 90, 90))
 	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
-	_label(panels, "THE OTHER SHIFT  /  错层", Vector2(73, 323), 640, 27, ACCENT)
-	_label(panels, "一栋已经拆除的楼，记录着你从未经历过的出勤。\n找到林岚失踪的真相。水正在向每一层蔓延。", Vector2(72, 411), 600, 26, MUTED)
-	_button(panels, "开始剧情 / THE OTHER SHIFT →", Rect2(72, 538, 600, 76), func(): game.start_prologue())
-	_button(panels, "经典四层探索", Rect2(72, 631, 288, 74), func(): game.start_solo())
-	_button(panels, "房间合作 / 2–4 人", Rect2(381, 631, 291, 74), open_lobby)
+	_label(panels, tr("THE OTHER SHIFT", "THE OTHER SHIFT  /  错层"), Vector2(73, 323), 640, 27, ACCENT)
+	_label(panels, tr("A building that should not exist remembers a shift you never worked.\nAnswer the call. Find out who is on the other side.", "一栋已经拆除的楼，记录着你从未经历过的出勤。\n找到林岚失踪的真相。水正在向每一层蔓延。"), Vector2(72, 411), 600, 26, MUTED)
+	_button(panels, tr("PLAY STORY  →", "开始剧情 / THE OTHER SHIFT →"), Rect2(72, 538, 600, 76), func(): game.start_prologue())
+	_button(panels, tr("LEGACY FLOORS", "经典四层探索"), Rect2(72, 631, 288, 74), func(): game.start_solo())
+	_button(panels, tr("CO-OP / 2–4", "房间合作 / 2–4 人"), Rect2(381, 631, 291, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
-	_label(panels, "现场调查  /  动态积水  /  非线性真相  /  偶发黑暗目击", Vector2(73, 843), 640, 18, MUTED)
+	_label(panels, tr("SURVIVE THE CALL / EXPLORE THE UNKNOWN", "现场调查  /  动态积水  /  非线性真相  /  偶发黑暗目击"), Vector2(73, 843), 640, 18, MUTED)
 	_card(panels, Rect2(1050, 655, 460, 154), Color(0.02, 0.038, 0.036, 0.82))
 	_label(panels, "00 / THE BUILDING THAT RETURNED", Vector2(1072, 681), 420, 19, ACCENT)
-	_label(panels, "这不是录像修复任务。\n是一次不会被记住的调查。", Vector2(1072, 727), 420, 22)
+	_label(panels, tr("The call was meant for someone else.\nOr someone who looks exactly like you.", "这不是录像修复任务。\n是一次不会被记住的调查。"), Vector2(1072, 727), 420, 22)
 
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
@@ -235,7 +253,7 @@ func open_prologue() -> void:
 	# Text is intentionally limited to what is printed on the phone.
 	call_title = _label(panels, "", Vector2(640, 300), 500, 44, PAPER)
 	call_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	call_button = _button(panels, "接听 / ANSWER", Rect2(685, 610, 235, 84), func(): game.prologue.answer(), true)
+	call_button = _button(panels, tr("ANSWER", "接听"), Rect2(685, 610, 235, 84), func(): game.prologue.answer(), true)
 	call_button.visible = false
 	cinematic_fade = ColorRect.new()
 	cinematic_fade.color = Color(0, 0, 0, 0)
@@ -246,7 +264,7 @@ func open_prologue() -> void:
 
 func prologue_stage(phase: String) -> void:
 	if not is_instance_valid(call_title): return
-	call_title.text = "未知号码" if phase == "ring" or phase == "disconnect" else ""
+	call_title.text = tr("Unknown Caller", "未知号码") if phase == "ring" or phase == "disconnect" else ""
 	if is_instance_valid(call_button):
 		call_button.visible = phase == "ring"
 	if phase == "push": prologue_fade(0.0)
@@ -260,20 +278,20 @@ func prologue_finished() -> void:
 	_card(panels, Rect2(0, 0, 1600, 900), Color.BLACK)
 	var title := _label(panels, "FACELESS 2", Vector2(440, 270), 720, 62, PAPER)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var subtitle := _label(panels, "THE OTHER SHIFT  /  序章终", Vector2(440, 392), 720, 29, MUTED)
+	var subtitle := _label(panels, tr("THE OTHER SHIFT / PROLOGUE END", "THE OTHER SHIFT / 序章终"), Vector2(440, 392), 720, 29, MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_button(panels, "重播序章", Rect2(420, 630, 350, 74), func(): game.start_prologue())
-	_button(panels, "返回主菜单", Rect2(830, 630, 350, 74), func(): game.prologue.exit_to_menu())
+	_button(panels, tr("REPLAY", "重播序章"), Rect2(420, 630, 350, 74), func(): game.start_prologue())
+	_button(panels, tr("MAIN MENU", "返回主菜单"), Rect2(830, 630, 350, 74), func(): game.prologue.exit_to_menu())
 
 func open_briefing() -> void:
-	_page(game.story.BRIEFINGS[game.stage][0], "briefing")
-	var message := _label(panels, game.story.BRIEFINGS[game.stage][1], Vector2(76, 215), 1430, 28)
+	_page(game.story.BRIEFINGS[game.stage][0] if game.language == "zh" else "CHAPTER %d / THE OTHER SHIFT" % game.stage, "briefing")
+	var message := _label(panels, game.story.BRIEFINGS[game.stage][1] if game.language == "zh" else "Follow the physical clues, listen for footsteps, and investigate the missing shift.", Vector2(76, 215), 1430, 28)
 	message.size.y = 256
 	_card(panels, Rect2(76, 492, 1400, 145), Color(0.065, 0.089, 0.073))
-	_label(panels, "调查目标 / 你的行动会留下证据", Vector2(98, 508), 1200, 23, ACCENT)
-	_label(panels, game.story.BRIEFINGS[game.stage][2], Vector2(98, 555), 1310, 22)
+	_label(panels, tr("OBJECTIVE / Every action leaves a trace", "调查目标 / 你的行动会留下证据"), Vector2(98, 508), 1200, 23, ACCENT)
+	_label(panels, game.story.BRIEFINGS[game.stage][2] if game.language == "zh" else "Find supplies and a key, inspect three anomalies, then open the lift.", Vector2(98, 555), 1310, 22)
 	_label(panels, "WASD / 左摇杆移动  ·  E / 拾取或组合  ·  J / 日志  ·  F / 手电\n右侧拖动观察，低头能看到双脚。剧情镜头永远可打断。", Vector2(76, 653), 1390, 22, MUTED)
-	_button(panels, "进入黑暗 / CONTINUE", Rect2(76, 764, 1380, 80), close_panels)
+	_button(panels, tr("ENTER THE DARK", "进入黑暗 / CONTINUE"), Rect2(76, 764, 1380, 80), close_panels)
 	game.story.play_voice("brief_%d" % game.stage)
 
 func close_panels() -> void:
@@ -337,7 +355,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / THE OTHER SHIFT\nExploration-driven horror with local scripted sightings.\nLicensed real GLB architecture, local animated sightings and P2P co-op.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.16.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.18.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page("授权素材 / CREDITS", "credits")
@@ -496,7 +514,16 @@ func refresh() -> void:
 	if is_instance_valid(room_status): room_status.text = game.net.status
 
 func open_settings() -> void:
-	_page("画质、生成语音和操作", "settings")
+	_page(tr("Graphics, Audio & Controls", "画质、配音和操作"), "settings")
+	_label(panels, tr("LANGUAGE / Default: English", "语言 / 默认英语"), Vector2(75, 160), 850, 24, ACCENT)
+	var languages := OptionButton.new()
+	languages.position = Vector2(1085, 154)
+	languages.size = Vector2(382, 57)
+	languages.add_item("English", 0)
+	languages.add_item("简体中文", 1)
+	languages.select(1 if game.language == "zh" else 0)
+	languages.item_selected.connect(func(i: int): game.set_language("zh" if i == 1 else "en"))
+	panels.add_child(languages)
 	_label(panels, "动态 3D 分辨率 / 水面与阴影共用手机性能预算", Vector2(76, 197), 1310, 24, ACCENT)
 	for i in range(3):
 		var labels := ["流畅 / 58%", "均衡 / 74%", "精细 / 91%"]
