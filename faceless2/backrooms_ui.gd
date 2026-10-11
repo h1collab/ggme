@@ -38,6 +38,8 @@ var panel_kind := ""
 var cinematic_fade: ColorRect
 var call_title: Label
 var call_button: Button
+var wakeup_text: Label
+var wakeup_veil: ColorRect
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
@@ -262,10 +264,39 @@ func open_prologue() -> void:
 
 func prologue_stage(phase: String) -> void:
 	if not is_instance_valid(call_title): return
-	call_title.text = localized("Unknown Caller", "未知号码") if phase == "ring" or phase == "disconnect" else ""
+	call_title.text = ""
 	if is_instance_valid(call_button):
 		call_button.visible = phase == "ring"
+	# Caller name is displayed ON the phone GLB screen, not on an external HUD.
+	call_title.text = ""
 	if phase == "push": prologue_fade(0.0)
+	if phase == "wake":
+		if is_instance_valid(call_button): call_button.visible = false
+		prologue_wake_progress(0.0)
+
+func prologue_wake_progress(progress: float) -> void:
+	if not is_instance_valid(wakeup_veil):
+		wakeup_veil = ColorRect.new()
+		wakeup_veil.name = "SoftWakeupVeil_LowCostMobile"
+		wakeup_veil.position = Vector2.ZERO
+		wakeup_veil.size = Vector2(1600,900)
+		wakeup_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panels.add_child(wakeup_veil)
+		wakeup_text = _label(panels,"",Vector2(250,748),1100,39,PAPER)
+		wakeup_text.name = "WakeupTypewriter_English"
+		wakeup_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		wakeup_text.add_theme_color_override("font_shadow_color",Color(0,0,0,0.82))
+		wakeup_text.add_theme_constant_override("shadow_offset_x",2)
+		wakeup_text.add_theme_constant_override("shadow_offset_y",2)
+	var p := clampf(progress,0.0,1.0)
+	# Small-device-safe recovery impression: transparent veiling/exposure,
+	# gentle desaturation and peripheral darkness, never costly full-screen blur.
+	wakeup_veil.color = Color(0.075,0.10,0.11,1.0-smoothstep(0.0,0.74,p)*0.94)
+	if is_instance_valid(cinematic_fade):
+		cinematic_fade.color.a = 1.0-smoothstep(0.0,0.36,p)
+	var characters := clampi(int(floor(maxf(0.0,p-0.30)*21.0)),0,11)
+	wakeup_text.text = "Where am I?".substr(0,characters)
+	wakeup_text.modulate.a = smoothstep(0.29,0.43,p)
 
 func prologue_fade(alpha: float) -> void:
 	if is_instance_valid(cinematic_fade):
@@ -276,7 +307,7 @@ func prologue_finished() -> void:
 	_card(panels, Rect2(0, 0, 1600, 900), Color.BLACK)
 	var title := _label(panels, "FACELESS 2", Vector2(440, 270), 720, 62, PAPER)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var subtitle := _label(panels, localized("THE OTHER SHIFT / PROLOGUE END", "THE OTHER SHIFT / 序章终"), Vector2(440, 392), 720, 29, MUTED)
+	var subtitle := _label(panels, localized("THE OTHER SHIFT / THE DARK BELOW", "THE OTHER SHIFT / 深处的黑暗"), Vector2(440, 392), 720, 29, MUTED)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_button(panels, localized("REPLAY", "重播序章"), Rect2(420, 630, 350, 74), func(): game.start_prologue())
 	_button(panels, localized("MAIN MENU", "返回主菜单"), Rect2(830, 630, 350, 74), func(): game.prologue.exit_to_menu())
