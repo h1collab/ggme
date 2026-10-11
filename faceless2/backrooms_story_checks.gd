@@ -70,7 +70,7 @@ func run() -> void:
 		game.water_picked = true
 		game.key_picked = true
 		game.assembled = true
-		check(game.next_objective().text.contains("Lift"), "English-default objective points toward the lift")
+		check(game.next_objective().text.to_lower().contains("lift"), "English-default objective points toward the lift")
 	game.start_shift(2)
 	game.ui.close_panels()
 	game.story.phase = "idle"
