@@ -31,7 +31,7 @@ jobs:
           echo "054a7037bebddd6a4be9e697f495c5577756bc7b4c075681d2fb3226a74f65ea  upgrade.zip" | sha256sum -c -
           mkdir app
           unzip -q upgrade.zip -d app
-          python -m pip install -q Pillow==11.3.0
+          python -m pip install -q Pillow==11.3.0 fonttools==4.61.1
           python - <<'PYCODE'
           from pathlib import Path
           import shutil,re
