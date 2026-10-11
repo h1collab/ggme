@@ -267,7 +267,7 @@ func prologue_stage(phase: String) -> void:
 	if not is_instance_valid(call_title): return
 	call_title.text = ""
 	if is_instance_valid(call_button):
-		call_button.visible = phase == "ring"
+		call_button.visible = false
 	# Caller name is displayed ON the phone GLB screen, not on an external HUD.
 	call_title.text = ""
 	if phase == "push": prologue_fade(0.0)
@@ -327,10 +327,12 @@ func prologue_finished() -> void:
 	_clear("prologue_end")
 	panels.visible = true
 	hud.visible = false
-	var line := _label(panels, "Where am I?", Vector2(340,750),920,37,PAPER)
+	modal = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	var line := _label(panels, "", Vector2(340,750),920,37,PAPER)
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
-	_label(panels, localized("RIGHT DRAG / LOOK AROUND", "右侧拖动 / 环顾四周"),Vector2(40,820),750,16,MUTED)
+	_label(panels, localized("MOVE / EXPLORE THE DOORS", "移动 / 探索周围的门"),Vector2(40,820),750,16,MUTED)
 	_button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
 	_button(panels, localized("MAIN MENU", "主菜单"), Rect2(1380,24,190,64), func(): game.prologue.exit_to_menu())
 
