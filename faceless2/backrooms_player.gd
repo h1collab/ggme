@@ -25,6 +25,8 @@ var focus_seconds := 0.0
 var focus_target := Vector3.ZERO
 var attention_hold := 0.0
 var focus_allowed := false
+var jump_requested := false
+var jump_count := 0
 
 func _ready() -> void:
 	name = "LocalCrew"
@@ -101,7 +103,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		look(event.relative)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
-			KEY_E: game.interact()
+			KEY_E: interact_or_locked_door()
+			KEY_SPACE: request_jump()
 			KEY_J: game.ui.open_journal()
 			KEY_F: torch.visible = not torch.visible
 			KEY_ESCAPE: game.ui.open_pause()
@@ -147,7 +150,10 @@ func _physics_process(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, direction.x * speed, delta * 14)
 	velocity.z = move_toward(velocity.z, direction.z * speed, delta * 14)
 	if not is_on_floor(): velocity.y -= 18.0 * delta
-	else: velocity.y = -0.1
+	else:
+		velocity.y = 5.1 if jump_requested and not lift_riding else -0.1
+		if jump_requested and not lift_riding: jump_count += 1
+	jump_requested = false
 	move_and_slide()
 	if is_on_floor() and not last_grounded: landing_dip = 0.045
 	last_grounded = is_on_floor()
@@ -188,6 +194,19 @@ func _physics_process(delta: float) -> void:
 			game.footstep()
 		else:
 			game.water_footstep()
+
+func request_jump() -> void:
+	if game.running and not game.ui.modal and not lift_riding:
+		jump_requested = true
+
+func interact_or_locked_door() -> void:
+	if game.prologue.phase == "ended" and game.wakeup_room.visible:
+		if game.wakeup_room.try_locked_door(global_position):
+			game.ui.show_timed_hint(game.ui.localized("LOCKED — NO RESPONSE", "门已锁住，无法打开"), 2.0)
+		else:
+			game.ui.show_timed_hint(game.ui.localized("NOTHING TO USE", "附近没有可使用的物品"), 1.1)
+	else:
+		game.interact()
 
 func reset_to(pos: Vector3) -> void:
 	cancel_focus()
