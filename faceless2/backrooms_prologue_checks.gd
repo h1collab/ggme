@@ -41,9 +41,9 @@ func run() -> void:
 	check(prologue.interference.stream != null and prologue.fall_audio.stream != null, "Static and falling audio packaged")
 	for i in range(19): prologue.advance(0.15)
 	check(prologue.phase == "ring", "Fast 3D camera push reaches the phone")
-	check(game.language == "en" and prologue.screen_label.text == "UNKNOWN CALLER" and prologue.screen_surface.visible, "Default English UNKNOWN CALLER rendered on physical GLB phone screen")
+	check(game.language == "en" and prologue.screen_label.text.replace("\n"," ") == "UNKNOWN CALLER" and prologue.screen_surface.visible, "Default English UNKNOWN CALLER rendered on physical GLB phone screen")
 	game.set_language("zh")
-	prologue.screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN CALLER"
+	prologue.update_phone_language()
 	check(prologue.screen_label.text == "未知号码", "Chinese model phone screen can show unknown number")
 	game.set_language("en")
 	prologue.screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN CALLER"
