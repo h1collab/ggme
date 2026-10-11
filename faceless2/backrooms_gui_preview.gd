@@ -12,12 +12,11 @@ func _initialize() -> void:
 func _capture(tag: String) -> void:
 	for i in range(5): await process_frame
 	var picture: Image = root.get_texture().get_image()
-	picture.flip_y()
 	var file := output_dir.path_join(tag + ".png")
 	var result := picture.save_png(file)
 	if result != OK: failures.append("Could not capture Godot viewport: " + tag)
 	else: print("GODOT_GUI_PREVIEW " + tag + " " + str(picture.get_width()) + "x" + str(picture.get_height()))
-	print("PREVIEW_CAMERA " + tag + " camera=" + str(get_viewport().get_camera_3d().global_position))
+	print("PREVIEW_CAMERA " + tag + " camera=" + str(root.get_camera_3d().global_position))
 
 func _advance_frames(count: int) -> void:
 	for i in range(count):
