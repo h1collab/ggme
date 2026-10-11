@@ -105,7 +105,8 @@ func _ready() -> void:
 		phantom.visible = false
 		phantom.position = Vector3(0, 0, -16)
 		add_child(phantom)
-		for rig in phantom.find_children("*", "AnimationPlayer", true, false):
+		for node in phantom.find_children("*", "AnimationPlayer", true, false):
+			var rig := node as AnimationPlayer
 			if not rig.get_animation_list().is_empty():
 				rig.play(rig.get_animation_list()[0])
 				rig.speed_scale = 0.0
