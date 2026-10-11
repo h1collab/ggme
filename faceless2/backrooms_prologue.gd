@@ -30,6 +30,7 @@ var screen_viewport: SubViewport
 var screen_label: Label
 var screen_surface: MeshInstance3D
 var wake_camera: Camera3D
+var wake_hands: Node3D
 
 func _ready() -> void:
 	name = "OtherShiftPrologue"
@@ -97,6 +98,22 @@ func _ready() -> void:
 	add_child(wake_camera)
 	wake_camera.position = Vector3(0,0.32,3.1)
 	wake_camera.look_at(Vector3(0,-0.4,0.35))
+	# Reuse the genuine skinned, license-tracked first-person arm GLB.
+	if ResourceLoader.exists(Assets.path("vendor/first_person_arms.glb")):
+		wake_hands = Node3D.new()
+		wake_hands.name = "WakingSkinnedFirstPersonHands"
+		wake_hands.position = Vector3(0,-1.49,-0.59)
+		wake_hands.rotation.y = PI
+		wake_camera.add_child(wake_hands)
+		wake_hands.add_child(load(Assets.path("vendor/first_person_arms.glb")).instantiate())
+		wake_hands.visible = false
+		for anim_node in wake_hands.find_children("*","AnimationPlayer",true,false):
+			var anim := anim_node as AnimationPlayer
+			for clip in anim.get_animation_list():
+				if clip == "RESET": continue
+				anim.play(clip)
+				anim.speed_scale = 0.12
+				break
 	# The silent person in the recovered recording is a real skinned GLB,
 	# not a generated primitive; this figure does not appear in multiplayer.
 	if ResourceLoader.exists(Assets.path("vendor/crew.glb")):
@@ -260,6 +277,7 @@ func advance(delta: float) -> void:
 			if clock >= BLACK_SECONDS: _transition("wake")
 		"wake":
 			var waking := smoothstep(0.0, WAKE_SECONDS, clock)
+			if is_instance_valid(wake_hands): wake_hands.visible = waking > 0.40
 			wake_camera.position = game.wakeup_room.CAMERA_GROUND.lerp(game.wakeup_room.CAMERA_UP,waking)
 			wake_camera.look_at(game.wakeup_room.LOOK_GROUND.lerp(game.wakeup_room.LOOK_DARKNESS,waking))
 			game.ui.prologue_wake_progress(clock / WAKE_SECONDS)
