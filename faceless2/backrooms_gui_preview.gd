@@ -57,31 +57,32 @@ func run() -> void:
 	await _capture("07_wake_mid")
 	await _advance_frames(20)
 	await _capture("08_wake_dark")
-	var saw_watch := false
-	var saw_rush := false
-	for i in range(31):
-		if prologue.phase == "smiler_watch" and not saw_watch:
-			saw_watch = true
-			await _capture("09_smiler_watching")
-		if prologue.phase == "smiler_rush" and not saw_rush:
-			saw_rush = true
-			await _capture("10_smiler_rush_start")
-			prologue.advance(0.15)
-			await process_frame
-			await _capture("11_smiler_rush_mid")
-		if prologue.phase == "ended": break
+	# Player must actively turn to trigger the direction-dependent entity.
+	await _capture("09_waiting_no_smiler")
+	for i in range(18): prologue.advance(0.15)
+	await _capture("10_still_no_smiler")
+	if prologue.phase != "smiler_wait_turn": failures.append("Sight event auto-triggered without looking")
+	prologue.look_before_smiler(Vector2(-590,0))
+	for i in range(8):
 		prologue.advance(0.15)
 		await process_frame
-	if not saw_watch or not saw_rush:
-		failures.append("Missing actual Smiler watch and rush sequence")
+		if prologue.phase == "smiler_watch":
+			await _capture("11_smiler_far_flash")
+			break
+	for i in range(5): prologue.advance(0.15)
+	await _capture("12_smiler_disappears")
+	for i in range(8):
+		prologue.advance(0.15)
+		await process_frame
+		if prologue.phase == "smiler_near":
+			await _capture("13_smiler_near_flash")
+			break
+	for i in range(3): prologue.advance(0.15)
 	if prologue.phase == "ended":
-		await _capture("12_smiler_vanished")
+		await _capture("14_controls_unlocked")
 		game.player.look(Vector2(90,0))
-		await _capture("13_player_looks_around")
-		game.player.position += Vector3(0,0,-0.32)
-		await _capture("14_first_person_moves")
-	if prologue.phase != "ended":
-		failures.append("Smiler cinematic not handed to controllable FPS: " + prologue.phase)
+		await _capture("15_player_looks_around")
+	else: failures.append("Second apparition did not release movement")
 	game.net.leave()
 	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
 		for sound in game.find_children("*", kind, true, false):
