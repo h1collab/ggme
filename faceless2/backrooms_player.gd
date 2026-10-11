@@ -211,10 +211,16 @@ func request_jump() -> void:
 
 func interact_or_locked_door() -> void:
 	if game.prologue.phase == "ended" and game.wakeup_room.visible:
-		if game.wakeup_room.try_locked_door(global_position):
-			game.ui.show_timed_hint(game.ui.localized("LOCKED — NO RESPONSE", "门已锁住，无法打开"), 2.0)
-		else:
-			game.ui.show_timed_hint(game.ui.localized("NOTHING TO USE", "附近没有可使用的物品"), 1.1)
+		var result: String = game.wakeup_room.door_result(global_position)
+		match result:
+			"OPEN":
+				global_position = game.wakeup_room.laboratory_spawn
+				velocity = Vector3.ZERO
+				game.ui.show_timed_hint(game.ui.localized("LABORATORY — KEEP MOVING", "废弃实验室——继续探索"), 2.3)
+			"LOCK":
+				game.ui.show_timed_hint(game.ui.localized("LOCK", "已锁"), 2.0)
+			_:
+				game.ui.show_timed_hint(game.ui.localized("NOTHING TO USE", "附近没有可使用的物品"), 1.1)
 	else:
 		game.interact()
 
