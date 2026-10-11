@@ -7,13 +7,14 @@ const LOOK_GROUND := Vector3(0, -0.4, 0.35)
 const LOOK_DARKNESS := Vector3(0, 1.26, -18.0)
 var authored_modules := 0
 var facility_lights: Array[Light3D] = []
+var low_rumble: AudioStreamPlayer3D
 
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
 	# Facility is a plausible black-site research space, not an official Area 51 layout.
 	var concrete := _finish(Color(0.30,0.32,0.31), "concrete.jpg")
 	var industrial := _finish(Color(0.18,0.23,0.24))
-	var floor_finish := _finish(Color(0.24,0.29,0.30), "concrete.jpg")
+	var floor_finish := _finish(Color(0.10,0.12,0.13), "concrete.jpg")
 	var panel := _finish(Color(0.26,0.30,0.30))
 	for x in [-3.0,-1.5,0.0,1.5,3.0]:
 		for z in [3.0,1.5,0.0,-1.5,-3.0,-4.5,-6.0,-7.5,-9.0]:
@@ -31,7 +32,10 @@ func _ready() -> void:
 	for i in range(5):
 		_module("pipe",Vector3(-3.45,2.65,1.6-i*2.0),industrial,Vector3(0.24,0.24,1.8))
 	_module("container_tall",Vector3(2.9,0.95,1.6),industrial,Vector3(0.85,1.9,0.85))
-	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(7.6,3.1,0.3))
+	# Close the far end with authored walls, not a skybox leak or visible primitive.
+	for x in [-3.0,-1.5,0.0,1.5,3.0]:
+		_module("wall",Vector3(x,1.55,-10.0),_finish(Color(0.025,0.035,0.04)),Vector3(1.5,3.1,0.3))
+	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(1.6,3.1,0.3))
 	# A distant shutter has no floodlighting. Forward view ends in darkness.
 	for at in [Vector3(1.9,2.7,1.4),Vector3(-1.7,2.7,-1.8)]:
 		var light := SpotLight3D.new()
@@ -44,6 +48,13 @@ func _ready() -> void:
 		add_child(light)
 		light.look_at(at+Vector3(0,-2.2,-0.3))
 		facility_lights.append(light)
+	low_rumble = AudioStreamPlayer3D.new()
+	low_rumble.name = "DistantVentilation_Rumble"
+	low_rumble.position = Vector3(0,1.8,-5.0)
+	low_rumble.max_distance = 20.0
+	var sound_path := Assets.path("vendor/hum.mp3")
+	if ResourceLoader.exists(sound_path): low_rumble.stream = load(sound_path)
+	add_child(low_rumble)
 	visible = false
 
 func _finish(color: Color, photo: String = "") -> StandardMaterial3D:
@@ -64,7 +75,12 @@ func _module(source: String, at: Vector3, material: StandardMaterial3D, dimensio
 	var model := Assets.fitted(name,dimensions.y)
 	model.name = "Kenney_CC0_"+source
 	model.position = at
-	model.scale = Vector3(dimensions.x,dimensions.y,dimensions.z)
+	var source_dims: Vector3 = model.get_meta("dimensions",Vector3.ONE)
+	model.scale = Vector3(
+		dimensions.x / maxf(source_dims.x,0.01),
+		dimensions.y / maxf(source_dims.y,0.01),
+		dimensions.z / maxf(source_dims.z,0.01)
+	)
 	# Keep author-created mesh, only tint it to consistent desaturated concrete.
 	for mesh in model.find_children("*","MeshInstance3D",true,false):
 		(mesh as MeshInstance3D).material_override = material
