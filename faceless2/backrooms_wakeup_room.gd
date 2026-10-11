@@ -61,7 +61,7 @@ func _ready() -> void:
 	else:
 		smiler = Assets.fitted("vendor/sketchfab_smiler.glb",1.65)
 		smiler.name = "SketchfabSmiler_SilentWatcher"
-		smiler.position = Vector3(0,0,-6.2)
+		smiler.position = Vector3(0,0,-4.1)
 		add_child(smiler)
 		smiler.visible = false
 		for mesh in smiler.find_children("*","MeshInstance3D",true,false):
@@ -69,10 +69,10 @@ func _ready() -> void:
 		smiler_glow = OmniLight3D.new()
 		smiler_glow.name = "NarrowSmilerMoonlight"
 		smiler_glow.light_color = Color(0.46,0.68,0.79)
-		smiler_glow.light_energy = 0.36
-		smiler_glow.omni_range = 2.0
+		smiler_glow.light_energy = 0.75
+		smiler_glow.omni_range = 3.0
 		smiler_glow.shadow_enabled = false
-		smiler_glow.position = Vector3(0.7,1.3,-5.5)
+		smiler_glow.position = Vector3(0.65,1.55,-3.55)
 		add_child(smiler_glow)
 		smiler_glow.visible = false
 	# A distant shutter has no floodlighting. Forward view ends in darkness.
@@ -142,9 +142,9 @@ func smiler_stage(distance_t: float, stage: String) -> void:
 		player.speed_scale = 0.03 if stage == "watch" else (2.3 if stage == "rush" else 0.0)
 	if stage == "watch":
 		smiler.position = Vector3(0,0,-6.2)
-		smiler.rotation.y = 0
+		smiler.rotation.y = PI
 	elif stage == "rush":
-		smiler.position = Vector3(0,0,lerpf(-6.2,2.1,smoothstep(0.0,1.0,distance_t)))
+		smiler.position = Vector3(0,0,lerpf(-4.1,2.0,smoothstep(0.0,1.0,distance_t)))
 		smiler.rotation.y = 0
 		if is_instance_valid(smiler_glow): smiler_glow.position.z = smiler.position.z + 0.7
 
