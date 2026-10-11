@@ -7,6 +7,7 @@ const NetworkScript = preload("backrooms_network.gd")
 const StoryScript = preload("backrooms_story.gd")
 const PrologueScript = preload("backrooms_prologue.gd")
 const PrologueRoomScript = preload("backrooms_prologue_room.gd")
+const WakeRoomScript = preload("backrooms_wakeup_room.gd")
 const RoomsScript = preload("backrooms_rooms.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
@@ -70,6 +71,7 @@ var auto_scale_timer := 0.0
 var story: Node3D
 var prologue: Node3D
 var prologue_room: Node3D
+var wakeup_room: Node3D
 
 func _ready() -> void:
 	name = "Faceless 2"
@@ -116,6 +118,8 @@ func _ready() -> void:
 	prologue_room = PrologueRoomScript.new()
 	prologue_room.game = self
 	add_child(prologue_room)
+	wakeup_room = WakeRoomScript.new()
+	add_child(wakeup_room)
 	var config := ConfigFile.new()
 	if config.load("user://faceless2.cfg") == OK:
 		quality = int(config.get_value("display", "quality", 1))
@@ -213,6 +217,7 @@ func show_title_room() -> void:
 	# The old Backrooms test levels remain loaded but cannot leak into the story.
 	if is_instance_valid(level): level.visible = false
 	if is_instance_valid(prologue_room): prologue_room.visible = true
+	if is_instance_valid(wakeup_room): wakeup_room.visible = false
 	if is_instance_valid(player):
 		player.visible = false
 		player.set_physics_process(false)
@@ -230,6 +235,7 @@ func start_prologue() -> void:
 
 func start_solo() -> void:
 	if is_instance_valid(prologue_room): prologue_room.visible = false
+	if is_instance_valid(wakeup_room): wakeup_room.visible = false
 	if is_instance_valid(prologue): prologue.visible = false
 	if is_instance_valid(level): level.visible = true
 	if is_instance_valid(player):
@@ -243,6 +249,7 @@ func start_solo() -> void:
 
 func start_shift(index: int) -> void:
 	if is_instance_valid(prologue_room): prologue_room.visible = false
+	if is_instance_valid(wakeup_room): wakeup_room.visible = false
 	if is_instance_valid(prologue): prologue.visible = false
 	if is_instance_valid(player):
 		player.visible = true
