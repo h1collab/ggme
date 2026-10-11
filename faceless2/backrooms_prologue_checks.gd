@@ -24,6 +24,7 @@ func run() -> void:
 	check(prologue.camera.current, "Surveillance camera owns local opening view")
 	check(prologue.phone != null and is_instance_valid(prologue.phone), "Real external GLB phone loaded")
 	check(prologue.phone != null and prologue.phone.find_children("*", "MeshInstance3D", true, false).size() > 0, "Imported phone uses authored external GLB mesh")
+	check(prologue.model_is_iphone17, "Licensed Ranguel iPhone 17 Pro GLB loads, not placeholder")
 	check(not game.running and not game.player.visible, "Old evidence loop cannot hijack opening")
 	check(game.ui.panel_kind == "prologue", "Mobile opening HUD is present")
 	check(prologue.ringtone.stream != null and prologue.hangup.stream != null, "Ringtone and disconnect audio packaged")
