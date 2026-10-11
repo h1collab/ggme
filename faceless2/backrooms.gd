@@ -311,16 +311,19 @@ func _tick(delta: float) -> void:
 func transfer_ready() -> bool:
 	return assembled and not repaired.has(false) and key_picked and not failed
 
+func local_text(en: String, zh: String) -> String:
+	return zh if language == "zh" else en
+
 func prompt() -> String:
-	if not water_picked and player.position.distance_to(level.water_position) < 2.0: return "E / 拾取杏仁水"
-	if not key_picked and player.position.distance_to(level.key_position) < 2.0: return "E / 拾取电梯钥匙组件"
-	if not assembled and not repaired.has(false) and key_picked and player.position.distance_to(level.console_position) < 2.9: return "E / 拼接钥匙与信号图"
+	if not water_picked and player.position.distance_to(level.water_position) < 2.0: return local_text("E / Pick up almond water", "E / 拾取杏仁水")
+	if not key_picked and player.position.distance_to(level.key_position) < 2.0: return local_text("E / Pick up lift key", "E / 拾取电梯钥匙组件")
+	if not assembled and not repaired.has(false) and key_picked and player.position.distance_to(level.console_position) < 2.9: return local_text("E / Assemble lift key", "E / 拼接钥匙与信号图")
 	for i in range(3):
 		if player.position.distance_to(level.relays[i]) < 2.5:
-			return "证据已记录 / 查看日志" if repaired[i] else "E / 调查 " + story.EVIDENCE_TITLES[stage][i]
-	if player.position.distance_to(level.console_position) < 2.9: return "E / 打开调查日志"
+			return local_text("Evidence found / Journal", "证据已记录 / 查看日志") if repaired[i] else local_text("E / Inspect ", "E / 调查 ") + story.evidence_title(stage, i)
+	if player.position.distance_to(level.console_position) < 2.9: return local_text("E / Open journal", "E / 打开调查日志")
 	if player.position.distance_to(level.exit_position) < 2.8:
-		return "电梯正在下降" if lift_active else ("E / 决定真相的去向" if stage == 3 and transfer_ready() else ("E / 进入电梯" if transfer_ready() else "电梯封锁 / 尚有证据未查清"))
+		return local_text("Lift descending", "电梯正在下降") if lift_active else (local_text("E / Choose the ending", "E / 决定真相的去向") if stage == 3 and transfer_ready() else (local_text("E / Enter the lift", "E / 进入电梯") if transfer_ready() else local_text("Lift locked / More clues needed", "电梯封锁 / 尚有证据未查清")))
 	return ""
 
 func interact() -> void:
@@ -548,9 +551,9 @@ func set_audio_volume(value: float) -> void:
 	save_settings()
 
 func next_objective() -> Dictionary:
-	if not water_picked: return {"text":"拾起杏仁水 / 先准备在异常空间中生存", "position":level.water_position}
-	if not key_picked: return {"text":"寻找电梯钥匙 / 金属碰撞声在附近", "position":level.key_position}
+	if not water_picked: return {"text":local_text("Find almond water / Get supplies", "拾起杏仁水 / 先准备在异常空间中生存"), "position":level.water_position}
+	if not key_picked: return {"text":local_text("Find the lift key / Listen for metal", "寻找电梯钥匙 / 金属碰撞声在附近"), "position":level.key_position}
 	for i in range(3):
-		if not repaired[i]: return {"text":story.EVIDENCE_TITLES[stage][i] + " / " + story.EVIDENCE_WHY[stage][i], "position":level.relays[i]}
-	if not assembled: return {"text":"返回调查台 / 把钥匙与三份现场证据拼合", "position":level.console_position}
-	return {"text":"进入电梯 / 选择真相的去向" if stage == 3 else "电梯已解锁 / 前往下一层", "position":level.exit_position}
+		if not repaired[i]: return {"text":story.evidence_title(stage, i) + local_text(" / Investigate the physical clue", " / " + story.EVIDENCE_WHY[stage][i]), "position":level.relays[i]}
+	if not assembled: return {"text":local_text("Return to desk / Assemble key and evidence", "返回调查台 / 把钥匙与三份现场证据拼合"), "position":level.console_position}
+	return {"text":local_text("Enter lift / Choose the ending", "进入电梯 / 选择真相的去向") if stage == 3 else local_text("Lift unlocked / Descend", "电梯已解锁 / 前往下一层"), "position":level.exit_position}
