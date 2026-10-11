@@ -48,6 +48,7 @@ var sensitivity := 1.0
 var auto_turn := false
 var audio_volume := 0.8
 var voice_enabled := true
+var language := "en"  # Default English; Chinese is a saved user preference.
 var shock_glance_enabled := true
 var inventory := {"almond_water":0,"lift_keys":0}
 var water_picked := false
@@ -117,6 +118,7 @@ func _ready() -> void:
 		auto_turn = bool(config.get_value("controls", "auto_turn", false))
 		audio_volume = clampf(float(config.get_value("audio", "volume", 0.8)), 0, 1)
 		voice_enabled = bool(config.get_value("audio", "generated_voice", true))
+		language = "zh" if str(config.get_value("display", "language", "en")) == "zh" else "en"
 		shock_glance_enabled = bool(config.get_value("controls", "scripted_glance", true))
 		rooms.configure(String(config.get_value("network", "directory_url", "")))
 	set_audio_volume(audio_volume)
@@ -525,6 +527,7 @@ func set_quality(value: int) -> void:
 func save_settings() -> void:
 	var config := ConfigFile.new()
 	config.set_value("display", "quality", quality)
+	config.set_value("display", "language", language)
 	config.set_value("controls", "sensitivity", sensitivity)
 	config.set_value("controls", "auto_turn", auto_turn)
 	config.set_value("audio", "volume", audio_volume)
@@ -532,6 +535,11 @@ func save_settings() -> void:
 	config.set_value("controls", "scripted_glance", shock_glance_enabled)
 	config.set_value("network", "directory_url", rooms.directory_url if is_instance_valid(rooms) else "")
 	config.save("user://faceless2.cfg")
+
+func set_language(value: String) -> void:
+	language = "zh" if value == "zh" else "en"
+	save_settings()
+	if is_instance_valid(ui): ui.rebuild_language()
 
 func set_audio_volume(value: float) -> void:
 	audio_volume = clampf(value, 0, 1)
