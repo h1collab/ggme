@@ -27,6 +27,7 @@ var attention_hold := 0.0
 var focus_allowed := false
 var jump_requested := false
 var jump_count := 0
+var last_near_door: Node3D
 
 func _ready() -> void:
 	name = "LocalCrew"
@@ -127,6 +128,15 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		aim_pointer = -1
 		return
+	if game.prologue.phase == "ended" and game.wakeup_room.visible:
+		var near := game.wakeup_room.player_near_door(global_position)
+		if near != last_near_door:
+			last_near_door = near
+			if near != null:
+				game.wakeup_room.play_door_proximity(near)
+				game.ui.show_timed_hint(game.ui.localized("E / TRY DOOR", "E / 尝试开门"), 1.5)
+	else:
+		last_near_door = null
 	if focus_seconds > 0 and not lift_riding:
 		focus_seconds = maxf(0, focus_seconds - delta)
 		var direction := focus_target - camera.global_position
@@ -221,6 +231,7 @@ func reset_to(pos: Vector3) -> void:
 	lift_clock = 0.0
 	landing_dip = 0.0
 	last_grounded = false
+	last_near_door = null
 
 func begin_focus(target: Vector3, duration: float = 1.2) -> void:
 	focus_target = target
