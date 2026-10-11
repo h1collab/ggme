@@ -61,7 +61,11 @@ func _ready() -> void:
 	else:
 		smiler = Assets.fitted("vendor/sketchfab_smiler.glb",1.65)
 		smiler.name = "SketchfabSmiler_SilentWatcher"
-		smiler.position = Vector3(0,0,-4.1)
+		# This Sketchfab asset is a floating face whose long axis is Z and
+		# face normal X, rather than a conventional Y-up humanoid.
+		smiler.scale = Vector3.ONE * 0.60
+		smiler.rotation = Vector3(PI * 0.5, PI * 0.5, 0.0)
+		smiler.position = Vector3(0,1.15,-4.1)
 		add_child(smiler)
 		smiler.visible = false
 		for mesh in smiler.find_children("*","MeshInstance3D",true,false):
@@ -142,9 +146,9 @@ func smiler_stage(distance_t: float, stage: String) -> void:
 		player.speed_scale = 0.03 if stage == "watch" else (2.3 if stage == "rush" else 0.0)
 	if stage == "watch":
 		smiler.position = Vector3(0,0,-6.2)
-		smiler.rotation.y = PI
+		smiler.rotation.y = PI * 0.5
 	elif stage == "rush":
-		smiler.position = Vector3(0,0,lerpf(-4.1,2.0,smoothstep(0.0,1.0,distance_t)))
+		smiler.position = Vector3(0,1.15,lerpf(-4.1,2.0,smoothstep(0.0,1.0,distance_t)))
 		smiler.rotation.y = 0
 		if is_instance_valid(smiler_glow): smiler_glow.position.z = smiler.position.z + 0.7
 
