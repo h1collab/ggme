@@ -6,6 +6,7 @@ const UiScript = preload("backrooms_ui.gd")
 const NetworkScript = preload("backrooms_network.gd")
 const StoryScript = preload("backrooms_story.gd")
 const PrologueScript = preload("backrooms_prologue.gd")
+const PrologueRoomScript = preload("backrooms_prologue_room.gd")
 const RoomsScript = preload("backrooms_rooms.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
@@ -68,6 +69,7 @@ var frame_ema := 0.0167
 var auto_scale_timer := 0.0
 var story: Node3D
 var prologue: Node3D
+var prologue_room: Node3D
 
 func _ready() -> void:
 	name = "Faceless 2"
@@ -111,6 +113,9 @@ func _ready() -> void:
 	prologue = PrologueScript.new()
 	prologue.game = self
 	add_child(prologue)
+	prologue_room = PrologueRoomScript.new()
+	prologue_room.game = self
+	add_child(prologue_room)
 	var config := ConfigFile.new()
 	if config.load("user://faceless2.cfg") == OK:
 		quality = int(config.get_value("display", "quality", 1))
@@ -123,6 +128,7 @@ func _ready() -> void:
 		rooms.configure(String(config.get_value("network", "directory_url", "")))
 	set_audio_volume(audio_volume)
 	set_quality(quality)
+	show_title_room()
 	ui.intro()
 
 func _audio() -> void:
@@ -202,17 +208,45 @@ func _load_level(index: int) -> void:
 		if flooded_ambience.stream != null: flooded_ambience.play()
 	clear_crew()
 
+func show_title_room() -> void:
+	# Only the isolated authored-GLB apartment is visible on the title screen.
+	# The old Backrooms test levels remain loaded but cannot leak into the story.
+	if is_instance_valid(level): level.visible = false
+	if is_instance_valid(prologue_room): prologue_room.visible = true
+	if is_instance_valid(player):
+		player.visible = false
+		player.set_physics_process(false)
+	if is_instance_valid(prologue):
+		prologue.visible = true
+		prologue.camera.position = prologue_room.CAMERA_FAR
+		prologue.camera.fov = 59.0
+		prologue.camera.look_at(prologue_room.PHONE_AT)
+		prologue.camera.make_current()
+	running = false
+
 func start_prologue() -> void:
 	# The new opening is solo/local-only; co-op sessions retain their own camera.
 	if is_instance_valid(prologue): prologue.begin()
 
 func start_solo() -> void:
+	if is_instance_valid(prologue_room): prologue_room.visible = false
+	if is_instance_valid(prologue): prologue.visible = false
+	if is_instance_valid(level): level.visible = true
+	if is_instance_valid(player):
+		player.visible = true
+		player.camera.make_current()
+		player.set_physics_process(true)
 	net.leave()
 	inventory = {"almond_water":0,"lift_keys":0}
 	start_shift(0)
 	ui.open_briefing()
 
 func start_shift(index: int) -> void:
+	if is_instance_valid(prologue_room): prologue_room.visible = false
+	if is_instance_valid(prologue): prologue.visible = false
+	if is_instance_valid(player):
+		player.visible = true
+		player.camera.make_current()
 	_load_level(index)
 	elapsed = 0
 	power = 100
