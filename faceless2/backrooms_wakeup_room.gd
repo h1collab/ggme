@@ -17,6 +17,10 @@ var near_door_audio: AudioStreamPlayer3D
 var door_notice_until := 0.0
 var walkable_floor: StaticBody3D
 var side_doors: Array[Node3D] = []
+var openable_door: Node3D
+var laboratory_entered := false
+var laboratory_modules := 0
+var laboratory_spawn := Vector3(11.0,0.12,-3.0)
 
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
@@ -49,6 +53,53 @@ func _ready() -> void:
 	for door_at in [Vector3(-3.40,1.3,1.4),Vector3(3.40,1.3,-0.9),Vector3(-3.40,1.3,-4.5),Vector3(3.40,1.3,-6.4)]:
 		var door := _authored_door(door_at)
 		if door != null: side_doors.append(door)
+	# One door is an actual continuation, others remain sealed with LOCK feedback.
+	if side_doors.size() >= 2: openable_door = side_doors[1]
+	# Abandoned laboratory is built exclusively from previously sourced Kenney
+	# industrial GLB architecture/furniture. It is reached through the open door.
+	# No visible BoxMesh or procedurally invented 3D props.
+	var dusty := _finish(Color(0.27,0.33,0.32),"concrete.jpg")
+	var steel := _finish(Color(0.16,0.22,0.24))
+	for x in [8.0,9.5,11.0,12.5,14.0]:
+		for z in [-0.5,-2.0,-3.5,-5.0,-6.5]:
+			_module("floor_panel",Vector3(x,-0.06,z),dusty,Vector3(1.5,0.18,1.5))
+			laboratory_modules += 1
+	for z in [-0.5,-2.0,-3.5,-5.0,-6.5]:
+		_module("wall",Vector3(7.15,1.55,z),dusty,Vector3(0.25,3.1,1.5))
+		_module("wall",Vector3(14.8,1.55,z),dusty,Vector3(0.25,3.1,1.5))
+		_module("structure_panel",Vector3(11.0,3.1,z),steel,Vector3(7.5,0.2,1.5))
+		laboratory_modules += 3
+	for x in [8.0,9.5,11.0,12.5,14.0]:
+		for z in [0.3,-7.3]:
+			_module("wall",Vector3(x,1.55,z),dusty,Vector3(1.5,3.1,0.25))
+			laboratory_modules += 1
+	for spot in [Vector3(9.0,1.25,-3.1),Vector3(12.8,1.25,-4.8)]:
+		_module("computer_screen",spot,steel,Vector3(0.75,0.85,0.45))
+		laboratory_modules += 1
+	for spot in [Vector3(8.4,0.9,-5.7),Vector3(13.7,0.9,-2.2)]:
+		_module("container_tall",spot,steel,Vector3(0.9,1.8,0.9))
+		laboratory_modules += 1
+	var lab_light := OmniLight3D.new()
+	lab_light.position = Vector3(10.6,2.65,-3.1)
+	lab_light.light_color = Color(0.56,0.78,0.77)
+	lab_light.light_energy = 1.15
+	lab_light.omni_range = 5.3
+	lab_light.shadow_enabled = false
+	add_child(lab_light)
+	facility_lights.append(lab_light)
+	# Mark the openable doorway with multiple repetitions of the licensed
+	# original Sketchfab face texture, referencing the unsettling Level ! door.
+	var warning_texture := Assets.path("vendor/sketchfab_smiler_face.png")
+	if ResourceLoader.exists(warning_texture):
+		for i in range(5):
+			var warning := Sprite3D.new()
+			warning.name = "SketchfabSmilerDoorMark_%d" % i
+			warning.texture = load(warning_texture)
+			warning.pixel_size = 0.00040
+			warning.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			warning.shaded = false
+			warning.position = Vector3(3.1,1.5 + (i%3)*0.37,-1.65 + (i/3)*0.55)
+			add_child(warning)
 	# The interactive body has a simple invisible physical floor and perimeter.
 	walkable_floor = StaticBody3D.new()
 	walkable_floor.name = "InvisibleFacilityPhysics"
@@ -58,6 +109,11 @@ func _ready() -> void:
 	_barrier(Vector3(3.8,1.45,-3.0),Vector3(0.35,3.0,14.8))
 	_barrier(Vector3(0,1.45,-10.1),Vector3(7.6,3.0,0.35))
 	_barrier(Vector3(0,1.45,4.1),Vector3(7.6,3.0,0.35))
+	_barrier(Vector3(11,-0.17,-3.3),Vector3(7.8,0.3,8.5))
+	_barrier(Vector3(7.0,1.5,-3.3),Vector3(0.3,3.0,8.5))
+	_barrier(Vector3(15,1.5,-3.3),Vector3(0.3,3.0,8.5))
+	_barrier(Vector3(11,1.5,-7.6),Vector3(8,3.0,0.3))
+	_barrier(Vector3(11,1.5,0.6),Vector3(8,3.0,0.3))
 	# Invisible colliders are disabled whenever the cinematic facility is hidden.
 	set_physics_active(false)
 	# Author's original Sketchfab GLB is baked to this transparent sprite.
@@ -187,6 +243,21 @@ func play_door_proximity(door: Node3D) -> void:
 	if not is_instance_valid(door) or not is_instance_valid(near_door_audio): return
 	near_door_audio.global_position = door.global_position
 	if near_door_audio.stream != null: near_door_audio.play()
+
+func door_result(player_position: Vector3) -> String:
+	var door := nearest_door(player_position,2.2)
+	if door == null: return "NONE"
+	if door == openable_door:
+		laboratory_entered = true
+		door.visible = false
+		if is_instance_valid(door_audio):
+			door_audio.global_position = door.global_position
+			if door_audio.stream != null: door_audio.play()
+		return "OPEN"
+	if is_instance_valid(door_audio):
+		door_audio.global_position = door.global_position
+		if door_audio.stream != null: door_audio.play()
+	return "LOCK"
 
 func try_locked_door(player_position: Vector3) -> bool:
 	var door := nearest_door(player_position,2.2)
