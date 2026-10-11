@@ -328,6 +328,17 @@ void fragment() {
 	wakeup_text.text = "Where am I?".substr(0,characters)
 	wakeup_text.modulate.a = smoothstep(0.29,0.43,p)
 
+func prologue_wake_clear() -> void:
+	# A full-viewport screen-texture shader can cover alpha-blended 3D sprites
+	# in the transparent pass even when sharpness = 1. Remove it altogether
+	# before the licensed Smiler Sprite3D becomes visible.
+	if is_instance_valid(wakeup_veil):
+		wakeup_veil.visible = false
+	if is_instance_valid(wakeup_text):
+		wakeup_text.visible = false
+	if is_instance_valid(cinematic_fade):
+		cinematic_fade.visible = false
+
 func prologue_fade(alpha: float) -> void:
 	if is_instance_valid(cinematic_fade):
 		cinematic_fade.color.a = clampf(alpha, 0.0, 1.0)
