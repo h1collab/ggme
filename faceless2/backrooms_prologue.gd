@@ -75,7 +75,7 @@ func _ready() -> void:
 	interference.max_distance = 24.0
 	interference.unit_size = 0.9
 	interference.volume_db = -8.0
-	_apply_sound(interference, "phone_static.mp3")
+	_apply_sound(interference, "phone_static.wav")
 	add_child(interference)
 	fall_audio = AudioStreamPlayer.new()
 	fall_audio.name = "LossOfFloor"
