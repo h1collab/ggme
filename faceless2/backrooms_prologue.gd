@@ -221,6 +221,9 @@ func _transition(next_phase: String) -> void:
 	phase = next_phase
 	clock = 0.0
 	game.ui.prologue_stage(next_phase)
+	if next_phase == "smiler_watch": game.wakeup_room.smiler_stage(0.0, "watch")
+	if next_phase == "smiler_gap": game.wakeup_room.smiler_stage(0.0, "hidden")
+	if next_phase == "smiler_near": game.wakeup_room.smiler_stage(0.0, "near")
 	if next_phase == "smiler_wait_turn":
 		game.ui.prologue_wake_clear()
 	if next_phase == "smiler_near" and game.wakeup_room.smiler_sound.stream != null:
