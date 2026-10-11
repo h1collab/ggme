@@ -33,6 +33,48 @@ const ENDINGS := [
  "电梯抵达地面。灯光和雨水都恢复正常。你的手机收到新消息：‘我已经在你家门口了。’门铃响起，铃声与你的心跳完全同步。",
  "你按下封存键。电梯停止，黑暗中的脸第一次失去了笑容。广播播放林岚最后的录音：‘谢谢。别再找到我。’地面的夜终于安静。"]
 
+const ENGLISH_CHAPTERS := [
+	["PROLOGUE / DO NOT TURN", "The caller sounds like Lin Lan. But Lin Lan is standing behind you. A moment later, the lift separates you.", "Take supplies and find the key. Investigate three anomalies to power the lift."],
+	["CHAPTER ONE / SOMEONE ELSE", "Each time a dormitory door shuts, a new room appears. Someone is imitating your voice.", "Find the access key and investigate three physical clues."],
+	["CHAPTER TWO / THE WATER MOVED FIRST", "Your reflection moves before you do. Someone is walking in the water when nobody moves.", "Follow the changes in the pools and investigate the flooded passages."],
+	["FINAL CHAPTER / ZERO SHAFT", "The building is rehearsing human voices. It wants you to open a door that should never exist.", "Investigate the final clues and decide whether to seal the signal."]]
+const ENGLISH_EVIDENCE := [
+	["01 / Unanswered Call", "02 / Footprints Through Walls", "03 / Your Other Shift"],
+	["01 / Occupied Room", "02 / Breathing Machinery", "03 / Extra Badge"],
+	["01 / Early Reflection", "02 / Underwater Signal", "03 / Fourth Passenger"],
+	["01 / Failed Evacuation", "02 / Lin Lan's Warning", "03 / Your Name"]]
+const ENGLISH_MEMORY := [
+	["The disconnected phone rang seven times. The last caller was breathing like you.", "Wet footsteps travel up a wall. Something knocks from the other side.", "Evacuation failed. Retry. Your signature appears under tomorrow's date."],
+	["A shoe identical to yours slides under the door, then vanishes in the light.", "You stop breathing, but a second breath continues inside the pipes.", "The badge has your name, but the photograph is empty."],
+	["Your reflection bows two seconds before you move.", "The drowned voice whispers: I never went missing. You opened the door.", "Four sets of footprints reach the lift. The camera shows only three people."],
+	["The key from the previous attempt says: Do not bring it home.", "Lin Lan's real recording: I never asked for rescue. Do not lend it your voice.", "The final returnee has your face. The status reads: Still underground."]]
+const ENGLISH_INTERLUDES := [
+	"The telephone rings in an empty room. A door locks behind you.",
+	"Someone in the next room calls for help in your own voice.",
+	"Do not look at the other person in the water.",
+	"Now you know. We are not the ones trying to escape."]
+const ENGLISH_ENDINGS := [
+	"You reach the surface. Your phone says: I am already at your door.",
+	"You seal the signal. The face in the darkness finally stops smiling."]
+
+func chapter_title(index: int) -> String:
+	return BRIEFINGS[index][0] if game.language == "zh" else ENGLISH_CHAPTERS[index][0]
+
+func chapter_description(index: int) -> String:
+	return BRIEFINGS[index][1] if game.language == "zh" else ENGLISH_CHAPTERS[index][1]
+
+func chapter_goal(index: int) -> String:
+	return BRIEFINGS[index][2] if game.language == "zh" else ENGLISH_CHAPTERS[index][2]
+
+func evidence_title(chapter: int, index: int) -> String:
+	return EVIDENCE_TITLES[chapter][index] if game.language == "zh" else ENGLISH_EVIDENCE[chapter][index]
+
+func memory_line(chapter: int, index: int) -> String:
+	return MEMORY_TEXT[chapter][index] if game.language == "zh" else ENGLISH_MEMORY[chapter][index]
+
+func interlude(chapter: int) -> String:
+	return INTERLUDES[chapter] if game.language == "zh" else ENGLISH_INTERLUDES[chapter]
+
 var game: Node
 var actor: Node3D
 var animation: AnimationPlayer
@@ -165,7 +207,7 @@ func say(text: String, seconds: float = 7.0, voice_key: String = "") -> void:
 
 func on_discovery(chapter: int, index: int, total: int) -> void:
 	# Local narration only; the host already validated the interact distance.
-	say(MEMORY_TEXT[chapter][index], 12.5, "tape_%d_%d" % [chapter, index])
+	say(memory_line(chapter, index), 12.5, "tape_%d_%d" % [chapter, index])
 	# Something concrete reacts to a discovery: spatial footsteps behind the
 	# player and sudden dimming, not just a wall of narrative subtitles.
 	if is_instance_valid(step_audio) and step_audio.stream != null:
@@ -181,12 +223,12 @@ func on_discovery(chapter: int, index: int, total: int) -> void:
 
 func _chapter_turn(chapter: int) -> void:
 	if not is_instance_valid(game) or game.stage != chapter: return
-	say(INTERLUDES[chapter], 10.0, "turn_%d" % chapter)
+	say(interlude(chapter), 10.0, "turn_%d" % chapter)
 
 func play_voice(key: String) -> bool:
 	# Only pre-generated OGGs; no Android/system TTS, HTTP or runtime ML.
 	last_voice_key = key
-	if not game.voice_enabled or not is_instance_valid(voice_audio): return false
+	if not game.voice_enabled or game.language != "zh" or not is_instance_valid(voice_audio): return false
 	var res := "res://audio/voice/" + key + ".ogg"
 	if not ResourceLoader.exists(res):
 		res = "res://faceless2/audio/voice/" + key + ".ogg"
