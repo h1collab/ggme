@@ -73,7 +73,7 @@ func _ready() -> void:
 	screen_label.size = Vector2(462,160)
 	screen_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	screen_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	screen_label.add_theme_font_size_override("font_size",38)
+	screen_label.add_theme_font_size_override("font_size",54)
 	screen_label.add_theme_color_override("font_color",Color(0.92,0.95,1.0))
 	face.add_child(screen_label)
 	var screen_mesh := QuadMesh.new()
@@ -220,7 +220,7 @@ func _transition(next_phase: String) -> void:
 		game.wakeup_room.visible = true
 		# No luminous world beyond the sealed black-site tunnel.
 		game.environment.environment.background_color = Color(0.004,0.007,0.011)
-		game.environment.environment.ambient_light_energy = 0.035
+		game.environment.environment.ambient_light_energy = 0.13
 		game.environment.environment.fog_light_color = Color(0.01,0.018,0.025)
 		if game.wakeup_room.low_rumble.stream != null: game.wakeup_room.low_rumble.play()
 		camera.current = false
