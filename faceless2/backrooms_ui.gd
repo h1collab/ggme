@@ -322,14 +322,17 @@ func prologue_fade(alpha: float) -> void:
 		cinematic_fade.color.a = clampf(alpha, 0.0, 1.0)
 
 func prologue_finished() -> void:
+	# Preserve the actual lit facility and its black distance instead of
+	# replacing the scene with a full-screen result card.
 	_clear("prologue_end")
-	_card(panels, Rect2(0, 0, 1600, 900), Color.BLACK)
-	var title := _label(panels, "FACELESS 2", Vector2(440, 270), 720, 62, PAPER)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var subtitle := _label(panels, localized("THE OTHER SHIFT / THE DARK BELOW", "THE OTHER SHIFT / 深处的黑暗"), Vector2(440, 392), 720, 29, MUTED)
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_button(panels, localized("REPLAY", "重播序章"), Rect2(420, 630, 350, 74), func(): game.start_prologue())
-	_button(panels, localized("MAIN MENU", "返回主菜单"), Rect2(830, 630, 350, 74), func(): game.prologue.exit_to_menu())
+	panels.visible = true
+	hud.visible = false
+	var line := _label(panels, "Where am I?", Vector2(340,750),920,37,PAPER)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
+	_label(panels, localized("RIGHT DRAG / LOOK AROUND", "右侧拖动 / 环顾四周"),Vector2(40,820),750,16,MUTED)
+	_button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
+	_button(panels, localized("MAIN MENU", "主菜单"), Rect2(1380,24,190,64), func(): game.prologue.exit_to_menu())
 
 func open_briefing() -> void:
 	_page(game.story.chapter_title(game.stage), "briefing")
