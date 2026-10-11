@@ -35,6 +35,10 @@ def render(name: str, duration: float, seed: int):
             sample = gate * (math.sin(2*math.pi*438*t)*.22 + math.sin(2*math.pi*512*t)*.16)
         elif name == 'phone_disconnect':
             sample = math.sin(2*math.pi*480*t)*.27*math.exp(-t*10) + math.sin(2*math.pi*620*t)*.12*math.exp(-t*12)
+        elif name == 'phone_static':
+            # Band-limited distorted connection noise, generated offline.
+            chop = 0.25 + .75 * (1 if (int(t*11)%5 < 3) else .1)
+            sample = (smooth*.62 + math.sin(2*math.pi*87*t)*.12)*chop*min(1., t*18.)
         elif name == 'phone_fall':
             envelope = min(1.0, t*7) * max(0.0, 1-t/duration)
             sample = (math.sin(2*math.pi*(69-48*t/duration)*t)*.4 + smooth*.35)*envelope
@@ -49,7 +53,7 @@ def render(name: str, duration: float, seed: int):
 
 def write(destination: Path):
     destination.mkdir(parents=True, exist_ok=True)
-    for name, duration, seed in [('splash', .46, 18), ('elevator_door', 1.35, 127), ('elevator_move', 4.1, 210), ('phone_ring', 3.0, 414), ('phone_disconnect', .46, 51), ('phone_fall', 2.4, 91)]:
+    for name, duration, seed in [('splash', .46, 18), ('elevator_door', 1.35, 127), ('elevator_move', 4.1, 210), ('phone_ring', 3.0, 414), ('phone_disconnect', .46, 51), ('phone_fall', 2.4, 91), ('phone_static', 3.5, 940)]:
         with wave.open(str(destination / (name + '.wav')), 'wb') as fd:
             fd.setnchannels(1)
             fd.setsampwidth(2)
