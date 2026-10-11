@@ -114,7 +114,7 @@ jobs:
             curl --fail --location --silent --show-error --retry 3 \
               --output app/assets/vendor/iphone17_pro.glb \
               "https://raw.githubusercontent.com/quentin-pla/phone-mockup-studio/9908f2c321787779b6e028cba1ab67cd29a6a6dd/source/iphone_17_pro.glb"
-            echo "31d6a04caabcca2fb717738079ca66da59347647" | grep -Fx "$(git hash-object app/assets/vendor/iphone17_pro.glb")"
+            echo "31d6a04caabcca2fb717738079ca66da59347647" | grep -Fx "$(git hash-object app/assets/vendor/iphone17_pro.glb)""
             test "$(stat -c%s app/assets/vendor/iphone17_pro.glb)" = "24368404"
             test "$(head -c 4 app/assets/vendor/iphone17_pro.glb)" = "glTF"
             echo "SKETCHFAB_STATUS=verified-iphone17pro-CC-BY-4.0"
