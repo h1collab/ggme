@@ -220,23 +220,21 @@ func rebuild_language() -> void:
 		_: pass
 
 func menu() -> void:
+	if is_instance_valid(game): game.show_title_room()
 	_clear("menu")
 	_card(panels, Rect2(0, 0, 775, 900), Color(0.02, 0.035, 0.034, 0.97))
 	_image(panels, _brand_file("game_icon.png"), Rect2(70, 50, 90, 90))
 	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
 	_label(panels, localized("THE OTHER SHIFT", "THE OTHER SHIFT  /  错层"), Vector2(73, 323), 640, 27, ACCENT)
-	_label(panels, localized("A building that should not exist remembers a shift you never worked.\nAnswer the call. Find out who is on the other side.", "一栋已经拆除的楼，记录着你从未经历过的出勤。\n找到林岚失踪的真相。水正在向每一层蔓延。"), Vector2(72, 411), 600, 26, MUTED)
+	_label(panels, localized("ONE ROOM. ONE UNANSWERED CALL.\nThe number has no name.", "一个房间，一通没有名字的来电。\n接通之后，事情开始失控。"), Vector2(72, 411), 600, 26, MUTED)
 	_button(panels, localized("PLAY STORY  →", "开始剧情 / THE OTHER SHIFT →"), Rect2(72, 538, 600, 76), func(): game.start_prologue())
-	_button(panels, localized("LEGACY FLOORS", "经典四层探索"), Rect2(72, 631, 288, 74), func(): game.start_solo())
-	_button(panels, localized("CO-OP / 2–4", "房间合作 / 2–4 人"), Rect2(381, 631, 291, 74), open_lobby)
+	_button(panels, localized("CO-OP / 2–4", "合作模式 / 2–4 人"), Rect2(72, 631, 600, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
 	_label(panels, localized("SURVIVE THE CALL / EXPLORE THE UNKNOWN", "现场调查  /  动态积水  /  非线性真相  /  偶发黑暗目击"), Vector2(73, 843), 640, 18, MUTED)
-	_card(panels, Rect2(1050, 655, 460, 154), Color(0.02, 0.038, 0.036, 0.82))
-	_label(panels, "00 / THE BUILDING THAT RETURNED", Vector2(1072, 681), 420, 19, ACCENT)
-	_label(panels, localized("The call was meant for someone else.\nOr someone who looks exactly like you.", "这不是录像修复任务。\n是一次不会被记住的调查。"), Vector2(1072, 727), 420, 22)
+	# No legacy chapter, tape objective, or building narrative on the title.
 
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
@@ -336,6 +334,7 @@ func open_final_choice() -> void:
 
 func open_guide() -> void:
 	_page(localized("HOW TO PLAY", "探索方式"), "guide")
+	_button(panels, localized("EXTRA: LEGACY FOUR-FLOOR TEST", "额外内容：旧四层测试"), Rect2(75, 780, 655, 70), func(): game.start_solo())
 	var entries := [
 		["真实空间", "四个错位楼层，各有不同的证据与现场疑点。调查完成才能解锁电梯。"],
 		["恐惧来自环境", "水会渗进每一层。听脚步和电机，注意偶尔出现在暗处的脸。"],
