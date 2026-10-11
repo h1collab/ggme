@@ -70,6 +70,14 @@ func run() -> void:
 	for i in range(18): prologue.advance(0.15)
 	await _capture("10_still_no_smiler")
 	if prologue.phase != "smiler_wait_turn": failures.append("Sight event auto-triggered without looking")
+	# Pixel-identical paired frames with the same camera and same room. This
+	# detects a real renderer-invisible sprite instead of trusting only state.
+	game.ui.prologue_wake_clear()
+	game.wakeup_room.smiler_stage(0.0, "hidden")
+	await _capture("10a_hidden_comparison")
+	game.wakeup_room.smiler_stage(0.0, "watch")
+	await _capture("10b_forced_visible_comparison")
+	game.wakeup_room.smiler_stage(0.0, "hidden")
 	prologue.look_before_smiler(Vector2(-590,0))
 	for i in range(8):
 		prologue.advance(0.15)
