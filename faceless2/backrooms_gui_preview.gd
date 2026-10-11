@@ -57,7 +57,7 @@ func run() -> void:
 	await _capture("07_wake_mid")
 	await _advance_frames(20)
 	await _capture("08_wake_dark")
-	await _advance_frames(4)
+	await _advance_frames(12)
 	if prologue.phase == "ended":
 		await _capture("09_after_wake_live_scene")
 		prologue.look_after_wake(Vector2(90,0))
