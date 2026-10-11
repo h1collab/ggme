@@ -67,26 +67,37 @@ func run() -> void:
 	check(game.wakeup_room.smiler != null, "Authorized Sketchfab Smiler GLB loads")
 	check(prologue.wake_hands != null, "Licensed Sketchfab FPS hands GLB loads")
 	for i in range(41): prologue.advance(0.15)
-	check(game.ui.wakeup_text.text == "Where am I?", "English waking subtitle ends normally")
+	check(game.ui.wakeup_text.text == "Where am I?", "English subtitle types naturally")
 	prologue.advance(0.15)
-	check(prologue.phase == "smiler_watch", "Black entity watches silently before rushing")
-	check(game.wakeup_room.smiler.visible, "Real Smiler model visible in the dark")
-	# Drive each transition until it actually fires; float delta accumulation
-	# may differ slightly between Godot builds and frame scheduling.
-	for i in range(20):
-		if prologue.phase != "smiler_watch": break
+	check(prologue.phase == "smiler_wait_turn", "Smiler waits for player direction, with translation locked")
+	check(not game.wakeup_room.smiler.visible, "Smiler is hidden before intentional camera turn")
+	for i in range(18): prologue.advance(0.15)
+	check(prologue.phase == "smiler_wait_turn", "Smiler does not trigger merely after waiting")
+	prologue.look_before_smiler(Vector2(-590,0))
+	for i in range(4):
+		if prologue.phase != "smiler_wait_turn": break
 		prologue.advance(0.15)
-	check(prologue.phase == "smiler_rush", "Smiler commits to rush (actual phase: %s)" % prologue.phase)
+	check(prologue.phase == "smiler_watch" or prologue.phase == "smiler_gap", "Player turning triggers first flash")
+	check(game.wakeup_room.smiler is Sprite3D, "Original Sketchfab GLB rasterized as a real transparent 3D sprite")
 	for i in range(12):
+		if prologue.phase == "smiler_gap": break
+		prologue.advance(0.15)
+	check(prologue.phase == "smiler_gap" and not game.wakeup_room.smiler.visible, "First apparition vanishes, without charging player")
+	for i in range(10):
+		if prologue.phase == "smiler_near": break
+		prologue.advance(0.15)
+	check(prologue.phase == "smiler_near", "Second apparition flashes much nearer")
+	check(game.wakeup_room.smiler.position.z > -3.0, "Second Smiler appears near player without forward interpolation")
+	for i in range(6):
 		if prologue.phase == "ended": break
 		prologue.advance(0.15)
-	check(prologue.phase == "ended" and not prologue.active, "Smiler disappears at end of rush")
-	check(not game.wakeup_room.smiler.visible, "Real model vanishes when rush completes")
-	check(game.running and game.player.visible and game.player.camera.current and not game.ui.modal, "Player can move freely after Smiler jumpscare")
-	check(game.ui.panel_kind == "prologue_end", "Ending screen allows replay")
-	check(game.wakeup_room.visible and game.player.camera.current and not game.level.visible, "After scare, remain in black-site with controllable player camera")
-	game.player.look(Vector2(40,-12))
-	check(absf(game.player.yaw)>0.01 and absf(game.player.pitch)>0.01, "First person mouse-look works after Smiler")
+	check(prologue.phase == "ended" and not prologue.active, "Player controls unlock only after second flash")
+	check(not game.wakeup_room.smiler.visible, "Smiler hidden after second flash")
+	check(game.running and game.player.visible and game.player.camera.current and not game.ui.modal, "First-person controls restored")
+	check(game.ui.panel_kind == "prologue_end" and game.wakeup_room.visible, "Persistent facility remains visible without persistent subtitle card")
+	game.player.request_jump()
+	check(game.player.jump_requested, "Jump input is accepted in story after scare")
+	check(game.wakeup_room.side_doors.size() >= 4, "Multiple licensed GLB doors remain in facility")
 	game.start_prologue()
 	check(prologue.phase == "push" and prologue.active, "Replay resets the cinematic timeline")
 	prologue.exit_to_menu()
