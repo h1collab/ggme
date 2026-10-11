@@ -1,4 +1,4 @@
-name: Build Faceless 2 v0.19 Android APK
+name: Build Faceless 2 v0.20 Android APK
 
 on:
   workflow_dispatch:
@@ -53,7 +53,7 @@ jobs:
               for item in root.iterdir():
                   if item.is_file(): item.unlink()
           source=Path('faceless2')
-          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','virtual_joystick.gd','touch_action.gd']:
+          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_wakeup_room.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','virtual_joystick.gd','touch_action.gd']:
               shutil.copy2(source/name, Path('app/scripts')/name)
           shutil.copy2(source/'assets/entity.glb', 'app/assets/entity.glb')
           (Path('app/assets/vendor')).mkdir(parents=True, exist_ok=True)
@@ -79,8 +79,8 @@ jobs:
           p=Path('app/export_presets.cfg'); s=p.read_text()
           s=s.replace('Escape Black Pine','Faceless 2').replace('School Brawl','Faceless 2')
           s=s.replace('res://ui/icon.svg','res://ui/game_icon.png')
-          s=re.sub(r'(?m)^version/code=.*','version/code=19',s)
-          s=re.sub(r'(?m)^version/name=.*','version/name="0.19.0"',s)
+          s=re.sub(r'(?m)^version/code=.*','version/code=20',s)
+          s=re.sub(r'(?m)^version/name=.*','version/name="0.20.0"',s)
           # Export all resources: scripts load imported GLBs, audio and textures by path.
           # A resource-only selection is unsafe for dynamic ResourceLoader paths.
           s=re.sub(r'(?m)^export_filter=.*', 'export_filter="all_resources"', s)
@@ -105,6 +105,7 @@ jobs:
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio
+          python faceless2/fetch_wakeup_assets.py app/assets/vendor
           # First prefer the original API when token permits. A token may
           # exist but lack access; never block the legitimate public mirror.
           if [ -n "${SKETCHFAB_TOKEN:-}" ]; then
@@ -190,7 +191,7 @@ jobs:
           python - <<'PYCODE'
           from pathlib import Path
           root=Path('app')
-          required=['assets/entity.glb','assets/vendor/almond_water.glb','assets/vendor/lift_key.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','assets/vendor/first_person_legs.glb','audio/voice/brief_0.ogg','audio/voice/brief_3.ogg','audio/voice/opening.ogg','audio/voice/tape_3_2.ogg','audio/voice/turn_2.ogg','audio/voice/ending_seal.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','audio/phone_ring.wav','audio/phone_disconnect.wav','audio/phone_static.wav','audio/phone_fall.wav','assets/vendor/iphone17_pro.glb','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
+          required=['assets/entity.glb','assets/vendor/almond_water.glb','assets/vendor/lift_key.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','assets/vendor/first_person_legs.glb','audio/voice/brief_0.ogg','audio/voice/brief_3.ogg','audio/voice/opening.ogg','audio/voice/tape_3_2.ogg','audio/voice/turn_2.ogg','audio/voice/ending_seal.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','audio/phone_ring.wav','audio/phone_disconnect.wav','audio/phone_static.wav','audio/phone_fall.wav','assets/vendor/iphone17_pro.glb','assets/vendor/wakeup_wall.glb','assets/vendor/wakeup_floor_panel.glb','assets/vendor/wakeup_door_single_closed.glb','assets/vendor/wakeup_pipe.glb','assets/vendor/wakeup_computer_screen.glb','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
           for f in required: assert (root/f).is_file() and (root/f).stat().st_size > 100, f
           level_source=Path('faceless2/backrooms_level.gd').read_text()
           player_source=Path('faceless2/backrooms_player.gd').read_text()
@@ -203,7 +204,7 @@ jobs:
           assert not missing, f'Chinese story font missing glyphs: {missing}'
           print('Build-time source asset inventory, all-GLB geometry and Chinese font: PASS')
           PYCODE
-          for script in backrooms_rooms backrooms_level backrooms_story backrooms_prologue backrooms_prologue_room backrooms_prologue_checks backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks backrooms_room_checks virtual_joystick touch_action; do
+          for script in backrooms_rooms backrooms_level backrooms_story backrooms_prologue backrooms_prologue_room backrooms_wakeup_room backrooms_prologue_checks backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks backrooms_room_checks virtual_joystick touch_action; do
             godot --headless --path app --script "scripts/$script.gd" --check-only
           done
           timeout 180 godot --headless --path app --script scripts/backrooms_checks.gd 2>&1 | tee qa/runtime-checks.log
@@ -224,7 +225,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v0.19 APK
+      - name: Export Faceless 2 v0.20 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -232,21 +233,21 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless2-v019-zorix.apk
-          test -s app/build/faceless2-v019-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless2-v020-zorix.apk
+          test -s app/build/faceless2-v020-zorix.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v019-zorix-apk
-          path: app/build/faceless2-v019-zorix.apk
+          name: faceless2-v020-zorix-apk
+          path: app/build/faceless2-v020-zorix.apk
           if-no-files-found: error
 
       - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v019-headless-qa
+          name: faceless2-v020-headless-qa
           path: qa
           if-no-files-found: error
