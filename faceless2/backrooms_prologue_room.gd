@@ -48,13 +48,14 @@ func _ready() -> void:
 	var desk_light := SpotLight3D.new()
 	desk_light.name = "PhoneCloseupLight"
 	desk_light.position = Vector3(1.75, 2.57, 0.85)
-	desk_light.look_at(PHONE_AT, Vector3.UP)
 	desk_light.light_color = Color(0.92, 0.77, 0.61)
 	desk_light.light_energy = 0.48
 	desk_light.spot_range = 4.7
 	desk_light.spot_angle = 48
 	desk_light.shadow_enabled = false
 	add_child(desk_light)
+	# Godot look_at() requires the node to have entered the scene tree.
+	desk_light.look_at(PHONE_AT, Vector3.UP)
 
 func _surface(color: Color, photo: String = "") -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
