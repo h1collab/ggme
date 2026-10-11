@@ -8,6 +8,7 @@ const LOOK_DARKNESS := Vector3(0, 1.26, -18.0)
 var authored_modules := 0
 var facility_lights: Array[Light3D] = []
 var low_rumble: AudioStreamPlayer3D
+var far_clang: AudioStreamPlayer3D
 
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
@@ -66,6 +67,14 @@ func _ready() -> void:
 	var sound_path := Assets.path("vendor/hum.mp3")
 	if ResourceLoader.exists(sound_path): low_rumble.stream = load(sound_path)
 	add_child(low_rumble)
+	far_clang = AudioStreamPlayer3D.new()
+	far_clang.name = "SomethingBeyondTheShutter_3D"
+	far_clang.position = Vector3(0,1.6,-8.6)
+	far_clang.max_distance = 18.0
+	far_clang.unit_size = 1.4
+	var door_f = "res://audio/elevator_door.wav"
+	if ResourceLoader.exists(door_f): far_clang.stream = load(door_f)
+	add_child(far_clang)
 	visible = false
 
 func _finish(color: Color, photo: String = "") -> StandardMaterial3D:
