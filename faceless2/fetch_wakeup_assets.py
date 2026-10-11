@@ -29,7 +29,7 @@ MODELS = {
 def verify(data: bytes, expected: str, size: int) -> None:
     assert len(data) == size and data[:4] == b"glTF", "Bad or truncated authored GLB"
     # Git blob hash differs from ordinary SHA-1 by the Git object prefix.
-    blob = b"blob " + str(len(data)).encode("ascii") + b"\\0" + data
+    blob = b"blob " + str(len(data)).encode("ascii") + bytes([0]) + data
     assert hashlib.sha1(blob).hexdigest() == expected, "Upstream CC0 model hash changed"
 
 def main(destination: Path) -> None:
