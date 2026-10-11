@@ -129,7 +129,7 @@ func _physics_process(delta: float) -> void:
 		aim_pointer = -1
 		return
 	if game.prologue.phase == "ended" and game.wakeup_room.visible:
-		var near := game.wakeup_room.player_near_door(global_position)
+		var near: Node3D = game.wakeup_room.player_near_door(global_position)
 		if near != last_near_door:
 			last_near_door = near
 			if near != null:
