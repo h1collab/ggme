@@ -9,6 +9,9 @@ var authored_modules := 0
 var facility_lights: Array[Light3D] = []
 var low_rumble: AudioStreamPlayer3D
 var far_clang: AudioStreamPlayer3D
+var smiler: Node3D
+var walkable_floor: StaticBody3D
+var side_doors: Array[Node3D] = []
 
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
@@ -37,6 +40,31 @@ func _ready() -> void:
 	for x in [-3.0,-1.5,0.0,1.5,3.0]:
 		_module("wall",Vector3(x,1.55,-10.0),_finish(Color(0.025,0.035,0.04)),Vector3(1.5,3.1,0.3))
 	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(1.6,3.1,0.3))
+	# Imported Kenney door meshes are visible; collision is invisible and cheap.
+	for door_at in [Vector3(-3.40,1.3,1.4),Vector3(3.40,1.3,-0.9),Vector3(-3.40,1.3,-4.5),Vector3(3.40,1.3,-6.4)]:
+		var door := _authored_door(door_at)
+		if door != null: side_doors.append(door)
+	# The interactive body has a simple invisible physical floor and perimeter.
+	walkable_floor = StaticBody3D.new()
+	walkable_floor.name = "InvisibleFacilityPhysics"
+	add_child(walkable_floor)
+	_barrier(Vector3(0,-0.17,-3.0),Vector3(7.4,0.30,14.7))
+	_barrier(Vector3(-3.8,1.45,-3.0),Vector3(0.35,3.0,14.8))
+	_barrier(Vector3(3.8,1.45,-3.0),Vector3(0.35,3.0,14.8))
+	_barrier(Vector3(0,1.45,-10.1),Vector3(7.6,3.0,0.35))
+	_barrier(Vector3(0,1.45,4.1),Vector3(7.6,3.0,0.35))
+	# Required licensed Smiler: an authored external Sketchfab GLB, not code geometry.
+	var smiler_path := Assets.path("vendor/sketchfab_smiler.glb")
+	if not ResourceLoader.exists(smiler_path):
+		push_error("Missing authorized Sketchfab Smiler GLB: "+smiler_path)
+	else:
+		smiler = Assets.fitted("vendor/sketchfab_smiler.glb",1.65)
+		smiler.name = "SketchfabSmiler_SilentWatcher"
+		smiler.position = Vector3(0,0,-6.2)
+		add_child(smiler)
+		smiler.visible = false
+		for mesh in smiler.find_children("*","MeshInstance3D",true,false):
+			(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# A distant shutter has no floodlighting. Forward view ends in darkness.
 	for at in [Vector3(1.9,2.7,1.4),Vector3(-1.7,2.7,-1.8)]:
 		var light := SpotLight3D.new()
@@ -76,6 +104,34 @@ func _ready() -> void:
 	if ResourceLoader.exists(door_f): far_clang.stream = load(door_f)
 	add_child(far_clang)
 	visible = false
+
+func _authored_door(at: Vector3) -> Node3D:
+	var source := Assets.path("vendor/wakeup_door_single_closed.glb")
+	if not ResourceLoader.exists(source): return null
+	var node := Assets.fitted("vendor/wakeup_door_single_closed.glb",2.35)
+	node.name = "KenneyAuthoredInteractiveDoor"
+	node.position = at
+	node.rotation.y = PI * 0.5 if at.x < 0 else -PI * 0.5
+	add_child(node)
+	return node
+
+func _barrier(at: Vector3, size: Vector3) -> void:
+	var shape := BoxShape3D.new()
+	shape.size = size
+	var collision := CollisionShape3D.new()
+	collision.position = at
+	collision.shape = shape
+	walkable_floor.add_child(collision)
+
+func smiler_stage(distance_t: float, stage: String) -> void:
+	if not is_instance_valid(smiler): return
+	smiler.visible = stage != "hidden"
+	if stage == "watch":
+		smiler.position = Vector3(0,0,-6.2)
+		smiler.rotation.y = 0
+	elif stage == "rush":
+		smiler.position = Vector3(0,0,lerpf(-6.2,2.1,smoothstep(0.0,1.0,distance_t)))
+		smiler.rotation.y = 0
 
 func _finish(color: Color, photo: String = "") -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
