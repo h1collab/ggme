@@ -3,9 +3,9 @@ extends Node3D
 # Single-player, locally directed prologue. Never sends camera RPCs.
 # Authored GLB room/desk are already present in the first-floor level.
 const Assets = preload("backrooms_assets.gd")
-const FAR := Vector3(5.5, 2.75, 10.15)
-const NEAR := Vector3(0.38, 1.58, 7.05)
-const PHONE_AT := Vector3(0.16, 0.98, 5.82)
+const FAR := Vector3(2.85, 2.32, 2.85)
+const NEAR := Vector3(0.72, 1.33, 0.54)
+const PHONE_AT := Vector3(0.15, 0.795, -0.45)
 const PUSH_SECONDS := 2.65
 const RING_SECONDS := 2.0
 const STATIC_SECONDS := 2.5
@@ -101,7 +101,8 @@ func begin() -> void:
 	_stop_audio()
 	game.net.leave()
 	game.running = false
-	game.level.visible = true
+	game.level.visible = false
+	game.prologue_room.visible = true
 	game.player.visible = false
 	game.player.set_physics_process(false)
 	game.player.cancel_focus()
@@ -188,12 +189,8 @@ func exit_to_menu() -> void:
 	active = false
 	phase = "inactive"
 	set_process(false)
-	visible = false
-	game.level.visible = true
-	game.player.visible = true
-	game.player.camera.make_current()
-	game.player.set_physics_process(true)
-	game.running = false
+	visible = true
+	game.show_title_room()
 	game.ui.menu()
 
 func _unhandled_input(event: InputEvent) -> void:
