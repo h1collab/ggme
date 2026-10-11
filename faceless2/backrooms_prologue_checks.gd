@@ -98,6 +98,16 @@ func run() -> void:
 	game.player.request_jump()
 	check(game.player.jump_requested, "Jump input is accepted in story after scare")
 	check(game.wakeup_room.side_doors.size() >= 4, "Multiple licensed GLB doors remain in facility")
+	check(game.wakeup_room.laboratory_modules >= 45, "Abandoned laboratory is built from real external CC0 GLB modules")
+	check(game.wakeup_room.openable_door != null, "One Smiler-marked hallway door leads to laboratory")
+	var locked_door: Node3D = game.wakeup_room.side_doors[0]
+	check(game.wakeup_room.door_result(locked_door.global_position) == "LOCK", "Sealed door returns explicit LOCK")
+	check(not game.wakeup_room.laboratory_entered, "Locked hallway door must not load the lab")
+	var lab_door: Node3D = game.wakeup_room.openable_door
+	check(game.wakeup_room.door_result(lab_door.global_position) == "OPEN", "Smiler-marked door can open")
+	check(game.wakeup_room.laboratory_entered and not lab_door.visible, "Door opening changes physical 3D scene state")
+	check(game.wakeup_room.laboratory_spawn.x > 7.0, "Open door leads into independent lab zone")
+	
 	game.start_prologue()
 	check(prologue.phase == "push" and prologue.active, "Replay resets the cinematic timeline")
 	prologue.exit_to_menu()
