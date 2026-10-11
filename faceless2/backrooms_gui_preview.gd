@@ -58,12 +58,21 @@ func run() -> void:
 	await _advance_frames(20)
 	await _capture("08_wake_dark")
 	await _advance_frames(12)
+	if prologue.phase == "smiler_watch":
+		await _capture("09_smiler_watch")
+	await _advance_frames(11)
+	if prologue.phase == "smiler_watch": await _capture("10_smiler_stares")
+	await _advance_frames(3)
+	await _capture("11_smiler_rush")
+	await _advance_frames(5)
 	if prologue.phase == "ended":
-		await _capture("09_after_wake_live_scene")
-		prologue.look_after_wake(Vector2(90,0))
-		await _capture("10_look_around")
-	if prologue.phase != "wake" and prologue.phase != "ended":
-		failures.append("Wrong cinematic phase: " + prologue.phase)
+		await _capture("12_smiler_vanished")
+		game.player.look(Vector2(90,0))
+		await _capture("13_player_looks_around")
+		game.player.position += Vector3(0,0,-0.32)
+		await _capture("14_first_person_moves")
+	if prologue.phase != "ended":
+		failures.append("Smiler cinematic not handed to controllable FPS: " + prologue.phase)
 	game.net.leave()
 	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
 		for sound in game.find_children("*", kind, true, false):
