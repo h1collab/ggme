@@ -51,7 +51,7 @@ func _ready() -> void:
 	camera.add_child(torch)
 	# The gloves/arms are mesh triangles extracted from licensed Cesium Man;
 	# the original rig, skin and walk animation remain intact in the derived GLB.
-	var asset_path := Assets.path("vendor/first_person_arms.glb")
+	var asset_path := Assets.path("vendor/sketchfab_fps_arms.glb")
 	if ResourceLoader.exists(asset_path):
 		viewmodel_root = Node3D.new()
 		viewmodel_root.name = "CesiumFirstPersonHands"
@@ -153,7 +153,7 @@ func _physics_process(delta: float) -> void:
 	last_grounded = is_on_floor()
 	landing_dip = move_toward(landing_dip, 0.0, delta * 0.18)
 	if position.y < -2:
-		position = game.level.spawn
+		position = Vector3(0,0.1,3.1) if game.prologue.phase == "ended" and game.wakeup_room.visible else game.level.spawn
 		velocity = Vector3.ZERO
 	var moving := Vector2(velocity.x, velocity.z).length() > 0.3
 	motion_clock += delta * (10 if sprinting else 7) if moving else delta
@@ -182,7 +182,9 @@ func _physics_process(delta: float) -> void:
 	step_clock -= delta
 	if moving and is_on_floor() and step_clock <= 0:
 		step_clock = 0.34 if sprinting else 0.52
-		if not game.level.add_water_step(position):
+		if game.prologue.phase == "ended" and game.wakeup_room.visible:
+			game.footstep()
+		elif not game.level.add_water_step(position):
 			game.footstep()
 		else:
 			game.water_footstep()
