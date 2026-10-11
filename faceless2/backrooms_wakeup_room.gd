@@ -12,9 +12,9 @@ var low_rumble: AudioStreamPlayer3D
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
 	# Facility is a plausible black-site research space, not an official Area 51 layout.
-	var concrete := _finish(Color(0.30,0.32,0.31), "concrete.jpg")
+	var concrete := _finish(Color(0.51,0.58,0.61), "concrete.jpg")
 	var industrial := _finish(Color(0.18,0.23,0.24))
-	var floor_finish := _finish(Color(0.10,0.12,0.13), "concrete.jpg")
+	var floor_finish := _finish(Color(0.55,0.60,0.61), "concrete.jpg")
 	var panel := _finish(Color(0.26,0.30,0.30))
 	for x in [-3.0,-1.5,0.0,1.5,3.0]:
 		for z in [3.0,1.5,0.0,-1.5,-3.0,-4.5,-6.0,-7.5,-9.0]:
@@ -41,7 +41,7 @@ func _ready() -> void:
 		var light := SpotLight3D.new()
 		light.position = at
 		light.light_color = Color(0.54,0.74,0.83)
-		light.light_energy = 0.6
+		light.light_energy = 1.32
 		light.spot_range = 5.1
 		light.spot_angle = 43.0
 		light.shadow_enabled = false
@@ -54,8 +54,8 @@ func _ready() -> void:
 	near_spill.name = "ColdEmergencySpill_NearAwakeOnly"
 	near_spill.position = Vector3(-1.4, 1.45, 2.2)
 	near_spill.light_color = Color(0.50, 0.72, 0.82)
-	near_spill.light_energy = 0.72
-	near_spill.omni_range = 4.3
+	near_spill.light_energy = 1.85
+	near_spill.omni_range = 6.5
 	near_spill.shadow_enabled = false
 	add_child(near_spill)
 	facility_lights.append(near_spill)
