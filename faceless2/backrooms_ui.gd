@@ -35,6 +35,9 @@ var available_rooms: VBoxContainer
 var room_code_label: Label
 var intro_timer: Timer
 var panel_kind := ""
+var cinematic_fade: ColorRect
+var call_title: Label
+var call_button: Button
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
@@ -206,8 +209,9 @@ func menu() -> void:
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
 	_label(panels, "THE OTHER SHIFT  /  错层", Vector2(73, 323), 640, 27, ACCENT)
 	_label(panels, "一栋已经拆除的楼，记录着你从未经历过的出勤。\n找到林岚失踪的真相。水正在向每一层蔓延。", Vector2(72, 411), 600, 26, MUTED)
-	_button(panels, "开始探索     →", Rect2(72, 538, 600, 76), func(): game.start_solo())
-	_button(panels, "房间合作 / 2–4 人", Rect2(72, 631, 600, 74), open_lobby)
+	_button(panels, "开始剧情 / THE OTHER SHIFT →", Rect2(72, 538, 600, 76), func(): game.start_prologue())
+	_button(panels, "经典四层探索", Rect2(72, 631, 288, 74), func(): game.start_solo())
+	_button(panels, "房间合作 / 2–4 人", Rect2(381, 631, 291, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
@@ -222,6 +226,44 @@ func _page(title: String, kind: String) -> void:
 	_label(panels, "FACELESS 2  /  ZORIX GAme TEAM", Vector2(72, 47), 1050, 19, ACCENT)
 	_label(panels, title, Vector2(72, 108), 1240, 40)
 	_button(panels, "BACK", Rect2(1320, 45, 204, 70), func(): close_panels() if game.running else menu())
+
+func open_prologue() -> void:
+	_clear("prologue")
+	modal = true
+	panels.visible = true
+	hud.visible = false
+	# Text is intentionally limited to what is printed on the phone.
+	call_title = _label(panels, "", Vector2(640, 300), 500, 44, PAPER)
+	call_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	call_button = _button(panels, "接听 / ANSWER", Rect2(685, 610, 235, 84), func(): game.prologue.answer(), true)
+	call_button.visible = false
+	cinematic_fade = ColorRect.new()
+	cinematic_fade.color = Color(0, 0, 0, 0)
+	cinematic_fade.position = Vector2.ZERO
+	cinematic_fade.size = Vector2(1600, 900)
+	cinematic_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panels.add_child(cinematic_fade)
+
+func prologue_stage(phase: String) -> void:
+	if not is_instance_valid(call_title): return
+	call_title.text = "未知号码" if phase == "ring" or phase == "disconnect" else ""
+	if is_instance_valid(call_button):
+		call_button.visible = phase == "ring"
+	if phase == "push": prologue_fade(0.0)
+
+func prologue_fade(alpha: float) -> void:
+	if is_instance_valid(cinematic_fade):
+		cinematic_fade.color.a = clampf(alpha, 0.0, 1.0)
+
+func prologue_finished() -> void:
+	_clear("prologue_end")
+	_card(panels, Rect2(0, 0, 1600, 900), Color.BLACK)
+	var title := _label(panels, "FACELESS 2", Vector2(440, 270), 720, 62, PAPER)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var subtitle := _label(panels, "THE OTHER SHIFT  /  序章终", Vector2(440, 392), 720, 29, MUTED)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_button(panels, "重播序章", Rect2(420, 630, 350, 74), func(): game.start_prologue())
+	_button(panels, "返回主菜单", Rect2(830, 630, 350, 74), func(): game.prologue.exit_to_menu())
 
 func open_briefing() -> void:
 	_page(game.story.BRIEFINGS[game.stage][0], "briefing")
