@@ -282,6 +282,22 @@ func prologue_wake_progress(progress: float) -> void:
 		wakeup_veil.position = Vector2.ZERO
 		wakeup_veil.size = Vector2(1600,900)
 		wakeup_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Five hardware-filtered mip samples are cheaper than multi-pass DOF.
+		# The color mask simulates groggy eyes without an Android postprocess pass.
+		var blur_shader := Shader.new()
+		blur_shader.code = """shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform float clarity : hint_range(0.0,1.0) = 0.0;
+void fragment() {
+	vec4 b = textureLod(screen_tex, SCREEN_UV, (1.0-clarity)*4.2);
+	float edge = smoothstep(0.68, 0.20, distance(SCREEN_UV,vec2(0.5,0.49)));
+	b.rgb *= mix(0.30,1.0,edge);
+	b.rgb = mix(vec3(dot(b.rgb,vec3(0.299,0.587,0.114))),b.rgb, 0.48+0.52*clarity);
+	COLOR = vec4(b.rgb,1.0);
+}"""
+		var blur_material := ShaderMaterial.new()
+		blur_material.shader = blur_shader
+		wakeup_veil.material = blur_material
 		panels.add_child(wakeup_veil)
 		wakeup_text = _label(panels,"",Vector2(250,748),1100,39,PAPER)
 		wakeup_text.name = "WakeupTypewriter_English"
@@ -292,7 +308,9 @@ func prologue_wake_progress(progress: float) -> void:
 	var p := clampf(progress,0.0,1.0)
 	# Small-device-safe recovery impression: transparent veiling/exposure,
 	# gentle desaturation and peripheral darkness, never costly full-screen blur.
-	wakeup_veil.color = Color(0.075,0.10,0.11,1.0-smoothstep(0.0,0.74,p)*0.94)
+	wakeup_veil.color = Color.WHITE
+	if wakeup_veil.material is ShaderMaterial:
+		(wakeup_veil.material as ShaderMaterial).set_shader_parameter("clarity",smoothstep(0.04,0.88,p))
 	if is_instance_valid(cinematic_fade):
 		cinematic_fade.color.a = 1.0-smoothstep(0.0,0.36,p)
 	var characters := clampi(int(floor(maxf(0.0,p-0.30)*21.0)),0,11)
