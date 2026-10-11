@@ -23,7 +23,10 @@ func run() -> void:
 	check(not game.level.visible and game.prologue_room.visible, "Old yellow corridor stays hidden behind independent room")
 	check(game.prologue_room.authored_piece_count >= 6 and game.prologue_room.authored_prop_count >= 5, "Independent scene uses licensed GLB furniture and architecture")
 	check(game.prologue.camera.current and game.prologue.visible, "Title view uses the furnished opening room camera")
-	check(game.ui.find_children("*", "Label", true, false).any(func(item: Node): return (item as Label).text.contains("THE BUILDING THAT RETURNED")) == false, "Legacy title is not shown on new story menu")
+	var legacy_label_found := false
+	for label_node in game.ui.find_children("*", "Label", true, false):
+		if (label_node as Label).text.contains("THE BUILDING THAT RETURNED"): legacy_label_found = true
+	check(not legacy_label_found, "Legacy chapter card is absent from the new story menu")
 	game.start_prologue()
 	var prologue: Node3D = game.prologue
 	check(not game.level.visible and game.prologue_room.visible, "Cinematic never exposes the old corridor")
