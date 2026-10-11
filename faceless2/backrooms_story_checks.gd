@@ -103,8 +103,15 @@ func run() -> void:
 	game.story.update(0.9)
 	check(game.story.phase == "idle" and not game.story.actor.visible, "Opening face vanishes on time")
 	game.net.leave()
+	for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:
+		for sound in game.find_children("*",kind,true,false):
+			sound.stop()
+			sound.stream = null
+	for animator in game.find_children("*","AnimationPlayer",true,false): animator.stop()
+	for emitter in game.find_children("*","CPUParticles3D",true,false): emitter.emitting = false
 	game.queue_free()
-	await create_timer(0.15).timeout
+	for i in range(8): await process_frame
+	await create_timer(0.4).timeout
 	if not failed:
 		print("Faceless 2 story checks: PASS / authored skinned animation, corner occlusion, local suspense, menu and manual override, Chinese story")
 		quit(0)
