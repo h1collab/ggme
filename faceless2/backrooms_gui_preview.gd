@@ -41,12 +41,11 @@ func run() -> void:
 	var entity = game.wakeup_room.smiler
 	if entity is Sprite3D:
 		var tex := (entity as Sprite3D).texture
-		if tex != null:
-			var im := tex.get_image()
-			print("SMILER_SPRITE_DEBUG size=", im.get_size(), " alpha_bbox=", im.get_used_rect(),
-				" alpha_center=", im.get_pixel(im.get_width()/2, im.get_height()/2))
-			im.save_png(output_dir.path_join("smiler_baked_source_review.png"))
-		print("SMILER_SPRITE_DEBUG billboard=", (entity as Sprite3D).billboard, " pos=",entity.position)
+		print("SMILER_SPRITE_DEBUG imported=", tex != null,
+			" size=", tex.get_size() if tex != null else Vector2.ZERO,
+			" billboard=", (entity as Sprite3D).billboard, " pos=",entity.position)
+		# Do not request a GPU texture readback during GUI scene execution;
+		# the exact source PNG is copied into the artifact in the workflow.
 	prologue.set_process(false)
 	await _capture("01_surveillance_far")
 	await _advance_frames(11)
