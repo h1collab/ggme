@@ -263,6 +263,7 @@ func open_prologue() -> void:
 	panels.add_child(cinematic_fade)
 
 func prologue_stage(phase: String) -> void:
+	if is_instance_valid(game.prologue): game.prologue.update_phone_language()
 	if not is_instance_valid(call_title): return
 	call_title.text = ""
 	if is_instance_valid(call_button):
