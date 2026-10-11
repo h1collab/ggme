@@ -54,6 +54,8 @@ func _ready() -> void:
 	_barrier(Vector3(3.8,1.45,-3.0),Vector3(0.35,3.0,14.8))
 	_barrier(Vector3(0,1.45,-10.1),Vector3(7.6,3.0,0.35))
 	_barrier(Vector3(0,1.45,4.1),Vector3(7.6,3.0,0.35))
+	# Invisible colliders are disabled whenever the cinematic facility is hidden.
+	set_physics_active(false)
 	# Required licensed Smiler: an authored external Sketchfab GLB, not code geometry.
 	var smiler_path := Assets.path("vendor/sketchfab_smiler.glb")
 	if not ResourceLoader.exists(smiler_path):
@@ -64,7 +66,7 @@ func _ready() -> void:
 		# This Sketchfab asset is a floating face whose long axis is Z and
 		# face normal X, rather than a conventional Y-up humanoid.
 		smiler.scale = Vector3.ONE * 0.60
-		smiler.rotation = Vector3(-PI * 0.5, -PI * 0.5, 0.0)
+		smiler.rotation = Vector3(0.0, -PI * 0.5, 0.0)
 		smiler.position = Vector3(0,1.15,-4.1)
 		add_child(smiler)
 		smiler.visible = false
@@ -129,6 +131,11 @@ func _authored_door(at: Vector3) -> Node3D:
 	add_child(node)
 	return node
 
+func set_physics_active(enabled: bool) -> void:
+	if not is_instance_valid(walkable_floor): return
+	walkable_floor.collision_layer = 1 if enabled else 0
+	walkable_floor.collision_mask = 1 if enabled else 0
+
 func _barrier(at: Vector3, size: Vector3) -> void:
 	var shape := BoxShape3D.new()
 	shape.size = size
@@ -144,12 +151,13 @@ func smiler_stage(distance_t: float, stage: String) -> void:
 	for anim_node in smiler.find_children("*","AnimationPlayer",true,false):
 		var player := anim_node as AnimationPlayer
 		player.speed_scale = 0.03 if stage == "watch" else (2.3 if stage == "rush" else 0.0)
+
 	if stage == "watch":
-		smiler.position = Vector3(0,0,-6.2)
-		smiler.rotation.y = -PI * 0.5
+		smiler.position = Vector3(0,1.15,-4.1)
+		smiler.rotation = Vector3(0.0,-PI * 0.5,0.0)
 	elif stage == "rush":
 		smiler.position = Vector3(0,1.15,lerpf(-4.1,2.0,smoothstep(0.0,1.0,distance_t)))
-		smiler.rotation.y = 0
+		smiler.rotation = Vector3(0.0,-PI * 0.5,0.0)
 		if is_instance_valid(smiler_glow): smiler_glow.position.z = smiler.position.z + 0.7
 
 func _finish(color: Color, photo: String = "") -> StandardMaterial3D:
