@@ -106,3 +106,9 @@ func _module(source: String, at: Vector3, material: StandardMaterial3D, dimensio
 		(mesh as MeshInstance3D).material_override = material
 	add_child(model)
 	authored_modules += 1
+
+func _exit_tree() -> void:
+	for source in [low_rumble, far_clang]:
+		if is_instance_valid(source):
+			source.stop()
+			source.stream = null
