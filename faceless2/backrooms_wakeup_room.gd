@@ -10,6 +10,7 @@ var facility_lights: Array[Light3D] = []
 var low_rumble: AudioStreamPlayer3D
 var far_clang: AudioStreamPlayer3D
 var smiler: Node3D
+var smiler_glow: OmniLight3D
 var walkable_floor: StaticBody3D
 var side_doors: Array[Node3D] = []
 
@@ -65,6 +66,15 @@ func _ready() -> void:
 		smiler.visible = false
 		for mesh in smiler.find_children("*","MeshInstance3D",true,false):
 			(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		smiler_glow = OmniLight3D.new()
+		smiler_glow.name = "NarrowSmilerMoonlight"
+		smiler_glow.light_color = Color(0.46,0.68,0.79)
+		smiler_glow.light_energy = 0.36
+		smiler_glow.omni_range = 2.0
+		smiler_glow.shadow_enabled = false
+		smiler_glow.position = Vector3(0.7,1.3,-5.5)
+		add_child(smiler_glow)
+		smiler_glow.visible = false
 	# A distant shutter has no floodlighting. Forward view ends in darkness.
 	for at in [Vector3(1.9,2.7,1.4),Vector3(-1.7,2.7,-1.8)]:
 		var light := SpotLight3D.new()
@@ -126,12 +136,17 @@ func _barrier(at: Vector3, size: Vector3) -> void:
 func smiler_stage(distance_t: float, stage: String) -> void:
 	if not is_instance_valid(smiler): return
 	smiler.visible = stage != "hidden"
+	if is_instance_valid(smiler_glow): smiler_glow.visible = stage != "hidden"
+	for anim_node in smiler.find_children("*","AnimationPlayer",true,false):
+		var player := anim_node as AnimationPlayer
+		player.speed_scale = 0.03 if stage == "watch" else (2.3 if stage == "rush" else 0.0)
 	if stage == "watch":
 		smiler.position = Vector3(0,0,-6.2)
 		smiler.rotation.y = 0
 	elif stage == "rush":
 		smiler.position = Vector3(0,0,lerpf(-6.2,2.1,smoothstep(0.0,1.0,distance_t)))
 		smiler.rotation.y = 0
+		if is_instance_valid(smiler_glow): smiler_glow.position.z = smiler.position.z + 0.7
 
 func _finish(color: Color, photo: String = "") -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
