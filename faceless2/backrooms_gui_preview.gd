@@ -102,6 +102,16 @@ func run() -> void:
 		await _capture("14_controls_unlocked")
 		game.player.look(Vector2(90,0))
 		await _capture("15_player_looks_around")
+		var door: Node3D = game.wakeup_room.openable_door
+		if is_instance_valid(door):
+			game.player.global_position = door.global_position + Vector3(0,0.10,0.65)
+			game.player.interact_or_locked_door()
+			await _capture("16_open_door_to_abandoned_lab")
+			if game.wakeup_room.laboratory_entered:
+				game.player.camera.look_at(Vector3(11.0,1.5,-4.8))
+				await _capture("17_authorized_glb_abandoned_laboratory")
+			else:
+				failures.append("Openable marked laboratory door was not activated")
 	else: failures.append("Second apparition did not release movement")
 	game.net.leave()
 	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
