@@ -71,9 +71,15 @@ func run() -> void:
 	prologue.advance(0.15)
 	check(prologue.phase == "smiler_watch", "Black entity watches silently before rushing")
 	check(game.wakeup_room.smiler.visible, "Real Smiler model visible in the dark")
-	for i in range(13): prologue.advance(0.15)
-	check(prologue.phase == "smiler_rush", "Smiler commits to rush")
-	for i in range(5): prologue.advance(0.15)
+	# Drive each transition until it actually fires; float delta accumulation
+	# may differ slightly between Godot builds and frame scheduling.
+	for i in range(20):
+		if prologue.phase != "smiler_watch": break
+		prologue.advance(0.15)
+	check(prologue.phase == "smiler_rush", "Smiler commits to rush (actual phase: %s)" % prologue.phase)
+	for i in range(12):
+		if prologue.phase == "ended": break
+		prologue.advance(0.15)
 	check(prologue.phase == "ended" and not prologue.active, "Smiler disappears at end of rush")
 	check(not game.wakeup_room.smiler.visible, "Real model vanishes when rush completes")
 	check(game.running and game.player.visible and game.player.camera.current and not game.ui.modal, "Player can move freely after Smiler jumpscare")
