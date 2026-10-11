@@ -284,12 +284,12 @@ func prologue_finished() -> void:
 	_button(panels, tr("MAIN MENU", "返回主菜单"), Rect2(830, 630, 350, 74), func(): game.prologue.exit_to_menu())
 
 func open_briefing() -> void:
-	_page(game.story.BRIEFINGS[game.stage][0] if game.language == "zh" else "CHAPTER %d / THE OTHER SHIFT" % game.stage, "briefing")
-	var message := _label(panels, game.story.BRIEFINGS[game.stage][1] if game.language == "zh" else "Follow the physical clues, listen for footsteps, and investigate the missing shift.", Vector2(76, 215), 1430, 28)
+	_page(game.story.chapter_title(game.stage), "briefing")
+	var message := _label(panels, game.story.chapter_description(game.stage), Vector2(76, 215), 1430, 28)
 	message.size.y = 256
 	_card(panels, Rect2(76, 492, 1400, 145), Color(0.065, 0.089, 0.073))
 	_label(panels, tr("OBJECTIVE / Every action leaves a trace", "调查目标 / 你的行动会留下证据"), Vector2(98, 508), 1200, 23, ACCENT)
-	_label(panels, game.story.BRIEFINGS[game.stage][2] if game.language == "zh" else "Find supplies and a key, inspect three anomalies, then open the lift.", Vector2(98, 555), 1310, 22)
+	_label(panels, game.story.chapter_goal(game.stage), Vector2(98, 555), 1310, 22)
 	_label(panels, "WASD / 左摇杆移动  ·  E / 拾取或组合  ·  J / 日志  ·  F / 手电\n右侧拖动观察，低头能看到双脚。剧情镜头永远可打断。", Vector2(76, 653), 1390, 22, MUTED)
 	_button(panels, tr("ENTER THE DARK", "进入黑暗 / CONTINUE"), Rect2(76, 764, 1380, 80), close_panels)
 	game.story.play_voice("brief_%d" % game.stage)
@@ -305,19 +305,19 @@ func close_panels() -> void:
 
 func open_journal() -> void:
 	_page("调查日志 / EVIDENCE JOURNAL", "journal")
-	_label(panels, game.story.BRIEFINGS[game.stage][0] + "  /  " + game.level.subtitle, Vector2(78, 190), 1370, 26, ACCENT)
+	_label(panels, game.story.chapter_title(game.stage) + "  /  " + game.level.subtitle, Vector2(78, 190), 1370, 26, ACCENT)
 	for i in range(3):
 		var found: bool = game.repaired[i]
 		var y := 248 + i * 153
 		_card(panels, Rect2(76, y, 1437, 139), Color(0.055, 0.082, 0.076, 0.93) if found else Color(0.022, 0.039, 0.038, 0.94))
-		_label(panels, game.story.EVIDENCE_TITLES[game.stage][i] + ("  /  已发现" if found else "  /  未调查"), Vector2(102, y+17), 1370, 24, ACCENT if found else MUTED)
-		var content: String = game.story.MEMORY_TEXT[game.stage][i] if found else "未知位置：请沿目标方向寻找现场物件。靠近后按 E / 调查。"
+		_label(panels, game.story.evidence_title(game.stage, i) + (tr("  /  FOUND", "  /  已发现") if found else tr("  /  UNKNOWN", "  /  未调查")), Vector2(102, y+17), 1370, 24, ACCENT if found else MUTED)
+		var content: String = game.story.memory_line(game.stage, i) if found else tr("Follow the objective. Press E near the physical evidence.", "未知位置：请沿目标方向寻找现场物件。靠近后按 E / 调查。")
 		var body := _label(panels, content, Vector2(102, y+65), 1350, 20, PAPER if found else MUTED)
 		body.size.y = 67
 	if game.repaired.count(true) >= 2:
-		_label(panels, "新的发现 / " + game.story.INTERLUDES[game.stage], Vector2(78, 749), 1370, 18, ACCENT)
+		_label(panels, tr("NEW DISCOVERY / ", "新的发现 / ") + game.story.interlude(game.stage), Vector2(78, 749), 1370, 18, ACCENT)
 	else:
-		_label(panels, "观察：地面上的积水也许比墙上标记更可靠。", Vector2(78, 749), 1370, 20, MUTED)
+		_label(panels, tr("The water may be a better witness than the markings on the wall.", "观察：地面上的积水也许比墙上标记更可靠。"), Vector2(78, 749), 1370, 20, MUTED)
 	_button(panels, "返回现场", Rect2(1215, 820, 295, 65), close_panels)
 
 func open_final_choice() -> void:
@@ -563,7 +563,7 @@ func open_settings() -> void:
 	glance.toggled.connect(func(value: bool): game.shock_glance_enabled = value; game.player.cancel_focus(); game.save_settings())
 	panels.add_child(glance)
 	var speech := CheckBox.new()
-	speech.text = "播放神经网络预生成的中文录音（非系统 TTS，可关闭）"
+	speech.text = tr("Play offline Mandarin dialogue (available in Chinese mode)", "播放神经网络预生成的中文录音（非系统 TTS，可关闭）")
 	speech.position = Vector2(75, 770)
 	speech.size = Vector2(1400, 55)
 	speech.button_pressed = game.voice_enabled
