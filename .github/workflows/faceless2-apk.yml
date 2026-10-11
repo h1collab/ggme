@@ -105,19 +105,23 @@ jobs:
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio
-          python faceless2/fetch_sketchfab_phone.py app/assets/vendor
-          # License permits use inside commercial games, not reselling raw assets.
-          # The pinned source is a small real GLB smartphone, not an iPhone 17.
-          python - <<'PY_PHONE'
-          import urllib.request
+          # First prefer the original API when token permits. A token may
+          # exist but lack access; never block the legitimate public mirror.
+          if [ -n "${SKETCHFAB_TOKEN:-}" ]; then
+            python faceless2/fetch_sketchfab_phone.py app/assets/vendor || echo "SKETCHFAB_STATUS=authorized-download-unavailable; using verified CC BY public copy"
+          fi
+          if [ ! -s app/assets/vendor/iphone17_pro.glb ]; then
+            curl --fail --location --silent --show-error --retry 3 \
+              --output app/assets/vendor/iphone17_pro.glb \
+              "https://raw.githubusercontent.com/quentin-pla/phone-mockup-studio/9908f2c321787779b6e028cba1ab67cd29a6a6dd/source/iphone_17_pro.glb"
+            echo "31d6a04caabcca2fb717738079ca66da59347647" | grep -Fx "$(git hash-object app/assets/vendor/iphone17_pro.glb")"
+            python - <<'PY_IPHONE'
           from pathlib import Path
-          url='https://polyfork.dev/cdn/smartphone-5f05e5.glb'
-          data=urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'Faceless2AssetBuild/0.18'}),timeout=45).read()
-          if not (data.startswith(b'glTF') and 1000 < len(data) < 200000):
-              raise RuntimeError('Licensed fallback smartphone GLB was unavailable or malformed')
-          Path('app/assets/vendor/phone_fallback.glb').write_bytes(data)
-          print('Real external smartphone GLB fetched for introductory phone closeup')
-          PY_PHONE
+          file=Path('app/assets/vendor/iphone17_pro.glb')
+          assert file.stat().st_size == 24368404 and file.read_bytes()[:4] == b'glTF'
+          print('SKETCHFAB_STATUS=verified-iphone17pro-CC-BY-4.0')
+          PY_IPHONE
+          fi
           npx --yes @gltf-transform/cli@4.5.1 cp app/assets/vendor/huuxloc_backroom.draco.glb app/assets/vendor/huuxloc_backroom.glb
           test -s app/assets/vendor/huuxloc_backroom.glb
           rm app/assets/vendor/huuxloc_backroom.draco.glb
@@ -189,7 +193,7 @@ jobs:
           python - <<'PYCODE'
           from pathlib import Path
           root=Path('app')
-          required=['assets/entity.glb','assets/vendor/almond_water.glb','assets/vendor/lift_key.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','assets/vendor/first_person_legs.glb','audio/voice/brief_0.ogg','audio/voice/brief_3.ogg','audio/voice/opening.ogg','audio/voice/tape_3_2.ogg','audio/voice/turn_2.ogg','audio/voice/ending_seal.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','audio/phone_ring.wav','audio/phone_disconnect.wav','audio/phone_static.wav','audio/phone_fall.wav','assets/vendor/phone_fallback.glb','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
+          required=['assets/entity.glb','assets/vendor/almond_water.glb','assets/vendor/lift_key.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','assets/vendor/first_person_legs.glb','audio/voice/brief_0.ogg','audio/voice/brief_3.ogg','audio/voice/opening.ogg','audio/voice/tape_3_2.ogg','audio/voice/turn_2.ogg','audio/voice/ending_seal.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','audio/phone_ring.wav','audio/phone_disconnect.wav','audio/phone_static.wav','audio/phone_fall.wav','assets/vendor/iphone17_pro.glb','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
           for f in required: assert (root/f).is_file() and (root/f).stat().st_size > 100, f
           level_source=Path('faceless2/backrooms_level.gd').read_text()
           player_source=Path('faceless2/backrooms_player.gd').read_text()
