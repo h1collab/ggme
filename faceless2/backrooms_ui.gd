@@ -143,7 +143,7 @@ func _build_hud() -> void:
 	objective_label = _label(hud, "", Vector2(50, 151), 508, 21, PAPER)
 	_card(hud, Rect2(1203, 25, 183, 78), Color(0.013, 0.025, 0.025, 0.72))
 	notice_label = _label(hud, "", Vector2(1217, 43), 168, 18, MUTED)
-	_button(hud, "日志 / J", Rect2(996, 30, 190, 69), open_journal, true)
+	_button(hud, localized("JOURNAL / J", "日志 / J"), Rect2(996, 30, 190, 69), open_journal, true)
 	_button(hud, "Ⅱ", Rect2(1410, 30, 135, 69), open_pause, true)
 	prompt_label = _label(hud, "", Vector2(468, 689), 665, 24, ACCENT)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -156,10 +156,10 @@ func _build_hud() -> void:
 	joystick.position = Vector2(66, 640)
 	joystick.size = Vector2(186, 186)
 	hud.add_child(joystick)
-	_button(hud, "调查 / E", Rect2(1352, 637, 195, 77), func(): game.interact(), true)
-	_button(hud, "手电 / F", Rect2(1352, 734, 195, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
-	_button(hud, "杏仁水 / 喝", Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
-	_button(hud, "重播语音", Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
+	_button(hud, localized("INTERACT / E", "调查 / E"), Rect2(1352, 637, 195, 77), func(): game.interact(), true)
+	_button(hud, localized("TORCH / F", "手电 / F"), Rect2(1352, 734, 195, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
+	_button(hud, localized("DRINK ALMOND", "杏仁水 / 喝"), Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
+	_button(hud, localized("REPLAY VOICE", "重播语音"), Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
 	var run := _button(hud, "RUN", Rect2(290, 784, 136, 67), func(): pass, true)
 	run.button_down.connect(func(): run_held = true)
 	run.button_up.connect(func(): run_held = false)
@@ -304,7 +304,7 @@ func close_panels() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if OS.has_feature("android") else Input.MOUSE_MODE_CAPTURED
 
 func open_journal() -> void:
-	_page("调查日志 / EVIDENCE JOURNAL", "journal")
+	_page(localized("EVIDENCE JOURNAL", "调查日志 / EVIDENCE JOURNAL"), "journal")
 	_label(panels, game.story.chapter_title(game.stage) + "  /  " + game.level.subtitle, Vector2(78, 190), 1370, 26, ACCENT)
 	for i in range(3):
 		var found: bool = game.repaired[i]
@@ -318,7 +318,7 @@ func open_journal() -> void:
 		_label(panels, localized("NEW DISCOVERY / ", "新的发现 / ") + game.story.interlude(game.stage), Vector2(78, 749), 1370, 18, ACCENT)
 	else:
 		_label(panels, localized("The water may be a better witness than the markings on the wall.", "观察：地面上的积水也许比墙上标记更可靠。"), Vector2(78, 749), 1370, 20, MUTED)
-	_button(panels, "返回现场", Rect2(1215, 820, 295, 65), close_panels)
+	_button(panels, localized("BACK TO SCENE", "返回现场"), Rect2(1215, 820, 295, 65), close_panels)
 
 func open_final_choice() -> void:
 	if game.stage != 3 or not game.transfer_ready() or game.lift_active: return
@@ -335,7 +335,7 @@ func open_final_choice() -> void:
 	_label(panels, "共同游戏：由第一个成功进入电梯并提交选择的玩家决定房间结局。", Vector2(114, 817), 1400, 19, MUTED)
 
 func open_guide() -> void:
-	_page("探索方式", "guide")
+	_page(localized("HOW TO PLAY", "探索方式"), "guide")
 	var entries := [
 		["真实空间", "四个错位楼层，各有不同的证据与现场疑点。调查完成才能解锁电梯。"],
 		["恐惧来自环境", "水会渗进每一层。听脚步和电机，注意偶尔出现在暗处的脸。"],
@@ -358,7 +358,7 @@ func open_about() -> void:
 	_label(panels, "BUILD 0.18.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
-	_page("授权素材 / CREDITS", "credits")
+	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
 	var lines := [
 		"Architecture: Huuxloc / BackRooms GLB — CC BY 4.0 (modified)",
 		"Monster: City Building Game Art / HorrorGameMaker — CC0",
@@ -373,8 +373,8 @@ func open_credits() -> void:
 	_button(panels, "CC BY 4.0", Rect2(802, 763, 605, 68), func(): OS.shell_open("https://creativecommons.org/licenses/by/4.0/"))
 
 func open_pause() -> void:
-	_page("暂停 / PAUSE", "pause")
-	_label(panels, "单人探索时暂停；多人房间中其他玩家继续移动。", Vector2(76, 226), 1410, 26, MUTED)
+	_page(localized("PAUSE", "暂停 / PAUSE"), "pause")
+	_label(panels, localized("Solo pauses; other players continue in co-op.", "单人探索时暂停；多人房间中其他玩家继续移动。"), Vector2(76, 226), 1410, 26, MUTED)
 	if not game.rooms.room_code.is_empty():
 		_label(panels, "你的房间号：" + game.rooms.room_code + "  ·  复制给朋友后可用房间号加入", Vector2(76, 260), 1420, 24, ACCENT)
 	_button(panels, "CONTINUE", Rect2(75, 327, 620, 80), close_panels)
@@ -384,27 +384,27 @@ func open_pause() -> void:
 	_button(panels, "LEAVE", Rect2(75, 565, 620, 78), func(): game.net.leave(); game.running = false; menu())
 
 func open_lobby() -> void:
-	_page("联机房间 / 创建 · 公开列表 · 房间码", "lobby")
+	_page(localized("MULTIPLAYER / ROOMS", "联机房间 / 创建 · 公开列表 · 房间码"), "lobby")
 	if not game.rooms.rooms_changed.is_connected(_render_rooms): game.rooms.rooms_changed.connect(_render_rooms)
 	if not game.rooms.room_created.is_connected(_room_created): game.rooms.room_created.connect(_room_created)
 	if not game.rooms.room_error.is_connected(_room_error): game.rooms.room_error.connect(_room_error)
 	_card(panels, Rect2(65, 218, 705, 560))
 	_card(panels, Rect2(793, 218, 742, 560))
-	_label(panels, "创建房间 / 你是房主", Vector2(92, 236), 650, 28, ACCENT)
+	_label(panels, localized("CREATE ROOM / HOST", "创建房间 / 你是房主"), Vector2(92, 236), 650, 28, ACCENT)
 	room_name_field = LineEdit.new()
 	room_name_field.position = Vector2(94, 292)
 	room_name_field.size = Vector2(630, 56)
-	room_name_field.placeholder_text = "房间名字 / 例如 黑暗走廊"
+	room_name_field.placeholder_text = localized("Room name", "房间名字 / 例如 黑暗走廊")
 	room_name_field.max_length = 40
 	panels.add_child(room_name_field)
 	_label(panels, "类型", Vector2(93, 373), 190, 19, MUTED)
 	room_visibility = OptionButton.new()
 	room_visibility.position = Vector2(96, 409)
 	room_visibility.size = Vector2(323, 56)
-	room_visibility.add_item("公开 / 显示在列表", 0)
-	room_visibility.add_item("私人 / 只通过房间号", 1)
+	room_visibility.add_item(localized("PUBLIC / Listed", "公开 / 显示在列表"), 0)
+	room_visibility.add_item(localized("PRIVATE / Code only", "私人 / 只通过房间号"), 1)
 	panels.add_child(room_visibility)
-	_label(panels, "人数上限", Vector2(455, 373), 240, 19, MUTED)
+	_label(panels, localized("MAX PLAYERS", "人数上限"), Vector2(455, 373), 240, 19, MUTED)
 	slot_limit = SpinBox.new()
 	slot_limit.position = Vector2(458, 409)
 	slot_limit.size = Vector2(244, 56)
@@ -413,19 +413,19 @@ func open_lobby() -> void:
 	slot_limit.step = 1
 	slot_limit.value = 4
 	panels.add_child(slot_limit)
-	_button(panels, "创建房间", Rect2(95, 497, 609, 70), _create_room)
-	room_code_label = _label(panels, "房间号在创建后显示，复制给朋友即可加入。", Vector2(99, 593), 630, 22, ACCENT)
-	_label(panels, "同一 Wi-Fi 无须服务器。跨网络需要部署 JS 房间服务，且房主 UDP 端口可达。", Vector2(97, 680), 628, 19, MUTED)
-	_label(panels, "加入房间 / 不输入 IP", Vector2(821, 236), 635, 28, ACCENT)
+	_button(panels, localized("CREATE ROOM", "创建房间"), Rect2(95, 497, 609, 70), _create_room)
+	room_code_label = _label(panels, localized("Share your room code to invite friends.", "房间号在创建后显示，复制给朋友即可加入。"), Vector2(99, 593), 630, 22, ACCENT)
+	_label(panels, localized("Same Wi-Fi works locally. Internet hosting requires a reachable UDP port.", "同一 Wi-Fi 无须服务器。跨网络需要部署 JS 房间服务，且房主 UDP 端口可达。"), Vector2(97, 680), 628, 19, MUTED)
+	_label(panels, localized("JOIN BY ROOM CODE", "加入房间 / 不输入 IP"), Vector2(821, 236), 635, 28, ACCENT)
 	room_code_field = LineEdit.new()
 	room_code_field.position = Vector2(827, 290)
 	room_code_field.size = Vector2(418, 57)
-	room_code_field.placeholder_text = "输入八位房间号"
+	room_code_field.placeholder_text = localized("Eight-character room code", "输入八位房间号")
 	room_code_field.max_length = 10
 	panels.add_child(room_code_field)
-	_button(panels, "加入", Rect2(1260, 288, 226, 60), _join_by_code)
-	_label(panels, "附近 / 公开房间", Vector2(822, 371), 430, 22, MUTED)
-	_button(panels, "刷新", Rect2(1315, 366, 176, 54), func(): game.rooms.discover())
+	_button(panels, localized("JOIN", "加入"), Rect2(1260, 288, 226, 60), _join_by_code)
+	_label(panels, localized("PUBLIC ROOMS", "附近 / 公开房间"), Vector2(822, 371), 430, 22, MUTED)
+	_button(panels, localized("REFRESH", "刷新"), Rect2(1315, 366, 176, 54), func(): game.rooms.discover())
 	var viewport := ScrollContainer.new()
 	viewport.position = Vector2(829, 439)
 	viewport.size = Vector2(649, 263)
@@ -434,14 +434,14 @@ func open_lobby() -> void:
 	available_rooms.custom_minimum_size = Vector2(615, 0)
 	available_rooms.add_theme_constant_override("separation", 9)
 	viewport.add_child(available_rooms)
-	_label(panels, "网络模式：本地发现 / JS 目录（可选）", Vector2(87, 790), 630, 19, MUTED)
+	_label(panels, localized("LOCAL DISCOVERY / OPTIONAL DIRECTORY", "网络模式：本地发现 / JS 目录（可选）"), Vector2(87, 790), 630, 19, MUTED)
 	directory_field = LineEdit.new()
 	directory_field.position = Vector2(88, 821)
 	directory_field.size = Vector2(1025, 55)
-	directory_field.placeholder_text = "公共服务 HTTPS 地址 / 不需要填写玩家 IP"
+	directory_field.placeholder_text = localized("Optional HTTPS directory URL, no player IP", "公共服务 HTTPS 地址 / 不需要填写玩家 IP")
 	directory_field.text = game.rooms.directory_url
 	panels.add_child(directory_field)
-	_button(panels, "保存服务", Rect2(1132, 815, 250, 60), _configure_directory)
+	_button(panels, localized("SAVE DIRECTORY", "保存服务"), Rect2(1132, 815, 250, 60), _configure_directory)
 	room_status = _label(panels, game.net.status, Vector2(822, 722), 683, 19, ACCENT)
 	game.rooms.discover()
 
@@ -452,7 +452,7 @@ func _configure_directory() -> void:
 
 func _create_room() -> void:
 	game.rooms.create_room(room_visibility.selected == 0, int(slot_limit.value), room_name_field.text)
-	if is_instance_valid(room_status): room_status.text = "正在创建房间……"
+	if is_instance_valid(room_status): room_status.text = localized("Creating room...", "正在创建房间……")
 
 func _join_by_code() -> void:
 	game.running = false
@@ -460,7 +460,7 @@ func _join_by_code() -> void:
 
 func _room_created(code: String) -> void:
 	if panel_kind == "lobby":
-		if is_instance_valid(room_code_label): room_code_label.text = "房间号：%s  /  请发给好友" % code
+		if is_instance_valid(room_code_label): room_code_label.text = localized("ROOM CODE: %s  /  SHARE WITH FRIENDS", "房间号：%s  /  请发给好友") % code
 		open_briefing()
 
 func _room_error(message: String) -> void:
@@ -473,7 +473,7 @@ func _render_rooms(list: Array) -> void:
 		child.queue_free()
 	if list.is_empty():
 		var help := Label.new()
-		help.text = "暂无公开房间。私人房间请填写房间号。"
+		help.text = localized("No public rooms available. Enter a private room code to join.", "暂无公开房间。私人房间请填写房间号。")
 		help.add_theme_font_size_override("font_size", 22)
 		available_rooms.add_child(help)
 	for entry in list:
@@ -524,18 +524,18 @@ func open_settings() -> void:
 	languages.select(1 if game.language == "zh" else 0)
 	languages.item_selected.connect(func(i: int): game.set_language("zh" if i == 1 else "en"))
 	panels.add_child(languages)
-	_label(panels, "动态 3D 分辨率 / 水面与阴影共用手机性能预算", Vector2(76, 197), 1310, 24, ACCENT)
+	_label(panels, localized("DYNAMIC 3D RESOLUTION / SHARED WATER AND SHADOW BUDGET", "动态 3D 分辨率 / 水面与阴影共用手机性能预算"), Vector2(76, 197), 1310, 24, ACCENT)
 	for i in range(3):
-		var labels := ["流畅 / 58%", "均衡 / 74%", "精细 / 91%"]
+		var labels := [localized("PERFORMANCE / 58%", "流畅 / 58%"), localized("BALANCED / 74%", "均衡 / 74%"), localized("QUALITY / 91%", "精细 / 91%")]
 		_button(panels, labels[i], Rect2(76 + i * 488, 273, 455, 73), func(): game.set_quality(i))
 	var turn := CheckBox.new()
-	turn.text = "剧情自动转头（默认关闭，手动触摸或鼠标立即取消）"
+	turn.text = localized("Scripted camera assistance (off by default; manual look cancels)", "剧情自动转头（默认关闭，手动触摸或鼠标立即取消）")
 	turn.position = Vector2(75, 375)
 	turn.size = Vector2(1390, 59)
 	turn.button_pressed = game.auto_turn
 	turn.toggled.connect(func(value: bool): game.auto_turn = value; game.player.cancel_focus(); game.save_settings())
 	panels.add_child(turn)
-	_label(panels, "视角灵敏度", Vector2(75, 467), 1100, 24, ACCENT)
+	_label(panels, localized("LOOK SENSITIVITY", "视角灵敏度"), Vector2(75, 467), 1100, 24, ACCENT)
 	var sensitivity := HSlider.new()
 	sensitivity.position = Vector2(75, 517)
 	sensitivity.size = Vector2(1390, 51)
@@ -545,7 +545,7 @@ func open_settings() -> void:
 	sensitivity.value = game.sensitivity
 	sensitivity.value_changed.connect(func(value: float): game.sensitivity = value; game.save_settings())
 	panels.add_child(sensitivity)
-	_label(panels, "主音量", Vector2(75, 582), 1100, 24, ACCENT)
+	_label(panels, localized("MASTER VOLUME", "主音量"), Vector2(75, 582), 1100, 24, ACCENT)
 	var volume := HSlider.new()
 	volume.position = Vector2(75, 628)
 	volume.size = Vector2(1390, 51)
@@ -556,7 +556,7 @@ func open_settings() -> void:
 	volume.value_changed.connect(game.set_audio_volume)
 	panels.add_child(volume)
 	var glance := CheckBox.new()
-	glance.text = "开场惊吓瞬间转头（默认开；可关闭，手动视角立即打断）"
+	glance.text = localized("Opening shock glance (interruptible; can disable)", "开场惊吓瞬间转头（默认开；可关闭，手动视角立即打断）")
 	glance.position = Vector2(75, 708)
 	glance.size = Vector2(1400, 49)
 	glance.button_pressed = game.shock_glance_enabled
