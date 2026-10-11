@@ -48,6 +48,17 @@ func _ready() -> void:
 		add_child(light)
 		light.look_at(at+Vector3(0,-2.2,-0.3))
 		facility_lights.append(light)
+	# A weak, localised emergency spill reveals only the immediate floor
+	# and near wall texture; the distant corridor remains unlit.
+	var near_spill := OmniLight3D.new()
+	near_spill.name = "ColdEmergencySpill_NearAwakeOnly"
+	near_spill.position = Vector3(-1.4, 1.45, 2.2)
+	near_spill.light_color = Color(0.50, 0.72, 0.82)
+	near_spill.light_energy = 0.72
+	near_spill.omni_range = 4.3
+	near_spill.shadow_enabled = false
+	add_child(near_spill)
+	facility_lights.append(near_spill)
 	low_rumble = AudioStreamPlayer3D.new()
 	low_rumble.name = "DistantVentilation_Rumble"
 	low_rumble.position = Vector3(0,1.8,-5.0)
