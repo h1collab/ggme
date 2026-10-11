@@ -212,10 +212,21 @@ func _load_level(index: int) -> void:
 		if flooded_ambience.stream != null: flooded_ambience.play()
 	clear_crew()
 
+func set_legacy_collisions(enabled: bool) -> void:
+	# Hiding a 3D level does not remove Godot physics bodies. Prevent invisible
+	# floor-0 colliders from blocking the player's new underground exploration.
+	if not is_instance_valid(level): return
+	for body in level.find_children("*", "CollisionObject3D", true, false):
+		var physics := body as CollisionObject3D
+		if not physics.has_meta("pre_prologue_layer"):
+			physics.set_meta("pre_prologue_layer",physics.collision_layer)
+		physics.collision_layer = int(physics.get_meta("pre_prologue_layer")) if enabled else 0
+
 func show_title_room() -> void:
 	# Only the isolated authored-GLB apartment is visible on the title screen.
 	# The old Backrooms test levels remain loaded but cannot leak into the story.
 	if is_instance_valid(level): level.visible = false
+	set_legacy_collisions(false)
 	if is_instance_valid(prologue_room): prologue_room.visible = true
 	if is_instance_valid(wakeup_room): wakeup_room.visible = false
 	if is_instance_valid(player):
@@ -238,6 +249,7 @@ func start_solo() -> void:
 	if is_instance_valid(wakeup_room): wakeup_room.visible = false
 	if is_instance_valid(prologue): prologue.visible = false
 	if is_instance_valid(level): level.visible = true
+	set_legacy_collisions(true)
 	if is_instance_valid(player):
 		player.visible = true
 		player.camera.make_current()
