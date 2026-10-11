@@ -74,10 +74,10 @@ func _ready() -> void:
 	screen_viewport.add_child(face)
 	screen_label = Label.new()
 	screen_label.position = Vector2(25,310)
-	screen_label.size = Vector2(462,160)
+	screen_label.size = Vector2(462,230)
 	screen_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	screen_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	screen_label.add_theme_font_size_override("font_size",47)
+	screen_label.add_theme_font_size_override("font_size",52)
 	screen_label.add_theme_color_override("font_color",Color(0.92,0.95,1.0))
 	face.add_child(screen_label)
 	var screen_mesh := QuadMesh.new()
@@ -200,7 +200,7 @@ func begin() -> void:
 func update_phone_language() -> void:
 	if not is_instance_valid(screen_label): return
 	if phase == "ring":
-		screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN CALLER"
+		screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN\nCALLER"
 
 func answer() -> void:
 	if not active or phase != "ring" or answered: return
@@ -214,7 +214,7 @@ func _transition(next_phase: String) -> void:
 	game.ui.prologue_stage(next_phase)
 	if next_phase == "ring":
 		screen_surface.visible = true
-		screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN CALLER"
+		screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN\nCALLER"
 	elif next_phase == "disconnect":
 		screen_label.text = "CALL ENDED"
 	elif next_phase == "static":
