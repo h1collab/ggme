@@ -41,6 +41,9 @@ var call_button: Button
 var wakeup_text: Label
 var wakeup_veil: ColorRect
 var facility_hud_mode := false
+var jump_button: Button
+var transient_hint: Label
+var hint_timer := 0.0
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
@@ -156,14 +159,18 @@ func _build_hud() -> void:
 	var cross := _label(hud, "+", Vector2(780, 425), 42, 21, Color(0.80,0.86,0.82,0.65))
 	cross.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	joystick = Joystick.new()
-	joystick.position = Vector2(66, 640)
-	joystick.size = Vector2(186, 186)
+	joystick.position = Vector2(16, 689)
+	joystick.size = Vector2(180, 180)
 	hud.add_child(joystick)
-	_button(hud, localized("INTERACT / E", "调查 / E"), Rect2(1352, 637, 195, 77), func(): game.interact(), true)
+	_button(hud, localized("INTERACT / E", "调查 / E"), Rect2(1352, 637, 195, 77), func(): game.player.interact_or_locked_door(), true)
+	jump_button = _button(hud, localized("JUMP", "跳跃"), Rect2(1370, 782, 176, 83), func(): game.player.request_jump(), true)
 	_button(hud, localized("TORCH / F", "手电 / F"), Rect2(1352, 734, 195, 74), func(): game.player.torch.visible = not game.player.torch.visible, true)
 	_button(hud, localized("DRINK ALMOND", "杏仁水 / 喝"), Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
 	_button(hud, localized("REPLAY VOICE", "重播语音"), Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
-	var run := _button(hud, "RUN", Rect2(290, 784, 136, 67), func(): pass, true)
+	var run := _button(hud, "RUN", Rect2(214, 790, 125, 67), func(): pass, true)
+	transient_hint = _label(hud, "", Vector2(365, 660), 870, 25, ACCENT)
+	transient_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	transient_hint.visible = false
 	run.button_down.connect(func(): run_held = true)
 	run.button_up.connect(func(): run_held = false)
 
@@ -338,9 +345,10 @@ func prologue_finished() -> void:
 	facility_hud_mode = true
 	hud.visible = true
 	for child in hud.get_children():
-		child.visible = child == joystick or (child is Button and (child as Button).text == "RUN")
+		child.visible = child == joystick or child == jump_button or child == transient_hint or (child is Button and ((child as Button).text == "RUN" or (child as Button).text.contains("INTERACT")) )
 	panels.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var line := _label(panels, "", Vector2(340,750),920,37,PAPER)
+	line.visible = false
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
 	_label(panels, localized("MOVE / EXPLORE THE DOORS", "移动 / 探索周围的门"),Vector2(40,820),750,16,MUTED)
@@ -564,8 +572,17 @@ func open_result() -> void:
 	if game.net.mode != "client": _button(panels, "RESTART THIS LAYER", Rect2(76, 666, 625, 82), func(): game.start_shift(game.stage); close_panels())
 	_button(panels, "MAIN MENU", Rect2(790, 666, 620, 82), func(): game.net.leave(); game.running = false; menu())
 
+func show_timed_hint(message: String, seconds: float = 2.0) -> void:
+	if is_instance_valid(transient_hint):
+		transient_hint.text = message
+		transient_hint.visible = true
+		hint_timer = seconds
+
 func refresh() -> void:
 	if not is_instance_valid(game.level): return
+	if hint_timer > 0:
+		hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
+		if hint_timer == 0 and is_instance_valid(transient_hint): transient_hint.visible = false
 	status_label.text = game.level.title if game.language == "zh" else ["FACELESS 2 / THE ENTRANCE", "FACELESS 2 / DORMITORY", "FACELESS 2 / REFLECTION", "FACELESS 2 / ZERO SHAFT"][game.stage]
 	goal_label.text = localized("CLUES %d/3  ·  WATER %d  ·  %s", "线索 %d/3  ·  杏仁水 %d  ·  %s") % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
 	notice_label.text = localized("STAMINA %d%%\nKEY %s", "耐力 %d%%\n钥匙 %s") % [int(game.player.stamina), (localized("FOUND", "已找到") if game.key_picked else localized("MISSING", "未找到"))]
