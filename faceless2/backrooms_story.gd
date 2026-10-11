@@ -347,10 +347,10 @@ func _update_phantom(delta: float) -> void:
 		return
 	if phantom_time < 8.0: return
 	var target := Vector3(0, 0, -16)
-	var distance := game.player.position.distance_to(target)
+	var distance: float = game.player.position.distance_to(target)
 	if distance < 2.0 or distance > 8.0: return
-	var facing := -game.player.camera.global_transform.basis.z
-	var toward := (target - game.player.camera.global_position).normalized()
+	var facing: Vector3 = -game.player.camera.global_transform.basis.z
+	var toward: Vector3 = (target - game.player.camera.global_position).normalized()
 	if facing.dot(toward) < -0.3:
 		phantom_seen = true
 		phantom_time = 0.0
