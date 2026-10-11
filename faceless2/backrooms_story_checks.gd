@@ -65,12 +65,12 @@ func run() -> void:
 		game.player.look(Vector2(8, 0))
 		check(game.player.focus_seconds == 0 and game.player.attention_hold == 0, "Touch or mouse look cancels opt-in focus")
 		var objective: Dictionary = game.next_objective()
-		check(objective.text.contains("杏仁水"), "Non-reading survival pickup is the first objective")
+		check(objective.text.contains("almond water"), "English-default survival pickup is the first objective")
 		game.repaired = [true, true, true]
 		game.water_picked = true
 		game.key_picked = true
 		game.assembled = true
-		check(game.next_objective().text.contains("电梯"), "Combined clues point toward exit")
+		check(game.next_objective().text.contains("Lift"), "English-default objective points toward the lift")
 	game.start_shift(2)
 	game.ui.close_panels()
 	game.story.phase = "idle"
