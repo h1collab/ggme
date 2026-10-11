@@ -5,6 +5,7 @@ const PlayerScript = preload("backrooms_player.gd")
 const UiScript = preload("backrooms_ui.gd")
 const NetworkScript = preload("backrooms_network.gd")
 const StoryScript = preload("backrooms_story.gd")
+const PrologueScript = preload("backrooms_prologue.gd")
 const RoomsScript = preload("backrooms_rooms.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
@@ -65,6 +66,7 @@ var lift_close_started := false
 var frame_ema := 0.0167
 var auto_scale_timer := 0.0
 var story: Node3D
+var prologue: Node3D
 
 func _ready() -> void:
 	name = "Faceless 2"
@@ -105,6 +107,9 @@ func _ready() -> void:
 	story.game = self
 	add_child(story)
 	story.reset_layer(stage)
+	prologue = PrologueScript.new()
+	prologue.game = self
+	add_child(prologue)
 	var config := ConfigFile.new()
 	if config.load("user://faceless2.cfg") == OK:
 		quality = int(config.get_value("display", "quality", 1))
@@ -194,6 +199,10 @@ func _load_level(index: int) -> void:
 		flooded_ambience.stop()
 		if flooded_ambience.stream != null: flooded_ambience.play()
 	clear_crew()
+
+func start_prologue() -> void:
+	# The new opening is solo/local-only; co-op sessions retain their own camera.
+	if is_instance_valid(prologue): prologue.begin()
 
 func start_solo() -> void:
 	net.leave()
