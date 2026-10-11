@@ -201,6 +201,11 @@ func _transition(next_phase: String) -> void:
 	elif next_phase == "wake":
 		game.prologue_room.visible = false
 		game.wakeup_room.visible = true
+		# No luminous world beyond the sealed black-site tunnel.
+		game.environment.environment.background_color = Color(0.004,0.007,0.011)
+		game.environment.environment.ambient_light_energy = 0.035
+		game.environment.environment.fog_light_color = Color(0.01,0.018,0.025)
+		if game.wakeup_room.low_rumble.stream != null: game.wakeup_room.low_rumble.play()
 		camera.current = false
 		wake_camera.position = game.wakeup_room.CAMERA_GROUND
 		wake_camera.look_at(game.wakeup_room.LOOK_GROUND)
@@ -274,7 +279,12 @@ func exit_to_menu() -> void:
 	phase = "inactive"
 	set_process(false)
 	visible = true
-	if is_instance_valid(game.wakeup_room): game.wakeup_room.visible = false
+	if is_instance_valid(game.wakeup_room):
+		game.wakeup_room.visible = false
+		game.wakeup_room.low_rumble.stop()
+	game.environment.environment.background_color = Color(0.028, 0.035, 0.038)
+	game.environment.environment.ambient_light_energy = 0.17
+	game.environment.environment.fog_light_color = Color(0.13,0.15,0.15)
 	wake_camera.current = false
 	game.show_title_room()
 	game.ui.menu()
