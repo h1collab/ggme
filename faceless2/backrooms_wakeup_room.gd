@@ -11,6 +11,9 @@ var low_rumble: AudioStreamPlayer3D
 var far_clang: AudioStreamPlayer3D
 var smiler: Node3D
 var smiler_glow: OmniLight3D
+var smiler_sound: AudioStreamPlayer3D
+var door_audio: AudioStreamPlayer3D
+var door_notice_until := 0.0
 var walkable_floor: StaticBody3D
 var side_doors: Array[Node3D] = []
 
@@ -56,31 +59,37 @@ func _ready() -> void:
 	_barrier(Vector3(0,1.45,4.1),Vector3(7.6,3.0,0.35))
 	# Invisible colliders are disabled whenever the cinematic facility is hidden.
 	set_physics_active(false)
-	# Required licensed Smiler: an authored external Sketchfab GLB, not code geometry.
-	var smiler_path := Assets.path("vendor/sketchfab_smiler.glb")
-	if not ResourceLoader.exists(smiler_path):
-		push_error("Missing authorized Sketchfab Smiler GLB: "+smiler_path)
+	# Author's original Sketchfab GLB is baked to this transparent sprite.
+	# It faces the viewer rather than behaving as a skinned pursuer.
+	var sprite_path := Assets.path("vendor/sketchfab_smiler_face.png")
+	if not ResourceLoader.exists(sprite_path):
+		push_error("Missing verified Sketchfab Smiler sprite: " + sprite_path)
 	else:
-		smiler = Assets.fitted("vendor/sketchfab_smiler.glb",1.65)
-		smiler.name = "SketchfabSmiler_SilentWatcher"
-		# This Sketchfab asset is a floating face whose long axis is Z and
-		# face normal X, rather than a conventional Y-up humanoid.
-		smiler.scale = Vector3.ONE * 0.60
-		smiler.rotation = Vector3(0.0, -PI * 0.5, 0.0)
-		smiler.position = Vector3(0,1.15,-4.1)
-		add_child(smiler)
+		var sprite := Sprite3D.new()
+		sprite.name = "SketchfabSmilerTexture_OriginalGeometryBake"
+		sprite.texture = load(sprite_path)
+		sprite.pixel_size = 0.0020
+		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sprite.no_depth_test = false
+		sprite.shaded = false
+		sprite.transparent = true
+		sprite.position = Vector3(0,1.50,-5.4)
+		add_child(sprite)
+		smiler = sprite
 		smiler.visible = false
-		for mesh in smiler.find_children("*","MeshInstance3D",true,false):
-			(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		smiler_glow = OmniLight3D.new()
-		smiler_glow.name = "NarrowSmilerMoonlight"
-		smiler_glow.light_color = Color(0.46,0.68,0.79)
-		smiler_glow.light_energy = 0.75
-		smiler_glow.omni_range = 3.0
-		smiler_glow.shadow_enabled = false
-		smiler_glow.position = Vector3(0.65,1.55,-3.55)
-		add_child(smiler_glow)
-		smiler_glow.visible = false
+	smiler_sound = AudioStreamPlayer3D.new()
+	smiler_sound.name = "SmilerTwoStageAudio"
+	smiler_sound.position = Vector3(0,1.5,-4.6)
+	smiler_sound.max_distance = 25.0
+	var scare_path := "res://audio/smiler_sting.wav"
+	if ResourceLoader.exists(scare_path): smiler_sound.stream = load(scare_path)
+	add_child(smiler_sound)
+	door_audio = AudioStreamPlayer3D.new()
+	door_audio.name = "LockedDoorImpact"
+	door_audio.max_distance = 15.0
+	var lock_path := "res://audio/door_locked.wav"
+	if ResourceLoader.exists(lock_path): door_audio.stream = load(lock_path)
+	add_child(door_audio)
 	# A distant shutter has no floodlighting. Forward view ends in darkness.
 	for at in [Vector3(1.9,2.7,1.4),Vector3(-1.7,2.7,-1.8)]:
 		var light := SpotLight3D.new()
@@ -144,21 +153,31 @@ func _barrier(at: Vector3, size: Vector3) -> void:
 	collision.shape = shape
 	walkable_floor.add_child(collision)
 
-func smiler_stage(distance_t: float, stage: String) -> void:
+func smiler_stage(_progress: float, stage: String) -> void:
 	if not is_instance_valid(smiler): return
-	smiler.visible = stage != "hidden"
-	if is_instance_valid(smiler_glow): smiler_glow.visible = stage != "hidden"
-	for anim_node in smiler.find_children("*","AnimationPlayer",true,false):
-		var player := anim_node as AnimationPlayer
-		player.speed_scale = 0.03 if stage == "watch" else (2.3 if stage == "rush" else 0.0)
+	smiler.visible = stage == "watch" or stage == "near"
+	if stage == "watch": smiler.position = Vector3(0,1.54,-5.4)
+	if stage == "near": smiler.position = Vector3(0,1.52,-2.35)
+	if is_instance_valid(smiler_sound):
+		smiler_sound.position = smiler.position
 
-	if stage == "watch":
-		smiler.position = Vector3(0,1.15,-4.1)
-		smiler.rotation = Vector3(0.0,-PI * 0.5,0.0)
-	elif stage == "rush":
-		smiler.position = Vector3(0,1.15,lerpf(-4.1,2.0,smoothstep(0.0,1.0,distance_t)))
-		smiler.rotation = Vector3(0.0,-PI * 0.5,0.0)
-		if is_instance_valid(smiler_glow): smiler_glow.position.z = smiler.position.z + 0.7
+func nearest_door(player_position: Vector3, max_distance: float = 1.8) -> Node3D:
+	var best: Node3D = null
+	var shortest := max_distance
+	for door in side_doors:
+		var distance := player_position.distance_to(door.global_position)
+		if distance < shortest:
+			shortest = distance
+			best = door
+	return best
+
+func try_locked_door(player_position: Vector3) -> bool:
+	var door := nearest_door(player_position,2.2)
+	if door == null: return false
+	if is_instance_valid(door_audio):
+		door_audio.global_position = door.global_position
+		if door_audio.stream != null: door_audio.play()
+	return true
 
 func _finish(color: Color, photo: String = "") -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -191,7 +210,7 @@ func _module(source: String, at: Vector3, material: StandardMaterial3D, dimensio
 	authored_modules += 1
 
 func _exit_tree() -> void:
-	for source in [low_rumble, far_clang]:
+	for source in [low_rumble, far_clang, smiler_sound, door_audio]:
 		if is_instance_valid(source):
 			source.stop()
 			source.stream = null
