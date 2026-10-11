@@ -49,12 +49,12 @@ func _ready() -> void:
 	torch.spot_angle = 36
 	torch.shadow_enabled = true
 	camera.add_child(torch)
-	# The gloves/arms are mesh triangles extracted from licensed Cesium Man;
-	# the original rig, skin and walk animation remain intact in the derived GLB.
+	# First-person arm meshes use the separately licensed and imported Sketchfab GLB.
+	# Keep its authored skin and armature; Cesium is retained only for leg/foot movement.
 	var asset_path := Assets.path("vendor/sketchfab_fps_arms.glb")
 	if ResourceLoader.exists(asset_path):
 		viewmodel_root = Node3D.new()
-		viewmodel_root.name = "CesiumFirstPersonHands"
+		viewmodel_root.name = "SketchfabFirstPersonHands"
 		viewmodel_root.position = Vector3(0.0, -1.49, -0.59)
 		viewmodel_root.rotation.y = PI
 		camera.add_child(viewmodel_root)
