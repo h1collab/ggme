@@ -48,7 +48,7 @@ func _ready() -> void:
 	# Close the far end with authored walls, not a skybox leak or visible primitive.
 	for x in [-3.0,-1.5,0.0,1.5,3.0]:
 		_module("wall",Vector3(x,1.55,-10.0),_finish(Color(0.025,0.035,0.04)),Vector3(1.5,3.1,0.3))
-	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(1.6,3.1,0.3))
+	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(4.1,3.10,0.30))
 	# Imported Kenney door meshes are visible; collision is invisible and cheap.
 	for door_at in [Vector3(-3.40,1.3,1.4),Vector3(3.40,1.3,-0.9),Vector3(-3.40,1.3,-4.5),Vector3(3.40,1.3,-6.4)]:
 		var door := _authored_door(door_at)
@@ -82,11 +82,22 @@ func _ready() -> void:
 	var lab_light := OmniLight3D.new()
 	lab_light.position = Vector3(10.6,2.65,-3.1)
 	lab_light.light_color = Color(0.56,0.78,0.77)
-	lab_light.light_energy = 1.15
-	lab_light.omni_range = 5.3
+	lab_light.light_energy = 2.15
+	lab_light.omni_range = 7.0
 	lab_light.shadow_enabled = false
 	add_child(lab_light)
 	facility_lights.append(lab_light)
+	var emergency := SpotLight3D.new()
+	emergency.name = "AbandonedLab_FailedInspectionLamp"
+	emergency.position = Vector3(13.25,2.65,-5.15)
+	emergency.light_color = Color(0.84,0.89,0.79)
+	emergency.light_energy = 2.65
+	emergency.spot_range = 7.4
+	emergency.spot_angle = 53.0
+	emergency.shadow_enabled = false
+	add_child(emergency)
+	emergency.look_at(Vector3(10.8,0.9,-3.4))
+	facility_lights.append(emergency)
 	# Mark the openable doorway with multiple repetitions of the licensed
 	# original Sketchfab face texture, referencing the unsettling Level ! door.
 	var warning_texture := Assets.path("vendor/sketchfab_smiler_face.png")
