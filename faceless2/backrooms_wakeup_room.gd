@@ -71,8 +71,10 @@ func _ready() -> void:
 		sprite.texture = load(sprite_path)
 		sprite.pixel_size = 0.0020
 		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		sprite.no_depth_test = false
+		sprite.no_depth_test = true
 		sprite.shaded = false
+		sprite.no_depth_test = true
+		sprite.double_sided = true
 		sprite.transparent = true
 		sprite.position = Vector3(0,1.50,-5.4)
 		add_child(sprite)
