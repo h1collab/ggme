@@ -38,6 +38,15 @@ func run() -> void:
 	await _capture("00_title")
 	game.start_prologue()
 	prologue = game.prologue
+	var entity = game.wakeup_room.smiler
+	if entity is Sprite3D:
+		var tex := (entity as Sprite3D).texture
+		if tex != null:
+			var im := tex.get_image()
+			print("SMILER_SPRITE_DEBUG size=", im.get_size(), " alpha_bbox=", im.get_used_rect(),
+				" alpha_center=", im.get_pixel(im.get_width()/2, im.get_height()/2))
+			im.save_png(output_dir.path_join("smiler_baked_source_review.png"))
+		print("SMILER_SPRITE_DEBUG billboard=", (entity as Sprite3D).billboard, " pos=",entity.position)
 	prologue.set_process(false)
 	await _capture("01_surveillance_far")
 	await _advance_frames(11)
@@ -67,6 +76,8 @@ func run() -> void:
 		prologue.advance(0.15)
 		await process_frame
 		if prologue.phase == "smiler_watch":
+			prologue.advance(0.08)
+			await process_frame
 			await _capture("11_smiler_far_flash")
 			break
 	for i in range(5): prologue.advance(0.15)
@@ -75,6 +86,8 @@ func run() -> void:
 		prologue.advance(0.15)
 		await process_frame
 		if prologue.phase == "smiler_near":
+			prologue.advance(0.07)
+			await process_frame
 			await _capture("13_smiler_near_flash")
 			break
 	for i in range(3): prologue.advance(0.15)
