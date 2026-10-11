@@ -80,6 +80,18 @@ func run() -> void:
 	check(game.level.ripple_buffer.size() > before_ghost_ripples, "Empty flooded corridor makes an autonomous footstep ripple")
 	check(game.story.ghost_water_index == 1, "Unseen footsteps choose physical water zones")
 	check(game.player.focus_seconds == 0, "Autonomous water sighting never commandeers a camera")
+	game.start_shift(1)
+	game.ui.close_panels()
+	check(is_instance_valid(game.story.phantom), "An extra witness uses existing externally authored GLB")
+	check(not game.story.phantom.find_children("*", "Skeleton3D", true, false).is_empty(), "Phantom retains the real character skeleton")
+	game.player.reset_to(Vector3(0, 0.05, -12))
+	game.player.rotation.y = PI
+	game.story.phantom_time = 9.0
+	game.story._update_phantom(0.1)
+	check(game.story.phantom_seen and game.story.phantom.visible, "Looking away reveals an uncounted dormitory witness")
+	game.story._update_phantom(3.0)
+	check(not game.story.phantom.visible, "Uncounted GLB vanishes after a finite interval")
+	check(game.player.focus_seconds == 0, "The phantom never takes camera control")
 	game.start_shift(0)
 	game.ui.close_panels()
 	game.player.reset_to(game.level.spawn)
