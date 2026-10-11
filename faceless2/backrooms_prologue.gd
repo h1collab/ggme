@@ -171,6 +171,11 @@ func begin() -> void:
 	game.ui.open_prologue()
 	game.ui.prologue_stage("push")
 
+func update_phone_language() -> void:
+	if not is_instance_valid(screen_label): return
+	if phase == "ring":
+		screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN CALLER"
+
 func answer() -> void:
 	if not active or phase != "ring" or answered: return
 	answered = true
