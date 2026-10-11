@@ -13,6 +13,7 @@ var smiler: Node3D
 var smiler_glow: OmniLight3D
 var smiler_sound: AudioStreamPlayer3D
 var door_audio: AudioStreamPlayer3D
+var near_door_audio: AudioStreamPlayer3D
 var door_notice_until := 0.0
 var walkable_floor: StaticBody3D
 var side_doors: Array[Node3D] = []
@@ -90,6 +91,12 @@ func _ready() -> void:
 	var lock_path := "res://audio/door_locked.wav"
 	if ResourceLoader.exists(lock_path): door_audio.stream = load(lock_path)
 	add_child(door_audio)
+	near_door_audio = AudioStreamPlayer3D.new()
+	near_door_audio.name = "ApproachingLockedDoor_Creak"
+	near_door_audio.max_distance = 13.0
+	var creak_path := "res://audio/door_creak.wav"
+	if ResourceLoader.exists(creak_path): near_door_audio.stream = load(creak_path)
+	add_child(near_door_audio)
 	# A distant shutter has no floodlighting. Forward view ends in darkness.
 	for at in [Vector3(1.9,2.7,1.4),Vector3(-1.7,2.7,-1.8)]:
 		var light := SpotLight3D.new()
@@ -171,6 +178,14 @@ func nearest_door(player_position: Vector3, max_distance: float = 1.8) -> Node3D
 			best = door
 	return best
 
+func player_near_door(player_position: Vector3) -> Node3D:
+	return nearest_door(player_position,1.55)
+
+func play_door_proximity(door: Node3D) -> void:
+	if not is_instance_valid(door) or not is_instance_valid(near_door_audio): return
+	near_door_audio.global_position = door.global_position
+	if near_door_audio.stream != null: near_door_audio.play()
+
 func try_locked_door(player_position: Vector3) -> bool:
 	var door := nearest_door(player_position,2.2)
 	if door == null: return false
@@ -210,7 +225,7 @@ func _module(source: String, at: Vector3, material: StandardMaterial3D, dimensio
 	authored_modules += 1
 
 func _exit_tree() -> void:
-	for source in [low_rumble, far_clang, smiler_sound, door_audio]:
+	for source in [low_rumble, far_clang, smiler_sound, door_audio, near_door_audio]:
 		if is_instance_valid(source):
 			source.stop()
 			source.stream = null
