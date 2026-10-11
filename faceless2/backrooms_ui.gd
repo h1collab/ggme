@@ -40,6 +40,7 @@ var call_title: Label
 var call_button: Button
 var wakeup_text: Label
 var wakeup_veil: ColorRect
+var facility_hud_mode := false
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
@@ -173,6 +174,9 @@ func _replay_generated_voice() -> void:
 		game.story.play_voice(game.story.last_voice_key)
 
 func _clear(kind: String) -> void:
+	if facility_hud_mode:
+		for child in hud.get_children(): child.visible = true
+		facility_hud_mode = false
 	if is_instance_valid(game) and is_instance_valid(game.player): game.player.cancel_focus()
 	panel_kind = kind
 	for child in panels.get_children():
@@ -329,6 +333,13 @@ func prologue_finished() -> void:
 	hud.visible = false
 	modal = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# Keep real mobile joystick and sprint button visible while hiding the old
+	# four-floor evidence UI. No full-screen overlay steals touch look input.
+	facility_hud_mode = true
+	hud.visible = true
+	for child in hud.get_children():
+		child.visible = child == joystick or (child is Button and (child as Button).text == "RUN")
+	panels.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var line := _label(panels, "", Vector2(340,750),920,37,PAPER)
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
@@ -348,6 +359,9 @@ func open_briefing() -> void:
 	game.story.play_voice("brief_%d" % game.stage)
 
 func close_panels() -> void:
+	if facility_hud_mode:
+		for child in hud.get_children(): child.visible = true
+		facility_hud_mode = false
 	panel_kind = "play"
 	modal = false
 	monitoring = false
