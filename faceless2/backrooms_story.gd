@@ -59,6 +59,9 @@ var secondary_seen := false
 var cooldown := 0.0
 var intro_clock := 0.0
 var intro_done := false
+# Water anomalies are local-only: no RPC and no remote camera rotation.
+var ghost_water_clock := 0.0
+var ghost_water_index := 0
 
 func _ready() -> void:
 	name = "LocalSightingDirector"
@@ -128,6 +131,8 @@ func reset_layer(index: int) -> void:
 	subtitle_seconds = 0
 	intro_clock = 0
 	intro_done = false
+	ghost_water_clock = 0.0
+	ghost_water_index = 0
 	if is_instance_valid(actor):
 		actor.visible = false
 		actor.position = hidden_point
@@ -213,6 +218,22 @@ func update(delta: float) -> void:
 	step_audio.stream_paused = false
 	breath_audio.stream_paused = false
 	subtitle_seconds = maxf(0, subtitle_seconds - delta)
+	# Sparse unoccupied footsteps in flooded rooms. Existing authored GLB
+	# water and eight-impulse shader are reused; no new geometry or lights.
+	if game.stage == 2 and phase in ["idle", "done"] and not game.lift_active:
+		ghost_water_clock += delta
+		if ghost_water_clock >= 13.0 and game.level.wet_regions.size() > 0:
+			ghost_water_clock = 0.0
+			var wet: Rect2 = game.level.wet_regions[ghost_water_index % game.level.wet_regions.size()]
+			ghost_water_index += 1
+			var at := Vector3(wet.get_center().x, 0, wet.get_center().y)
+			game.level.add_water_step(at)
+			if step_audio.stream != null:
+				step_audio.position = at + Vector3(0, 0.2, 0)
+				step_audio.pitch_scale = 0.72
+				step_audio.play()
+	else:
+		ghost_water_clock = 0.0
 	# The opening is a PRESENT event, not a paragraph: the lights fail, a face
 	# stands ahead in the hall, a breath comes from beside the player, and a
 	# 0.65s local-only shock glance can be interrupted by any manual look.
