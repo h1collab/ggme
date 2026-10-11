@@ -518,7 +518,21 @@ func receive_state(state: Dictionary) -> void:
 		player.end_lift_ride()
 	if water_picked and not previous_water: story.say("[无线电] 全队找到一瓶杏仁水。不要喝到瓶底。", 6.0, "warning")
 	if key_picked and not previous_key: story.say("[门禁] 取得一段电梯钥匙组件。回到调查台拼合。", 6.0)
-	if running and not was_running: story.say("[耳机里传来自己呼吸声] ……先看看黑暗中是谁站着。", 6.5)
+	if running and not was_running:
+		# The opening title intentionally disables the hidden legacy level's
+		# collisions. A joining ENet client may receive its first snapshot for
+		# stage zero (unchanged), so _load_level() never runs on that client.
+		# Re-enable the existing authored-level collision proxies before movement.
+		level.visible = true
+		set_legacy_collisions(true)
+		if is_instance_valid(prologue_room): prologue_room.visible = false
+		if is_instance_valid(wakeup_room):
+			wakeup_room.visible = false
+			wakeup_room.set_physics_active(false)
+		if is_instance_valid(prologue): prologue.visible = false
+		player.visible = true
+		player.camera.make_current()
+		story.say("[耳机里传来自己呼吸声] ……先看看黑暗中是谁站着。", 6.5)
 	for i in range(3):
 		if repaired[i] and not previous_repaired[i]: story.on_discovery(stage, i, repaired.count(true))
 
