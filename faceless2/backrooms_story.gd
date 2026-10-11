@@ -59,6 +59,9 @@ var secondary_seen := false
 var cooldown := 0.0
 var intro_clock := 0.0
 var intro_done := false
+var phantom: Node3D
+var phantom_seen := false
+var phantom_time := 0.0
 # Water anomalies are local-only: no RPC and no remote camera rotation.
 var ghost_water_clock := 0.0
 var ghost_water_index := 0
@@ -95,6 +98,17 @@ func _ready() -> void:
 	add_child(voice_audio)
 	step_audio = _spatial_sound("vendor/monster_step.ogg", -14)
 	breath_audio = _spatial_sound("vendor/breathing.mp3", -25)
+	# The uncounted figure reuses the real skinned and licensed Cesium GLB.
+	if ResourceLoader.exists(asset("vendor/crew.glb")):
+		phantom = load(asset("vendor/crew.glb")).instantiate()
+		phantom.name = "UncountedDormitoryWitness"
+		phantom.visible = false
+		phantom.position = Vector3(0, 0, -16)
+		add_child(phantom)
+		for rig in phantom.find_children("*", "AnimationPlayer", true, false):
+			if not rig.get_animation_list().is_empty():
+				rig.play(rig.get_animation_list()[0])
+				rig.speed_scale = 0.0
 
 func asset(relative: String) -> String:
 	var packaged := "res://assets/" + relative
@@ -131,6 +145,9 @@ func reset_layer(index: int) -> void:
 	subtitle_seconds = 0
 	intro_clock = 0
 	intro_done = false
+	phantom_seen = false
+	phantom_time = 0.0
+	if is_instance_valid(phantom): phantom.visible = false
 	ghost_water_clock = 0.0
 	ghost_water_index = 0
 	if is_instance_valid(actor):
@@ -218,6 +235,7 @@ func update(delta: float) -> void:
 	step_audio.stream_paused = false
 	breath_audio.stream_paused = false
 	subtitle_seconds = maxf(0, subtitle_seconds - delta)
+	_update_phantom(delta)
 	# Sparse unoccupied footsteps in flooded rooms. Existing authored GLB
 	# water and eight-impulse shader are reused; no new geometry or lights.
 	if game.stage == 2 and phase in ["idle", "done"] and not game.lift_active:
@@ -319,6 +337,27 @@ func update(delta: float) -> void:
 				if is_instance_valid(actor): actor.visible = false
 				_set_walk_speed(0)
 				breath_audio.stop()
+
+func _update_phantom(delta: float) -> void:
+	if game.stage != 1 or not is_instance_valid(phantom): return
+	phantom_time += delta
+	if phantom_seen:
+		if phantom_time > 2.8: phantom.visible = false
+		return
+	if phantom_time < 8.0: return
+	var target := Vector3(0, 0, -16)
+	var distance := game.player.position.distance_to(target)
+	if distance < 2.0 or distance > 8.0: return
+	var facing := -game.player.camera.global_transform.basis.z
+	var toward := (target - game.player.camera.global_position).normalized()
+	if facing.dot(toward) < -0.3:
+		phantom_seen = true
+		phantom_time = 0.0
+		phantom.visible = true
+		phantom.rotation.y = atan2(game.player.position.x - target.x, game.player.position.z - target.z)
+		if breath_audio.stream != null:
+			breath_audio.position = target + Vector3(0, 1.5, 0)
+			breath_audio.play()
 
 func _exit_tree() -> void:
 	if is_instance_valid(voice_audio):
