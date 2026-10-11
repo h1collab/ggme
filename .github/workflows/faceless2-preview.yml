@@ -64,11 +64,14 @@ jobs:
           PYCODE
       - name: Fetch and validate licensed GLB scenery, iPhone and foley
         shell: bash
+        env:
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN || secrets.SKETCHFAB_OAUTH_TOKEN || secrets.SKETCHFAB_ACCESS_TOKEN || vars.SKETCHFAB_TOKEN }}
         run: |
           set -euo pipefail
           python faceless2/backrooms_audio.py app/audio
           python faceless2/fetch_backrooms_assets.py app/assets/vendor
           python faceless2/fetch_wakeup_assets.py app/assets/vendor
+          python faceless2/fetch_sketchfab_cast.py app/assets/vendor
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio
