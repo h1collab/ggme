@@ -38,9 +38,10 @@ func run() -> void:
 	check(game.ui.call_title.text == "Unknown Caller", "Switch back to English updates the call")
 	prologue.answer()
 	check(prologue.phase == "disconnect" and prologue.answered, "Player can answer the incoming call")
-	prologue.advance(0.45)
+	# advance() intentionally caps a single frame to 0.15s; exercise real frames.
+	for i in range(4): prologue.advance(0.15)
 	check(prologue.phase == "static", "Disconnect is followed by interference")
-	prologue.advance(0.3)
+	prologue.advance(0.15)
 	check(prologue.interference.position != Vector3.ZERO, "Interference is a physical moving 3D emitter")
 	for i in range(18): prologue.advance(0.15)
 	check(prologue.phase == "fall", "Call switches to physical fall")
