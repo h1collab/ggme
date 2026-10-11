@@ -296,7 +296,7 @@ func start_shift(index: int) -> void:
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(ui): return
-	if running and net.authoritative() and not failed and not completed:
+	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and net.authoritative() and not failed and not completed:
 		if not (net.mode == "solo" and ui.modal): _tick(delta)
 	if OS.has_feature("android") and running:
 		# Bound resolution changes and avoid rapid frame-to-frame quality pumping.
