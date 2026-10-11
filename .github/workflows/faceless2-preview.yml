@@ -60,6 +60,7 @@ jobs:
           p=Path("app/project.godot");s=p.read_text()
           s=re.sub(r'config/name=.*','config/name="Faceless 2 Desktop Preview"',s)
           s=re.sub(r'config/icon=.*','config/icon="res://ui/game_icon.png"',s)
+          s=re.sub(r'boot_splash/image=.*','boot_splash/image="res://ui/team_splash.png"',s)
           p.write_text(s)
           PYCODE
       - name: Fetch and validate licensed GLB scenery, iPhone and foley
@@ -97,7 +98,7 @@ jobs:
           mkdir -p preview_frames
           export FACELESS_PREVIEW_DIR="$GITHUB_WORKSPACE/preview_frames"
           export LIBGL_ALWAYS_SOFTWARE=1
-          timeout 280 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
+          timeout 280 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
           test "$(find preview_frames -maxdepth 1 -name '*.png' | wc -l)" -ge 8
           ! grep -E "ERROR:|FAIL:" preview_frames/preview.log
           echo "GODOT_PREVIEW_PASS independent desktop viewport screenshots, no APK"
