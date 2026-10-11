@@ -12,6 +12,7 @@ const STATIC_SECONDS := 2.5
 const FALL_SECONDS := 2.05
 const WAKE_SECONDS := 6.2
 const BLACK_SECONDS := 1.1
+const CLANG_AT := 4.1
 
 var game: Node
 var camera: Camera3D
@@ -31,6 +32,9 @@ var screen_label: Label
 var screen_surface: MeshInstance3D
 var wake_camera: Camera3D
 var wake_hands: Node3D
+var clang_triggered := false
+var wake_yaw := 0.0
+var wake_pitch := 0.0
 
 func _ready() -> void:
 	name = "OtherShiftPrologue"
@@ -73,7 +77,7 @@ func _ready() -> void:
 	screen_label.size = Vector2(462,160)
 	screen_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	screen_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	screen_label.add_theme_font_size_override("font_size",54)
+	screen_label.add_theme_font_size_override("font_size",47)
 	screen_label.add_theme_color_override("font_color",Color(0.92,0.95,1.0))
 	face.add_child(screen_label)
 	var screen_mesh := QuadMesh.new()
@@ -182,6 +186,9 @@ func begin() -> void:
 	camera.fov = 59.0
 	camera.look_at(PHONE_AT)
 	answered = false
+	clang_triggered = false
+	wake_yaw = 0.0
+	wake_pitch = 0.0
 	screen_surface.visible = false
 	clock = 0.0
 	phase = "push"
@@ -276,6 +283,9 @@ func advance(delta: float) -> void:
 		"black":
 			if clock >= BLACK_SECONDS: _transition("wake")
 		"wake":
+			if not clang_triggered and clock >= CLANG_AT:
+				clang_triggered = true
+				if game.wakeup_room.far_clang.stream != null: game.wakeup_room.far_clang.play()
 			var waking := smoothstep(0.0, WAKE_SECONDS, clock)
 			if is_instance_valid(wake_hands): wake_hands.visible = waking > 0.40
 			wake_camera.position = game.wakeup_room.CAMERA_GROUND.lerp(game.wakeup_room.CAMERA_UP,waking)
@@ -300,6 +310,7 @@ func exit_to_menu() -> void:
 	if is_instance_valid(game.wakeup_room):
 		game.wakeup_room.visible = false
 		game.wakeup_room.low_rumble.stop()
+		game.wakeup_room.far_clang.stop()
 	game.environment.environment.background_color = Color(0.028, 0.035, 0.038)
 	game.environment.environment.ambient_light_energy = 0.17
 	game.environment.environment.fog_light_color = Color(0.13,0.15,0.15)
@@ -308,12 +319,25 @@ func exit_to_menu() -> void:
 	game.ui.menu()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if phase == "ended":
+		# Exploration after the awakening is local-only; other players keep their cameras.
+		if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			look_after_wake(event.relative)
+		elif event is InputEventScreenDrag:
+			look_after_wake(event.relative)
+		return
 	if not active: return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_E or event.physical_keycode == KEY_ENTER:
 			answer()
 		elif event.physical_keycode == KEY_ESCAPE:
 			exit_to_menu()
+
+func look_after_wake(delta: Vector2) -> void:
+	if not is_instance_valid(wake_camera) or phase != "ended": return
+	wake_yaw = clampf(wake_yaw-delta.x*0.0023,-1.05,1.05)
+	wake_pitch = clampf(wake_pitch-delta.y*0.0023,-0.45,0.62)
+	wake_camera.rotation = Vector3(wake_pitch,wake_yaw,0.0)
 
 func _stop_audio() -> void:
 	for sound in [ringtone, hangup, interference, fall_audio]:
