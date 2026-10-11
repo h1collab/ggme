@@ -71,6 +71,23 @@ func run() -> void:
 		await _capture("13_player_looks_around")
 		game.player.position += Vector3(0,0,-0.32)
 		await _capture("14_first_person_moves")
+		var entity: Node3D = game.wakeup_room.smiler
+		if is_instance_valid(entity):
+			print("SMILER_DEBUG meshes=",entity.find_children("*","MeshInstance3D",true,false).size(),
+				" dimensions=",entity.get_meta("dimensions",Vector3.ZERO))
+			var previous_position := entity.position
+			entity.position = Vector3(0,0,0.15)
+			entity.visible = true
+			game.player.rotation.y = 0.0
+			game.player.camera.rotation = Vector3.ZERO
+			game.player.torch.visible = true
+			entity.rotation.y = 0
+			await _capture("15_smiler_front_probe")
+			entity.rotation.y = PI
+			await _capture("16_smiler_rear_probe")
+			entity.position = previous_position
+			entity.visible = false
+			game.player.torch.visible = false
 	if prologue.phase != "ended":
 		failures.append("Smiler cinematic not handed to controllable FPS: " + prologue.phase)
 	game.net.leave()
