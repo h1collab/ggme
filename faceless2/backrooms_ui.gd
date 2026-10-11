@@ -498,17 +498,17 @@ func open_result() -> void:
 
 func refresh() -> void:
 	if not is_instance_valid(game.level): return
-	status_label.text = game.level.title
-	goal_label.text = "线索 %d/3  ·  杏仁水 %d  ·  %s" % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
-	notice_label.text = "耐力 %d%%\n钥匙 %s" % [int(game.player.stamina), "已找到" if game.key_picked else "未找到"]
+	status_label.text = game.level.title if game.language == "zh" else ["FACELESS 2 / THE ENTRANCE", "FACELESS 2 / DORMITORY", "FACELESS 2 / REFLECTION", "FACELESS 2 / ZERO SHAFT"][game.stage]
+	goal_label.text = localized("CLUES %d/3  ·  WATER %d  ·  %s", "线索 %d/3  ·  杏仁水 %d  ·  %s") % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
+	notice_label.text = localized("STAMINA %d%%\nKEY %s", "耐力 %d%%\n钥匙 %s") % [int(game.player.stamina), (localized("FOUND", "已找到") if game.key_picked else localized("MISSING", "未找到"))]
 	prompt_label.text = game.prompt()
 	var objective: Dictionary = game.next_objective()
 	var offset: Vector3 = objective.position - game.player.position
 	var facing := Vector3(0, 0, -1).rotated(Vector3.UP, game.player.yaw)
 	var angle := facing.signed_angle_to(Vector3(offset.x, 0, offset.z).normalized(), Vector3.UP)
-	var direction := "前方" if absf(angle) < 0.65 else ("后方" if absf(angle) > 2.5 else ("左侧" if angle > 0 else "右侧"))
+	var direction := localized("AHEAD", "前方") if absf(angle) < 0.65 else (localized("BEHIND", "后方") if absf(angle) > 2.5 else (localized("LEFT", "左侧") if angle > 0 else localized("RIGHT", "右侧")))
 	var next_title: String = objective.text.split(" / ")[0]
-	objective_label.text = "正在下降 / 不要回答声音" if game.lift_active else "调查目标：%s\n%s · 约 %d 米" % [next_title, direction, int(offset.length())]
+	objective_label.text = localized("DESCENDING / DO NOT ANSWER THE VOICE", "正在下降 / 不要回答声音") if game.lift_active else localized("OBJECTIVE: %s\n%s · %d meters", "调查目标：%s\n%s · 约 %d 米") % [next_title, direction, int(offset.length())]
 	subtitle_label.text = game.story.subtitle
 	subtitle_backdrop.visible = not game.story.subtitle.is_empty()
 	if is_instance_valid(room_status): room_status.text = game.net.status
