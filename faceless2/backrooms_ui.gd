@@ -290,7 +290,7 @@ uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform float clarity : hint_range(0.0,1.0) = 0.0;
 void fragment() {
 	vec4 b = textureLod(screen_tex, SCREEN_UV, (1.0-clarity)*4.2);
-	float edge = smoothstep(0.68, 0.20, distance(SCREEN_UV,vec2(0.5,0.49)));
+	float edge = 1.0-smoothstep(0.20, 0.68, distance(SCREEN_UV,vec2(0.5,0.49)));
 	b.rgb *= mix(0.30,1.0,edge);
 	b.rgb = mix(vec3(dot(b.rgb,vec3(0.299,0.587,0.114))),b.rgb, 0.48+0.52*clarity);
 	COLOR = vec4(b.rgb,1.0);
