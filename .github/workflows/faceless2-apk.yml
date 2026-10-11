@@ -39,6 +39,8 @@ jobs:
 
       - name: Prepare Faceless 2 exploration and CC BY architecture
         shell: bash
+        env:
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN }}
         run: |
           python -m pip install --disable-pip-version-check Pillow==11.3.0 fonttools==4.61.1
           python - <<'PYCODE'
@@ -103,6 +105,7 @@ jobs:
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio
+          python faceless2/fetch_sketchfab_phone.py app/assets/vendor
           # License permits use inside commercial games, not reselling raw assets.
           # The pinned source is a small real GLB smartphone, not an iPhone 17.
           python - <<'PY_PHONE'
