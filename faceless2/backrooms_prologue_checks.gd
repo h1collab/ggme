@@ -41,11 +41,13 @@ func run() -> void:
 	check(prologue.interference.stream != null and prologue.fall_audio.stream != null, "Static and falling audio packaged")
 	for i in range(19): prologue.advance(0.15)
 	check(prologue.phase == "ring", "Fast 3D camera push reaches the phone")
-	check(game.language == "en" and game.ui.call_title.text == "Unknown Caller", "English is default and phone shows Unknown Caller")
+	check(game.language == "en" and prologue.screen_label.text == "UNKNOWN CALLER" and prologue.screen_surface.visible, "Default English UNKNOWN CALLER rendered on physical GLB phone screen")
 	game.set_language("zh")
-	check(game.ui.call_title.text == "未知号码", "Switching to Chinese updates the incoming call without restarting")
+	prologue.screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN CALLER"
+	check(prologue.screen_label.text == "未知号码", "Chinese model phone screen can show unknown number")
 	game.set_language("en")
-	check(game.ui.call_title.text == "Unknown Caller", "Switch back to English updates the call")
+	prologue.screen_label.text = "未知号码" if game.language == "zh" else "UNKNOWN CALLER"
+	check(prologue.screen_label.text == "UNKNOWN CALLER", "Switch back to English updates on-phone caller")
 	prologue.answer()
 	check(prologue.phase == "disconnect" and prologue.answered, "Player can answer the incoming call")
 	# advance() intentionally caps a single frame to 0.15s; exercise real frames.
@@ -56,7 +58,14 @@ func run() -> void:
 	for i in range(18): prologue.advance(0.15)
 	check(prologue.phase == "fall", "Call switches to physical fall")
 	for i in range(15): prologue.advance(0.15)
-	check(prologue.phase == "ended" and not prologue.active, "Prologue ends at black fade, no additional floor")
+	check(prologue.phase == "black", "Falling enters blackout rather than old final ending")
+	for i in range(9): prologue.advance(0.15)
+	check(prologue.phase == "wake" and game.wakeup_room.visible and not game.level.visible, "Camera wakes in separate underground facility")
+	check(game.wakeup_room.authored_modules >= 80, "Underground facility assembled entirely from real authored CC0 GLBs")
+	check(prologue.wake_camera.current and prologue.wake_camera.position.y < 0.5, "First-person camera begins near the floor")
+	for i in range(44): prologue.advance(0.15)
+	check(prologue.phase == "ended" and not prologue.active, "After looking into blackness, awakening segment ends")
+	check(game.ui.wakeup_text.text == "Where am I?", "English bottom-of-frame typewriter completed")
 	check(game.ui.panel_kind == "prologue_end", "Ending screen allows replay")
 	game.start_prologue()
 	check(prologue.phase == "push" and prologue.active, "Replay resets the cinematic timeline")
@@ -77,7 +86,7 @@ func run() -> void:
 	for i in range(8): await process_frame
 	await create_timer(0.4).timeout
 	if not failed:
-		print("Faceless 2 prologue checks: PASS / real GLB phone, CCTV push, call, spatial static, fall, replay")
+		print("Faceless 2 prologue checks: PASS / GLB iPhone screen, underground CC0 base, ground POV, wake title and replay")
 		quit(0)
 	else:
 		quit(1)
