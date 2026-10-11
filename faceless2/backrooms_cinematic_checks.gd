@@ -36,11 +36,13 @@ func run() -> void:
 	check(ResourceLoader.exists("res://audio/voice/brief_0.ogg"), "Kokoro Mandarin first briefing is packaged")
 	check(ResourceLoader.exists("res://audio/voice/tape_3_2.ogg"), "Fourth-floor generated voice is packaged")
 	check(ResourceLoader.exists("res://audio/voice/ending_seal.ogg") and ResourceLoader.exists("res://audio/voice/turn_2.ogg"), "Additional branch ending and chapter-turn voice clips packaged")
+	game.set_language("zh")
 	check(game.story.play_voice("warning"), "Neural audio plays without invoking OS speech")
 	check(game.story.voice_audio.stream != null, "Generated OGG loaded into engine")
 	game.voice_enabled = false
 	check(not game.story.play_voice("warning"), "Generated narration can be disabled")
 	game.voice_enabled = true
+	game.set_language("en")
 	for layer in range(4):
 		game.start_shift(layer)
 		game.ui.close_panels()
