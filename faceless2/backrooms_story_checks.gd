@@ -71,6 +71,15 @@ func run() -> void:
 		game.key_picked = true
 		game.assembled = true
 		check(game.next_objective().text.contains("电梯"), "Combined clues point toward exit")
+	game.start_shift(2)
+	game.ui.close_panels()
+	game.story.phase = "idle"
+	game.story.ghost_water_clock = 12.9
+	var before_ghost_ripples: int = game.level.ripple_buffer.size()
+	game.story.update(0.2)
+	check(game.level.ripple_buffer.size() > before_ghost_ripples, "Empty flooded corridor makes an autonomous footstep ripple")
+	check(game.story.ghost_water_index == 1, "Unseen footsteps choose physical water zones")
+	check(game.player.focus_seconds == 0, "Autonomous water sighting never commandeers a camera")
 	game.start_shift(0)
 	game.ui.close_panels()
 	game.player.reset_to(game.level.spawn)
