@@ -31,7 +31,7 @@ jobs:
           echo "054a7037bebddd6a4be9e697f495c5577756bc7b4c075681d2fb3226a74f65ea  upgrade.zip" | sha256sum -c -
           mkdir app
           unzip -q upgrade.zip -d app
-          python -m pip install -q Pillow==11.3.0 fonttools==4.61.1
+          python -m pip install -q Pillow==11.3.0 fonttools==4.61.1 trimesh==4.7.4 numpy==2.2.6
           python - <<'PYCODE'
           from pathlib import Path
           import shutil,re
@@ -73,6 +73,7 @@ jobs:
           python faceless2/fetch_backrooms_assets.py app/assets/vendor
           python faceless2/fetch_wakeup_assets.py app/assets/vendor
           python faceless2/fetch_sketchfab_cast.py app/assets/vendor
+          python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio
