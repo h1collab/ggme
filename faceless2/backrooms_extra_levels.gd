@@ -154,12 +154,12 @@ func enter(level_number: int) -> Vector3:
 		var z := 1.0 - float(i)*5.15
 		if level_number == 1:
 			_piece("container_tall",Vector3(-w+0.84,.02,z),Vector3(.9,2.05,1.0),industrial)
-			_piece("container_flat",Vector3(w-1.1,.04,z-1.2),Vector3(1.45,.65,1.1),carpet)
+			_piece("container_tall",Vector3(w-1.1,.04,z-1.2),Vector3(1.45,.65,1.1),carpet)
 			if i%2==0: _piece("pipe",Vector3(-w+.18,2.95,z),Vector3(.24,.26,2.8),industrial)
 		elif level_number == 2:
 			for side in [-1,1]:
 				_piece("pipe",Vector3(float(side)*(w-.24),2.6,z),Vector3(.22,.30,4.3),industrial)
-				_piece("pipe_bend",Vector3(float(side)*(w-.32),1.7,z-1.8),Vector3(.38,.42,.4),industrial)
+				_piece("pipe",Vector3(float(side)*(w-.32),1.7,z-1.8),Vector3(.38,.42,.4),industrial)
 			if i%2 == 0: _piece("container_tall",Vector3(w-1.0,.03,z),Vector3(.65,1.7,.75),industrial)
 		else:
 			_piece("wall_window",Vector3(w-.22,1.65,z),Vector3(.35,2.5,2.3),hospital)
