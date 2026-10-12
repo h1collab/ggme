@@ -67,9 +67,9 @@ var _facility_mat: StandardMaterial3D
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
 	# Facility is a plausible black-site research space, not an official Area 51 layout.
-	var concrete := _finish(Color(0.51,0.58,0.61), "concrete.jpg")
+	var concrete := _photographic_pbr("worn_plaster_wall", Color(0.95,0.94,0.92), 1.2)
 	var industrial := _finish(Color(0.18,0.23,0.24))
-	var floor_finish := _finish(Color(0.55,0.60,0.61), "concrete.jpg")
+	var floor_finish := _photographic_pbr("concrete_floor", Color(0.91,0.91,0.91), 1.0)
 	var panel := _finish(Color(0.26,0.30,0.30))
 	# CPU-baked original Kenney Space Station GLB corridor: 75 original modules
 	# in a few draw batches instead of 75 repeated Godot PackedScene hierarchies.
@@ -80,11 +80,19 @@ func _ready() -> void:
 		var corridor: Node3D = load(corridor_path).instantiate()
 		corridor.name = "KenneyCC0_Corridor75ModulesBatched"
 		add_child(corridor)
-		var rock := _finish(Color(0.43,0.50,0.53),"concrete.jpg")
-		var ceiling_finish := _finish(Color(0.21,0.25,0.28))
+		var rock := _photographic_pbr("worn_plaster_wall", Color(0.93,0.93,0.94), 1.0)
+		var ceiling_finish := _photographic_pbr("rusty_metal_sheet", Color(0.45,0.52,0.56), 0.85)
 		for node in corridor.find_children("*","MeshInstance3D",true,false):
 			var mesh := node as MeshInstance3D
-			mesh.material_override = ceiling_finish if String(mesh.name).contains("Roof") else rock
+			var semantic := String(mesh.name).to_lower()
+			# Batch groups from the verified Kenney CC0 GLB, now with planar UVs:
+			# floor, wall and roof are separate meshes with genuine PBR materials.
+			if semantic.contains("floor"):
+				mesh.material_override = floor_finish
+			elif semantic.contains("roof") or semantic.contains("ceiling"):
+				mesh.material_override = ceiling_finish
+			else:
+				mesh.material_override = rock
 			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		authored_modules += 75
 	for z in [3.0,-2.0,-7.0]:
@@ -107,17 +115,8 @@ func _ready() -> void:
 	# v0.25: Laboratory GLBs and lights are built lazily, upon actually opening the door.
 	# Mark the openable doorway with multiple repetitions of the licensed
 	# original Sketchfab face texture, referencing the unsettling Level ! door.
-	var warning_texture := Assets.path("vendor/sketchfab_smiler_face.png")
-	if ResourceLoader.exists(warning_texture):
-		for i in range(1):
-			var warning := Sprite3D.new()
-			warning.name = "SketchfabSmilerDoorMark_%d" % i
-			warning.texture = load(warning_texture)
-			warning.pixel_size = 0.00040
-			warning.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-			warning.shaded = false
-			warning.position = Vector3(3.13,1.50,-0.9)
-			add_child(warning)
+	# Do not billboard a second Smiler onto the right-hand wall. The authored
+	# GLB door frame itself marks the passage without duplicate penetrating eyes.
 	var frowner_file := Assets.path("vendor/frowner_online_ccby.png")
 	if ResourceLoader.exists(frowner_file):
 		frowner = Sprite3D.new()
@@ -701,6 +700,37 @@ func try_locked_door(player_position: Vector3) -> bool:
 		door_audio.global_position = door.global_position
 		if door_audio.stream != null: door_audio.play()
 	return true
+
+func _photographic_pbr(name: String, tint: Color, scale: float = 1.0) -> StandardMaterial3D:
+	# Real publisher-scanned Poly Haven CC0 albedo/normal/roughness maps
+	# verified upstream (size + MD5) by fetch_real_backrooms_assets.py.
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = tint
+	mat.roughness = 0.86
+	mat.metallic = 0.03
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.texture_repeat = BaseMaterial3D.TEXTURE_REPEAT_ENABLED
+	mat.uv1_scale = Vector3(scale,scale,1.0)
+	for ext in [".jpg",".png",".jpeg"]:
+		var diffuse := Assets.path("vendor/pbr_%s_diffuse%s" % [name,ext])
+		if ResourceLoader.exists(diffuse):
+			mat.albedo_texture = load(diffuse)
+			break
+	if mat.albedo_texture == null:
+		push_error("Licensed photogrammetry diffuse missing: " + name)
+	for ext in [".jpg",".png",".jpeg"]:
+		var normal := Assets.path("vendor/pbr_%s_normal%s" % [name,ext])
+		if ResourceLoader.exists(normal):
+			mat.normal_enabled = true
+			mat.normal_texture = load(normal)
+			mat.normal_scale = 0.45
+			break
+	for ext in [".jpg",".png",".jpeg"]:
+		var rough := Assets.path("vendor/pbr_%s_rough%s" % [name,ext])
+		if ResourceLoader.exists(rough):
+			mat.roughness_texture = load(rough)
+			break
+	return mat
 
 func _finish(color: Color, photo: String = "") -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()

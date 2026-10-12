@@ -1,4 +1,4 @@
-name: Build Faceless 2 v0.28 Android APK
+name: Build Faceless 2 v0.29 Android APK
 
 on:
   workflow_dispatch:
@@ -79,8 +79,8 @@ jobs:
           p=Path('app/export_presets.cfg'); s=p.read_text()
           s=s.replace('Escape Black Pine','Faceless 2').replace('School Brawl','Faceless 2')
           s=s.replace('res://ui/icon.svg','res://ui/game_icon.png')
-          s=re.sub(r'(?m)^version/code=.*','version/code=28',s)
-          s=re.sub(r'(?m)^version/name=.*','version/name="0.28.0"',s)
+          s=re.sub(r'(?m)^version/code=.*','version/code=29',s)
+          s=re.sub(r'(?m)^version/name=.*','version/name="0.29.0"',s)
           # Export all resources: scripts load imported GLBs, audio and textures by path.
           # A resource-only selection is unsafe for dynamic ResourceLoader paths.
           s=re.sub(r'(?m)^export_filter=.*', 'export_filter="all_resources"', s)
@@ -111,7 +111,7 @@ jobs:
           python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
           python faceless2/bake_online_frowner.py faceless2/assets/third_party/twemoji_2639.svg app/assets/vendor/frowner_online_ccby.png app/ASSET_CREDITS.md
           python faceless2/bake_laboratory_glb.py app/assets/vendor app/ASSET_CREDITS.md qa/laboratory-shell.json
-          # v0.28 retired the old experimental lab; only keep the sourced corridor.
+          # v0.29 retired the old experimental lab; only keep the sourced corridor.
           rm app/assets/vendor/laboratory_shell_cc0.glb app/assets/vendor/observation_wing_cc0.glb
           python faceless2/fetch_real_backrooms_assets.py app/assets/vendor app/ASSET_CREDITS.md qa/real-backrooms-assets.json
           # First prefer the original API when token permits. A token may
@@ -234,7 +234,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v0.28 APK
+      - name: Export Faceless 2 v0.29 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -242,21 +242,21 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless2-v028-zorix.apk
-          test -s app/build/faceless2-v028-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless2-v029-zorix.apk
+          test -s app/build/faceless2-v029-zorix.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v028-zorix-apk
-          path: app/build/faceless2-v028-zorix.apk
+          name: faceless2-v029-zorix-apk
+          path: app/build/faceless2-v029-zorix.apk
           if-no-files-found: error
 
       - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v028-headless-qa
+          name: faceless2-v029-headless-qa
           path: qa
           if-no-files-found: error

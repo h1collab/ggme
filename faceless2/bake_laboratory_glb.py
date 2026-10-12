@@ -120,19 +120,52 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
         raise ValueError("Bad sealed GLB export")
     digest = hashlib.sha256(data).hexdigest()
 
+    def uv_wrap_triangles(mesh):
+        """Generate REAL UVs on source Kenney geometry for sampled PBR scans.
+
+        Prior v0.28 vertex-color merges stripped TEXCOORD_0, so applying
+        PBR in GDScript could sample one texel over whole walls/floor.
+        Duplicate only per-face vertices, project meter-scaled UV based on
+        the dominant physical face normal, and preserve every source face.
+        """
+        mesh.unmerge_vertices()
+        indices = mesh.faces.reshape(-1)
+        xyz = np.asarray(mesh.vertices[indices], dtype=np.float64)
+        axes = np.repeat(np.abs(mesh.face_normals).argmax(axis=1), 3)
+        uv = np.empty((len(mesh.vertices), 2), dtype=np.float64)
+        uv[indices, 0] = np.where(axes == 0, xyz[:, 2], xyz[:, 0]) * 0.63
+        uv[indices, 1] = np.where(axes == 1, xyz[:, 2], xyz[:, 1]) * 0.63
+        mesh.visual = trimesh.visual.TextureVisuals(uv=uv)
+        if mesh.visual.uv is None or len(mesh.visual.uv) != len(mesh.vertices):
+            raise ValueError("Failed to author wall/floor PBR UV on Kenney source geometry")
+        return mesh
+
     def export_batch(collection, filename):
         source = trimesh.Scene()
         for group, meshes in sorted(collection.items()):
             merged = trimesh.util.concatenate(meshes)
             if len(merged.faces) < 10:
                 raise ValueError("Missing sourced triangles: " + group)
-            merged.visual = trimesh.visual.ColorVisuals(
-                mesh=merged, vertex_colors=np.tile([210, 215, 215, 255], (len(merged.vertices), 1)))
+            if filename == "facility_corridor_cc0.glb":
+                merged = uv_wrap_triangles(merged)
+            else:
+                merged.visual = trimesh.visual.ColorVisuals(
+                    mesh=merged, vertex_colors=np.tile([210, 215, 215, 255], (len(merged.vertices), 1)))
             source.add_geometry(merged, geom_name="Kenney_CC0_" + group)
         path = vendor / filename
         path.write_bytes(source.export(file_type="glb"))
         if path.read_bytes()[:4] != b"glTF":
             raise ValueError("Invalid GLB: " + filename)
+        if filename == "facility_corridor_cc0.glb":
+            import struct
+            raw = path.read_bytes()
+            json_len = struct.unpack_from("<I", raw, 12)[0]
+            gltf = json.loads(raw[20:20+json_len])
+            for mesh_info in gltf["meshes"]:
+                for primitive in mesh_info["primitives"]:
+                    if "TEXCOORD_0" not in primitive["attributes"]:
+                        raise ValueError("Authentic PBR atlas failed: GLB missing TEXCOORD_0")
+            print("FACILITY_REAL_PBR_UV_PASS", len(gltf["meshes"]))
         return {"sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                 "bytes": path.stat().st_size, "meshes": len(collection)}
 
@@ -145,6 +178,7 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
         "license": "CC0-1.0",
         "assembled_modules": lab_count, "merged_batches": len(batches),
         "corridor_modules": corridor_count, "corridor": corridor,
+        "corridor_uv": "tri-planar-axis per-face metric UV0, 0.63 repeats/meter",
         "observation_modules": wing_count, "observation": wing,
         "triangles": faces_total, "glb_size": len(data), "glb_sha256": digest,
     }

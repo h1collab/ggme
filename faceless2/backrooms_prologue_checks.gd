@@ -106,6 +106,17 @@ func run() -> void:
 	game.player.take_flashlight()
 	check(game.wakeup_room.smiler.visible, "After pickup, playable Smiler appears for flashlight-driven disappearance")
 	check(game.wakeup_room.smiler is Sprite3D and not (game.wakeup_room.smiler as Sprite3D).no_depth_test, "Smiler sprite respects 3D wall depth")
+	check(game.wakeup_room.find_children("SketchfabSmilerDoorMark_*","Sprite3D",true,false).is_empty(), "No duplicate billboard Smiler is mounted on a corridor wall")
+	var wall_floor_pbr: Array = game.wakeup_room.get_node("KenneyCC0_Corridor75ModulesBatched").find_children("*","MeshInstance3D",true,false)
+	var pbr_floor_found := false
+	var pbr_wall_found := false
+	for member in wall_floor_pbr:
+		var drawable := member as MeshInstance3D
+		var material := drawable.material_override as StandardMaterial3D
+		if material == null or material.albedo_texture == null or not material.normal_enabled or material.roughness_texture == null: continue
+		if String(drawable.name).to_lower().contains("floor"): pbr_floor_found = true
+		if String(drawable.name).to_lower().contains("wall"): pbr_wall_found = true
+	check(pbr_floor_found and pbr_wall_found, "Actual scanned PBR diffuse/normal/roughness maps apply to imported GLB floor and wall meshes")
 	check(not game.wakeup_room.smiler_clear_ray(Vector3(10.0,1.62,-3.2), game.player.get_rid()), "Solid GLB corridor wall occludes Smiler from outside")
 	check(ResourceLoader.exists("res://assets/vendor/frowner_online_ccby.png"), "Packaged online CC BY original-expression Frowner sprite exists")
 	check(is_instance_valid(game.player.leg_root) and game.player.leg_root.find_children("*","MeshInstance3D",true,false).size() > 0, "Genuine imported rigged boot GLB mesh exists")
