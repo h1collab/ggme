@@ -54,8 +54,8 @@ def render(source: Path, target: Path, credits: Path):
                 "https://creativecommons.org/licenses/by/4.0/. "
                 "Adaptation: isolate the author's eye/frown shapes, recolor to cold-white and soften into transparent billboard. "
                 "Not an official Backrooms Frowner image. "
-                f"Original SVG SHA-256 \`{src_hash}\`; distributed PNG SHA-256 \`{out_hash}\`. "
-                "The original Twemoji SVG is preserved unchanged at \`faceless2/assets/third_party/twemoji_2639.svg\`.\n")
+                f"Original SVG SHA-256 `{src_hash}`; distributed PNG SHA-256 `{out_hash}`. "
+                "The original Twemoji SVG is preserved unchanged at `faceless2/assets/third_party/twemoji_2639.svg`.\n")
     print("FROWNER_ONLINE_LICENSED_IMAGE_PASS",src_hash,out_hash)
 
 if __name__=="__main__":
