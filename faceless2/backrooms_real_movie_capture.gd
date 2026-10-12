@@ -68,7 +68,12 @@ func record() -> void:
 	await travel(Vector3(0.6,0.1,1.4),Vector3(0,0.1,-0.3),Vector3(1.7,1.0,-2.6),Vector3(0,1.5,-5.4),45)
 	await travel(Vector3(0,0.1,-0.3),Vector3(-0.4,0.1,-2.0),Vector3(0,-0.1,-2.5),Vector3(-1.3,-0.1,-4.2),40)
 	game.wakeup_room.smiler_stage(0.0,"hidden")
-	for level_number in [0,5,6]:
+	# Genuine sequential frames show textured plaster, real end-door depth
+	# and an actual low-angle viewmodel inspection. No static PNG montage.
+	await travel(Vector3(-0.4,0.1,-2.0),Vector3(-1.8,0.1,-3.1),Vector3(-3.6,1.35,-2.2),Vector3(-3.6,1.10,-4.7),25)
+	await travel(Vector3(-1.8,0.1,-3.1),Vector3(-0.1,0.1,-3.0),Vector3(-0.8,0.05,-3.3),Vector3(0,-0.2,-4.1),25)
+	await travel(Vector3(-0.1,0.1,-3.0),Vector3(0,0.1,-5.3),Vector3(0,1.6,-9.5),Vector3(0,1.5,-9.5),25)
+	for level_number in [0,5,6,131]:
 		game.open_backrooms_level(level_number)
 		game.player.set_physics_process(false)
 		camera = game.player.camera
@@ -82,7 +87,7 @@ func record() -> void:
 			sound.stream = null
 	game.queue_free()
 	for i in range(10): await process_frame
-	if total < 300: problems.append("Not enough native frames: %d" % total)
+	if total < 410: problems.append("Not enough native frames: %d" % total)
 	if not problems.is_empty():
 		for issue in problems: push_error(issue)
 		quit(1)

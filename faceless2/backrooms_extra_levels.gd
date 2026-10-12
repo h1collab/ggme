@@ -25,7 +25,7 @@ var visit_clock := 0.0
 var event_tweens: Array[Tween] = []
 
 func _ready() -> void:
-	name = "GLB_ThreeLevel_Exploration"
+	name = "GLB_NineLevel_Exploration"
 	visible = false
 	set_process(false)
 	spatial_sound = AudioStreamPlayer3D.new()
@@ -35,7 +35,10 @@ func _ready() -> void:
 	add_child(spatial_sound)
 
 func _surface(kind: String, tint: Color) -> StandardMaterial3D:
-	if mat_cache.has(kind): return mat_cache[kind]
+	# Cache by both real PBR scan and per-level tint; by-kind caching
+	# made Level 0/5/Fun silently inherit a previous level's color.
+	var cache_key := "%s_%s" % [kind,tint.to_html()]
+	if mat_cache.has(cache_key): return mat_cache[cache_key]
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = tint
 	mat.roughness = 0.88
@@ -52,12 +55,14 @@ func _surface(kind: String, tint: Color) -> StandardMaterial3D:
 			if ResourceLoader.exists(normal):
 				mat.normal_enabled = true
 				mat.normal_texture = load(normal)
+				mat.normal_scale = 0.55
 				break
+		for suffix in [".jpg",".png",".jpeg"]:
 			var rough := Assets.path("vendor/pbr_"+name+"_rough"+suffix)
 			if ResourceLoader.exists(rough):
 				mat.roughness_texture = load(rough)
 				break
-	mat_cache[kind] = mat
+	mat_cache[cache_key] = mat
 	return mat
 
 func _piece(file: String, pos: Vector3, dimensions: Vector3, material: Material = null, yaw: float = 0.0) -> Node3D:
@@ -152,10 +157,11 @@ func enter(level_number: int) -> Vector3:
 	var total_length := 34.0 if level_number == 1 else (35.0 if level_number == 2 else 32.0)
 	# Reused authored Kenney building module, closed shell with door-shaped openings.
 	var w := width/2.0
-	for x in range(-3,4):
-		for z in range(0,10):
-			var point := Vector3(float(x)*width/7.0,-.07,3.3-float(z)*3.6)
-			_piece("floor_panel",point,Vector3(width/7.0+.05,.16,3.62),floor_render)
+	# Ten continuous licensed GLB floor panels instead of 70 grid cells.
+	# This reduces seams and scene nodes without a visible primitive mesh.
+	for z in range(0,10):
+		var point := Vector3(0.0,-.07,3.3-float(z)*3.6)
+		_piece("floor_panel",point,Vector3(width+.06,.16,3.62),floor_render)
 	for z in range(0,10):
 		var zpos := 3.3-float(z)*3.6
 		_piece("wall",Vector3(-w,1.56,zpos),Vector3(.22,3.15,3.68),layout_mat)
@@ -184,7 +190,16 @@ func enter(level_number: int) -> Vector3:
 			if i%2==0:
 				_scan("wheelchair_01",Vector3(-w+1.15,.07,z-.8),1.25)
 		if i % 2 == 0:
-			_light(Vector3(0,2.8,z),Color(.64,.77,.74) if level_number==1 else (Color(1,.39,.25) if level_number==2 else Color(.68,.83,1.0)),1.55 if level_number != 2 else 1.05,6.4)
+			var lamp_tone := Color(.64,.77,.74)
+			if level_number == 0: lamp_tone = Color(1.0,.79,.47)
+			elif level_number == 2: lamp_tone = Color(.96,.43,.24)
+			elif level_number == 5: lamp_tone = Color(.94,.63,.35)
+			elif level_number == 6: lamp_tone = Color(.22,.30,.34)
+			elif level_number == 130: lamp_tone = Color(.71,.82,1.0)
+			elif level_number == 131: lamp_tone = Color(.93,.40,.66)
+			elif level_number == 132: lamp_tone = Color(.96,.26,.20)
+			elif level_number == 133: lamp_tone = Color(.32,.72,.72)
+			_light(Vector3(0,2.8,z),lamp_tone,1.16 if level_number != 6 else 0.12,5.7)
 	if level_number in [0,1,5,131]:
 		_scan("cardboard_box_01",Vector3(-w+1.55,.08,-13.2),.86)
 	else:

@@ -68,10 +68,10 @@ func _ready() -> void:
 	if ResourceLoader.exists(asset_path):
 		viewmodel_root = Node3D.new()
 		viewmodel_root.name = "SketchfabFirstPersonHands"
-		viewmodel_root.position = Vector3(0.0, -0.62, -0.37)
+		viewmodel_root.position = Vector3(0.0, -0.82, -0.59)
 		viewmodel_root.rotation.y = PI
 		camera.add_child(viewmodel_root)
-		var arms: Node3D = Assets.fitted("vendor/sketchfab_fps_arms.glb",1.18)
+		var arms: Node3D = Assets.fitted("vendor/sketchfab_fps_arms.glb",0.88)
 		arms.name = "ScaledLicensedOriginal_RealGLBSkinnedHands"
 		viewmodel_root.add_child(arms)
 		for arm_mesh in arms.find_children("*", "MeshInstance3D", true, false):
@@ -124,7 +124,7 @@ func _ready() -> void:
 		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
 		flashlight_model.scale *= 0.43 / maxf(bbox.x,maxf(bbox.y,bbox.z))
-		flashlight_model.position = Vector3(-0.27,0.50,0.40)
+		flashlight_model.position = Vector3(-0.26,0.34,0.40)
 		# Viewmodel parent faces 180 degrees: positive local Z is in front of POV.
 		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
 		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
@@ -145,9 +145,9 @@ func take_flashlight() -> void:
 	flashlight_owned = true
 	if game.prologue.phase == "ended" and game.wakeup_room.visible: game.wakeup_room.reveal_torch_smiler()
 	flashlight_model.visible = true
-	flashlight_model.position.y += 0.19
+	flashlight_model.position.y += 0.16
 	flashlight_pickup_tween = create_tween()
-	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.50,0.33).set_trans(Tween.TRANS_SINE)
+	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.34,0.33).set_trans(Tween.TRANS_SINE)
 	# Pickup and turning the light on are separate intentional actions.
 	torch.visible = false
 
@@ -164,7 +164,7 @@ func reset_flashlight() -> void:
 	if flashlight_pickup_tween != null and flashlight_pickup_tween.is_running(): flashlight_pickup_tween.kill()
 	if is_instance_valid(flashlight_model):
 		flashlight_model.visible = false
-		flashlight_model.position.y = 0.50
+		flashlight_model.position.y = 0.34
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -207,6 +207,11 @@ func _physics_process(delta: float) -> void:
 		game.wakeup_room.update_frowner(delta)
 		# Light only banishes a visible face actually inside its forward cone.
 		var sprite := game.wakeup_room.smiler as Sprite3D
+		if is_instance_valid(sprite) and sprite.visible:
+			# Let the source-baked face remain depth-tested in real world space,
+			# but keep its screen footprint bounded at very short distances.
+			var range_to_face := camera.global_position.distance_to(sprite.global_position)
+			sprite.pixel_size = 0.0017 * clampf(range_to_face / 3.1, 0.32, 1.0)
 		if torch.visible and is_instance_valid(sprite) and sprite.visible:
 			var target := sprite.global_position - camera.global_position
 			if target.length() < torch.spot_range and -camera.global_transform.basis.z.dot(target.normalized()) > 0.86 and game.wakeup_room.smiler_clear_ray(camera.global_position,get_rid()):
@@ -294,10 +299,10 @@ func _physics_process(delta: float) -> void:
 		# Inertial arm sway + gait cycle; zero per-frame GLB allocations.
 		var moving_strength := clampf(Vector2(velocity.x,velocity.z).length()/4.3, 0.0, 1.0)
 		var target := Vector3(-input.x*0.033 + sin(motion_clock)*0.028*moving_strength,
-			-0.62 - 0.027*absf(sin(motion_clock))*moving_strength + landing_dip*0.6,
-			-0.37 - 0.035*moving_strength)
+			-0.82 - 0.018*absf(sin(motion_clock))*moving_strength + landing_dip*0.6,
+			-0.59 - 0.026*moving_strength)
 		viewmodel_root.position = viewmodel_root.position.lerp(target, minf(delta*8.0, 1.0))
-		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.028, minf(delta*5.0,1.0))
+		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.018, minf(delta*5.0,1.0))
 		viewmodel_root.visible = not lift_riding or lift_clock < 3.0
 		if is_instance_valid(walk_animation): walk_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
 	if is_instance_valid(leg_root):

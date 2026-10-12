@@ -95,6 +95,9 @@ func run() -> void:
 	check(not game.wakeup_room.smiler.visible, "Smiler hidden after second flash")
 	check(game.running and game.player.visible and game.player.camera.current and not game.ui.modal, "First-person controls restored")
 	check(game.ui.panel_kind == "prologue_end" and game.wakeup_room.visible, "Persistent facility remains visible without persistent subtitle card")
+	check(game.player.viewmodel_root.position.y < -0.75,"Real imported Sketchfab arms rest in a lower, less intrusive first-person stance")
+	if not OS.has_feature("android") and not OS.has_feature("ios"):
+		check(not game.ui.joystick.visible and not game.ui.light_button.visible,"PC viewport has no distracting phone joystick or LIGHT touch overlay")
 	game.player.request_jump()
 	check(game.player.jump_requested, "Jump input is accepted in story after scare")
 	check(game.wakeup_room.side_doors.size() >= 4, "Multiple licensed GLB doors remain in facility")

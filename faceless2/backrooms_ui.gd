@@ -362,8 +362,12 @@ func prologue_finished() -> void:
 	# four-floor evidence UI. No full-screen overlay steals touch look input.
 	facility_hud_mode = true
 	hud.visible = true
+	var use_touch_controls := OS.has_feature("android") or OS.has_feature("ios")
 	for child in hud.get_children():
-		child.visible = child == joystick or child == jump_button or child == light_button or child == transient_hint or child == facility_goal_label or (child is Button and ((child as Button).text == "RUN" or (child as Button).text.contains("INTERACT")) )
+		var is_touch_action := child == joystick or child == jump_button or child == light_button or (child is Button and ((child as Button).text == "RUN" or (child as Button).text.contains("INTERACT")))
+		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and is_touch_action)
+	# Keep virtual joystick / RUN / JUMP / LIGHT fully operational on mobile,
+	# but clear the desktop viewport for genuine mouse+keyboard exploration.
 	panels.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	facility_goal_phase = -1
 	_refresh_facility_goal()
@@ -372,8 +376,10 @@ func prologue_finished() -> void:
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
 	_label(panels, localized("MOVE / EXPLORE THE DOORS", "移动 / 探索周围的门"),Vector2(40,820),750,16,MUTED)
-	_button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
-	_button(panels, localized("MAIN MENU", "主菜单"), Rect2(1380,24,190,64), func(): game.prologue.exit_to_menu())
+	var replay := _button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
+	var home := _button(panels, localized("MAIN MENU", "主菜单"), Rect2(1380,24,190,64), func(): game.prologue.exit_to_menu())
+	replay.visible = use_touch_controls
+	home.visible = use_touch_controls
 
 func open_briefing() -> void:
 	_page(game.story.chapter_title(game.stage), "briefing")
@@ -625,14 +631,14 @@ func _refresh_facility_goal() -> void:
 	var goals_en := [
 		"FIND THE FLASHLIGHT AT YOUR FEET", "RAISE THE BEAM / FACE THE DARKNESS",
 		"FOLLOW THE SECOND DOOR / LISTEN", "THE FACE IS WATCHING YOU",
-		"FIND THE MARKED THRESHOLD", "ENTER LEVEL 0",
+		"FIND THE UNLOCKED SIDE DOOR", "ENTER LEVEL 0",
 		"ISOLATE THE BREAKER INSIDE THE LAB", "CONNECT THE BACKUP POWER",
 		"ENTER THE UNLOCKED OBSERVATION ROOM", "TRACE THE FOOTSTEPS AT THE TERMINAL",
 		"TRANSMISSION TRACED / EXPLORE THE ROOM"]
 	var goals_zh := [
 		"拾起脚边的手电筒", "举起手电 / 面向黑暗",
 		"靠近另一扇门 / 聆听", "那张脸正在看你",
-		"寻找带标记的出口", "进入层级 0",
+		"寻找可以打开的侧门", "进入层级 0",
 		"找到实验室隔离开关", "接通备用电源",
 		"进入开启的观察室", "在终端追查脚步声",
 		"信号追踪完成 / 继续探索"]
@@ -640,16 +646,17 @@ func _refresh_facility_goal() -> void:
 
 func refresh() -> void:
 	if not is_instance_valid(game.level): return
-	if hint_timer > 0:
-		hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
-		if hint_timer == 0 and is_instance_valid(transient_hint): transient_hint.visible = false
 	# New facility has no evidence cards, journal loop, water ripples or persistent subtitles.
+	# Transient hint timer must be advanced exactly once per refresh.
 	if facility_hud_mode:
 		_refresh_facility_goal()
 		if hint_timer > 0:
 			hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
 			if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
 		return
+	if hint_timer > 0:
+		hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
+		if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
 	status_label.text = game.level.title if game.language == "zh" else ["FACELESS 2 / THE ENTRANCE", "FACELESS 2 / DORMITORY", "FACELESS 2 / REFLECTION", "FACELESS 2 / ZERO SHAFT"][game.stage]
 	goal_label.text = localized("CLUES %d/3  ·  WATER %d  ·  %s", "线索 %d/3  ·  杏仁水 %d  ·  %s") % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
 	notice_label.text = localized("STAMINA %d%%\nKEY %s", "耐力 %d%%\n钥匙 %s") % [int(game.player.stamina), (localized("FOUND", "已找到") if game.key_picked else localized("MISSING", "未找到"))]

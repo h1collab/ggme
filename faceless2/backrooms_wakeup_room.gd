@@ -81,7 +81,7 @@ func _ready() -> void:
 		corridor.name = "KenneyCC0_Corridor75ModulesBatched"
 		add_child(corridor)
 		var rock := _photographic_pbr("worn_plaster_wall", Color(0.93,0.93,0.94), 1.0)
-		var ceiling_finish := _photographic_pbr("rusty_metal_sheet", Color(0.45,0.52,0.56), 0.85)
+		var ceiling_finish := _photographic_pbr("rusty_metal_sheet", Color(0.30,0.34,0.37), 0.82)
 		for node in corridor.find_children("*","MeshInstance3D",true,false):
 			var mesh := node as MeshInstance3D
 			var semantic := String(mesh.name).to_lower()
@@ -106,6 +106,12 @@ func _ready() -> void:
 	_module("container_tall",Vector3(2.9,0.95,1.6),industrial,Vector3(0.85,1.9,0.85))
 	# Authored corridor end wall is already included in the offline combined GLB.
 	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(4.1,3.10,0.30))
+	# Restore visible depth at the far door with genuine Kenney GLB pipes
+	# and pillars. No new primitive render geometry, no dynamic shadows.
+	_module("pipe",Vector3(-1.8,2.62,-8.6),industrial,Vector3(.20,.24,2.15))
+	_module("pipe",Vector3(1.8,2.62,-8.6),industrial,Vector3(.20,.24,2.15))
+	_module("wall_pillar",Vector3(-2.40,1.5,-9.4),industrial,Vector3(.35,3.0,.35))
+	_module("wall_pillar",Vector3(2.40,1.5,-9.4),industrial,Vector3(.35,3.0,.35))
 	# Imported Kenney door meshes are visible; collision is invisible and cheap.
 	for door_at in [Vector3(-3.40,1.3,1.4),Vector3(3.40,1.3,-0.9),Vector3(-3.40,1.3,-4.5),Vector3(3.40,1.3,-6.4)]:
 		var door := _authored_door(door_at)
@@ -219,7 +225,7 @@ func _ready() -> void:
 		var light := SpotLight3D.new()
 		light.position = at
 		light.light_color = Color(0.54,0.74,0.83)
-		light.light_energy = 1.32
+		light.light_energy = 0.98
 		light.spot_range = 5.1
 		light.spot_angle = 43.0
 		light.shadow_enabled = false
@@ -232,11 +238,22 @@ func _ready() -> void:
 	near_spill.name = "ColdEmergencySpill_NearAwakeOnly"
 	near_spill.position = Vector3(-1.4, 1.45, 2.2)
 	near_spill.light_color = Color(0.50, 0.72, 0.82)
-	near_spill.light_energy = 1.85
+	near_spill.light_energy = 1.36
 	near_spill.omni_range = 6.5
 	near_spill.shadow_enabled = false
 	add_child(near_spill)
 	facility_lights.append(near_spill)
+	var distant_lamp := SpotLight3D.new()
+	distant_lamp.name = "LowCostShutterDoorReveal"
+	distant_lamp.position = Vector3(-0.85,2.73,-7.95)
+	distant_lamp.light_color = Color(.94,.53,.36)
+	distant_lamp.light_energy = 0.78
+	distant_lamp.spot_range = 4.15
+	distant_lamp.spot_angle = 36.0
+	distant_lamp.shadow_enabled = false
+	add_child(distant_lamp)
+	distant_lamp.look_at(Vector3(0,1.2,-9.65))
+	facility_lights.append(distant_lamp)
 	low_rumble = AudioStreamPlayer3D.new()
 	low_rumble.name = "DistantVentilation_Rumble"
 	low_rumble.position = Vector3(0,1.8,-5.0)
