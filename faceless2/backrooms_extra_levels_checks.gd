@@ -27,11 +27,12 @@ func run() -> void:
 		check(game.extra_levels.interact(game.extra_levels.exits[0]) == "BACK","Return path is interactive")
 		var model_count: int = game.extra_levels.scene_root.find_children("*","MeshInstance3D",true,false).size()
 		check(model_count >= 40,"New space uses genuine imported model meshes, not empty scene")
-		var floor_sections := 0
-		for child in game.extra_levels.scene_root.get_children():
-			if child is Node3D and String(child.name).begins_with("LicensedKenney_floor_panel"):
-				floor_sections += 1
-		check(floor_sections == 10,"Each real-GLB sector uses 10 large continuous floor sections instead of 70 thin floor tiles")
+		var floor_sections: Array[Node3D] = game.extra_levels.floor_section_nodes
+		check(floor_sections.size() == 10, "Exactly ten real external GLB floor modules instantiated per sector")
+		for floor_node in floor_sections:
+			check(is_instance_valid(floor_node) and floor_node.is_inside_tree(), "Recorded licensed GLB floor instance remains in 3D scene")
+			if is_instance_valid(floor_node):
+				check(floor_node.find_children("*","MeshInstance3D",true,false).size() > 0, "Recorded floor instance contains imported GLB mesh triangles")
 		var physically_scanned: StandardMaterial3D = game.extra_levels._surface("floor",Color(.65,.67,.66))
 		check(physically_scanned.albedo_texture != null and physically_scanned.normal_texture != null and physically_scanned.roughness_texture != null,"Scanned Poly Haven PBR diffuse, normal and roughness are all bound")
 		var gold_wall: StandardMaterial3D = game.extra_levels._surface("wall",Color(.84,.78,.38))

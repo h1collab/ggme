@@ -23,6 +23,7 @@ var area_lights: Array[Light3D] = []
 var mat_cache: Dictionary = {}
 var visit_clock := 0.0
 var event_tweens: Array[Tween] = []
+var floor_section_nodes: Array[Node3D] = []
 
 func _ready() -> void:
 	name = "GLB_NineLevel_Exploration"
@@ -81,6 +82,7 @@ func _piece(file: String, pos: Vector3, dimensions: Vector3, material: Material 
 			(mesh as MeshInstance3D).material_override = material
 			(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	scene_root.add_child(node)
+	if file == "floor_panel": floor_section_nodes.append(node)
 	return node
 
 func _solid(pos: Vector3, size: Vector3) -> void:
@@ -333,6 +335,7 @@ func clear() -> void:
 	scene_root = null
 	colliders = null
 	passive_entities.clear()
+	floor_section_nodes.clear()
 	area_lights.clear()
 	exits.clear()
 	event_flags.clear()
