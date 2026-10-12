@@ -13,6 +13,8 @@ on:
       - "faceless2/fetch_flashlight.py"
       - "faceless2/bake_frowner_sprite.py"
       - "faceless2/bake_laboratory_glb.py"
+      - "faceless2/fetch_wakeup_assets.py"
+      - "faceless2/ASSET_CREDITS.md"
       - "faceless2/backrooms_ui.gd"
       - ".github/workflows/faceless2-preview.yml"
 concurrency:

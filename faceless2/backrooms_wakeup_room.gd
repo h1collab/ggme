@@ -43,6 +43,26 @@ var frowner_finished := false
 var frowner_timer := 0.0
 var frowner_position := Vector3(-3.05,1.63,-4.4)
 var smiler_flashlight_faded := false
+# Isolated room story: two genuine Kenney switches, delayed footsteps and
+# a streamed observation wing. No recurrent light/audio/model allocations.
+var breaker_position := Vector3(9.0,1.25,-5.4)
+var breaker_isolated := false
+var breaker_model: Node3D
+var backup_model: Node3D
+var observation_root: Node3D
+var observation_shutter: Node3D
+var observation_shutter_body: StaticBody3D
+var observation_chair: Node3D
+var observation_light: OmniLight3D
+var observation_physics: StaticBody3D
+var observation_console_position := Vector3(11.15,1.24,-10.85)
+var observation_seen := false
+var signal_traced := false
+var delayed_steps: AudioStreamPlayer3D
+var breaker_click: AudioStreamPlayer3D
+var _chair_tween: Tween
+var _shutter_tween: Tween
+var _facility_mat: StandardMaterial3D
 
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
@@ -51,14 +71,22 @@ func _ready() -> void:
 	var industrial := _finish(Color(0.18,0.23,0.24))
 	var floor_finish := _finish(Color(0.55,0.60,0.61), "concrete.jpg")
 	var panel := _finish(Color(0.26,0.30,0.30))
-	for x in [-3.0,-1.5,0.0,1.5,3.0]:
-		for z in [3.0,1.5,0.0,-1.5,-3.0,-4.5,-6.0,-7.5,-9.0]:
-			_module("floor_panel",Vector3(x,-0.06,z),floor_finish, Vector3(1.5,0.18,1.5))
-	for z in [3.0,1.5,0.0,-1.5,-3.0,-4.5,-6.0,-7.5,-9.0]:
-		_module("wall",Vector3(-3.8,1.55,z),concrete,Vector3(0.22,3.1,1.5))
-		# A real opening in the wall, centered on the Smiler-marked doorway.
-		if z != 0.0 and z != -1.5: _module("wall",Vector3(3.8,1.55,z),concrete,Vector3(0.22,3.1,1.5))
-		_module("structure_panel",Vector3(0,3.15,z),panel,Vector3(7.5,0.18,1.5))
+	# CPU-baked original Kenney Space Station GLB corridor: 75 original modules
+	# in a few draw batches instead of 75 repeated Godot PackedScene hierarchies.
+	var corridor_path := Assets.path("vendor/facility_corridor_cc0.glb")
+	if not ResourceLoader.exists(corridor_path):
+		push_error("Missing validated authored Kenney corridor GLB: " + corridor_path)
+	else:
+		var corridor: Node3D = load(corridor_path).instantiate()
+		corridor.name = "KenneyCC0_Corridor75ModulesBatched"
+		add_child(corridor)
+		var rock := _finish(Color(0.43,0.50,0.53),"concrete.jpg")
+		var ceiling_finish := _finish(Color(0.21,0.25,0.28))
+		for node in corridor.find_children("*","MeshInstance3D",true,false):
+			var mesh := node as MeshInstance3D
+			mesh.material_override = ceiling_finish if String(mesh.name).contains("Roof") else rock
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		authored_modules += 75
 	for z in [3.0,-2.0,-7.0]:
 		for x in [-3.6,3.6]:
 			_module("wall_pillar",Vector3(x,1.5,z),industrial,Vector3(0.4,3.0,0.4))
@@ -68,10 +96,7 @@ func _ready() -> void:
 	for i in range(5):
 		_module("pipe",Vector3(-3.45,2.65,1.6-i*2.0),industrial,Vector3(0.24,0.24,1.8))
 	_module("container_tall",Vector3(2.9,0.95,1.6),industrial,Vector3(0.85,1.9,0.85))
-	# Close the far end with authored walls, not a skybox leak or visible primitive.
-	var dark_finish := _finish(Color(0.025,0.035,0.04))
-	for x in [-3.0,-1.5,0.0,1.5,3.0]:
-		_module("wall",Vector3(x,1.55,-10.0),dark_finish,Vector3(1.5,3.1,0.3))
+	# Authored corridor end wall is already included in the offline combined GLB.
 	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(4.1,3.10,0.30))
 	# Imported Kenney door meshes are visible; collision is invisible and cheap.
 	for door_at in [Vector3(-3.40,1.3,1.4),Vector3(3.40,1.3,-0.9),Vector3(-3.40,1.3,-4.5),Vector3(3.40,1.3,-6.4)]:
@@ -178,6 +203,18 @@ func _ready() -> void:
 	pickup_audio.max_distance = 10.0
 	if ResourceLoader.exists("res://audio/flashlight_pickup.wav"): pickup_audio.stream = load("res://audio/flashlight_pickup.wav")
 	add_child(pickup_audio)
+	breaker_click = AudioStreamPlayer3D.new()
+	breaker_click.name = "Circuit_Isolation_Contact3D"
+	breaker_click.max_distance = 11.0
+	if ResourceLoader.exists("res://audio/flashlight_click.wav"):
+		breaker_click.stream = load("res://audio/flashlight_click.wav")
+	add_child(breaker_click)
+	delayed_steps = AudioStreamPlayer3D.new()
+	delayed_steps.name = "ObservationFootstep_TheOneBehindYou"
+	delayed_steps.max_distance = 13.0
+	var echoed_step := Assets.path("vendor/monster_step.ogg")
+	if ResourceLoader.exists(echoed_step): delayed_steps.stream = load(echoed_step)
+	add_child(delayed_steps)
 	# A distant shutter has no floodlighting. Forward view ends in darkness.
 	for at in [Vector3(1.9,2.7,1.4),Vector3(-1.7,2.7,-1.8)]:
 		var light := SpotLight3D.new()
@@ -264,14 +301,24 @@ func _build_laboratory() -> void:
 		var scene: Node3D = load(shell).instantiate()
 		scene.name = "KenneyCC0_SealedLaboratory_GLBBatched"
 		laboratory_root.add_child(scene)
+		var material := _finish(Color(0.44,0.50,0.53),"concrete.jpg")
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 		for m in scene.find_children("*","MeshInstance3D",true,false):
-			var material := StandardMaterial3D.new()
-			material.albedo_color = Color(0.46,0.53,0.54)
-			material.roughness = 0.83
-			material.cull_mode = BaseMaterial3D.CULL_DISABLED
 			(m as MeshInstance3D).material_override = material
+			(m as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		laboratory_modules = 58
 	var steel := _finish(Color(0.27,0.34,0.36))
+	# The players physically flip original Kenney wall-switch GLBs, not UI menus.
+	breaker_model = Assets.fitted("vendor/wakeup_wall_switch.glb",0.65)
+	breaker_model.name = "KenneyIsolationBreaker_PhysicalGLB"
+	breaker_model.position = breaker_position
+	breaker_model.rotation.y = PI*0.5
+	laboratory_root.add_child(breaker_model)
+	backup_model = Assets.fitted("vendor/wakeup_wall_switch.glb",0.65)
+	backup_model.name = "KenneyEmergencyReactorSwitch_PhysicalGLB"
+	backup_model.position = backup_panel_position
+	backup_model.rotation.y = -PI*0.5
+	laboratory_root.add_child(backup_model)
 	for spot in [Vector3(9.0,1.25,-3.1),Vector3(12.8,1.25,-4.8)]:
 		_module("computer_screen",spot,steel,Vector3(0.75,0.85,0.45))
 		laboratory_modules += 1
@@ -297,6 +344,21 @@ func _build_laboratory() -> void:
 	laboratory_root.add_child(emergency)
 	emergency.look_at(Vector3(10.8,0.9,-3.4))
 	lab_emergency_light = emergency
+	# A real imported door blocks the observation chamber until both controls
+	# are deliberately operated. The remote GLB wing is still not instantiated.
+	observation_shutter = Assets.fitted("vendor/wakeup_door_single_closed.glb",2.45)
+	observation_shutter.name = "KenneyAuthored_SlidingObservationAirlock"
+	observation_shutter.position = Vector3(11.0,-0.05,-7.27)
+	laboratory_root.add_child(observation_shutter)
+	observation_shutter_body = StaticBody3D.new()
+	observation_shutter_body.name = "ObservationAirlockCollision"
+	observation_shutter_body.position.y = 1.22
+	var shutter_shape := BoxShape3D.new()
+	shutter_shape.size = Vector3(1.54,2.46,0.23)
+	var shutter_collision := CollisionShape3D.new()
+	shutter_collision.shape = shutter_shape
+	observation_shutter_body.add_child(shutter_collision)
+	observation_shutter.add_child(observation_shutter_body)
 	module_target = null
 	lab_physics = StaticBody3D.new()
 	lab_physics.name = "Laboratory_ProxyCollision"
@@ -306,9 +368,81 @@ func _build_laboratory() -> void:
 	_barrier(Vector3(7.0,1.5,-5.1),Vector3(0.3,3.0,5.0),lab_physics)
 	_barrier(Vector3(7.0,1.5,0.4),Vector3(0.3,3.0,0.4),lab_physics)
 	_barrier(Vector3(15,1.5,-3.3),Vector3(0.3,3.0,8.5),lab_physics)
-	_barrier(Vector3(11,1.5,-7.6),Vector3(8,3.0,0.3),lab_physics)
+	# Exclude observation door opening from the end-wall collision.
+	_barrier(Vector3(8.65,1.5,-7.6),Vector3(2.4,3.0,0.3),lab_physics)
+	_barrier(Vector3(13.35,1.5,-7.6),Vector3(2.4,3.0,0.3),lab_physics)
 	_barrier(Vector3(11,1.5,0.6),Vector3(8,3.0,0.3),lab_physics)
 	set_physics_active(true)
+
+func _open_observation_shutter() -> void:
+	if not is_instance_valid(observation_shutter) or _shutter_tween != null and _shutter_tween.is_running(): return
+	if is_instance_valid(observation_shutter_body):
+		observation_shutter_body.collision_layer = 0
+		observation_shutter_body.collision_mask = 0
+	_shutter_tween = create_tween()
+	_shutter_tween.tween_property(observation_shutter,"position:y",2.55,1.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	if is_instance_valid(slam_audio) and slam_audio.stream != null:
+		slam_audio.global_position = observation_shutter.global_position
+		slam_audio.play()
+
+func _build_observation_wing() -> void:
+	if is_instance_valid(observation_root) or not is_instance_valid(laboratory_root): return
+	var wing_path := Assets.path("vendor/observation_wing_cc0.glb")
+	if not ResourceLoader.exists(wing_path):
+		push_error("Missing batched Kenney observation wing GLB: " + wing_path)
+		return
+	observation_root = Node3D.new()
+	observation_root.name = "OnDemandObservationSector"
+	laboratory_root.add_child(observation_root)
+	var geometry: Node3D = load(wing_path).instantiate()
+	geometry.name = "KenneyCC0_SealedObservationGLB"
+	observation_root.add_child(geometry)
+	var finish := _finish(Color(0.33,0.39,0.41),"concrete.jpg")
+	for node in geometry.find_children("*","MeshInstance3D",true,false):
+		var mesh := node as MeshInstance3D
+		mesh.material_override = finish
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var table := Assets.fitted("vendor/wakeup_computer_screen.glb",1.18)
+	table.position = observation_console_position
+	table.name = "Observation_EchoTrace_PhysicalTerminal"
+	observation_root.add_child(table)
+	observation_chair = Assets.fitted("vendor/wakeup_chair.glb",1.14)
+	observation_chair.name = "KenneyObservationChair_AnomalousRotation"
+	observation_chair.position = Vector3(10.0,0.03,-9.7)
+	observation_chair.rotation.y = 0.4
+	observation_root.add_child(observation_chair)
+	observation_physics = StaticBody3D.new()
+	observation_physics.name = "WingCollisionProxies"
+	observation_root.add_child(observation_physics)
+	var body: StaticBody3D = observation_physics
+	_barrier(Vector3(11,-0.17,-9.82),Vector3(6.2,0.30,5.15),body)
+	_barrier(Vector3(8.0,1.48,-9.82),Vector3(.3,3.05,5.2),body)
+	_barrier(Vector3(14.0,1.48,-9.82),Vector3(.3,3.05,5.2),body)
+	_barrier(Vector3(11,1.48,-12.10),Vector3(6.2,3.05,.30),body)
+	observation_light = OmniLight3D.new()
+	observation_light.position = Vector3(11.0,2.55,-9.7)
+	observation_light.light_color = Color(0.55,0.78,0.88)
+	observation_light.light_energy = 1.6
+	observation_light.omni_range = 5.9
+	observation_light.shadow_enabled = false
+	observation_root.add_child(observation_light)
+
+func update_observation(player_position: Vector3) -> bool:
+	# A physical environmental reaction, triggered by proximity once per run.
+	if not is_instance_valid(observation_root) or observation_seen or player_position.z > -8.5: return false
+	observation_seen = true
+	if is_instance_valid(observation_chair):
+		_chair_tween = create_tween()
+		_chair_tween.tween_property(observation_chair,"rotation:y",3.65,2.05).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if is_instance_valid(delayed_steps) and delayed_steps.stream != null:
+		# The noise emanates from the vacant spot behind the player's own path.
+		delayed_steps.global_position = player_position + Vector3(0,0,2.0)
+		delayed_steps.play()
+	if is_instance_valid(observation_light):
+		var pulse := create_tween()
+		pulse.tween_property(observation_light,"light_energy",0.0,0.23)
+		pulse.tween_property(observation_light,"light_energy",1.4,0.8)
+	return true
 
 func _flashlight_model() -> Node3D:
 	var model := Assets.fitted("vendor/flashlight_cc0.glb", 1.0)
@@ -320,11 +454,26 @@ func _flashlight_model() -> Node3D:
 
 func reset_facility() -> void:
 	if door_tween != null and door_tween.is_running(): door_tween.kill()
+	if _shutter_tween != null and _shutter_tween.is_running(): _shutter_tween.kill()
+	if _chair_tween != null and _chair_tween.is_running(): _chair_tween.kill()
 	if is_instance_valid(laboratory_root): laboratory_root.queue_free()
 	laboratory_root = null
 	lab_physics = null
 	lab_central_light = null
 	lab_emergency_light = null
+	breaker_model = null
+	backup_model = null
+	observation_root = null
+	observation_shutter = null
+	observation_shutter_body = null
+	observation_chair = null
+	observation_light = null
+	observation_physics = null
+	breaker_isolated = false
+	observation_seen = false
+	signal_traced = false
+	if is_instance_valid(delayed_steps): delayed_steps.stop()
+	if is_instance_valid(breaker_click): breaker_click.stop()
 	laboratory_entered = false
 	laboratory_modules = 0
 	door_slammed = false
@@ -381,6 +530,13 @@ func set_physics_active(enabled: bool) -> void:
 	if is_instance_valid(lab_physics):
 		lab_physics.collision_layer = 1 if enabled else 0
 		lab_physics.collision_mask = 1 if enabled else 0
+	if is_instance_valid(observation_physics):
+		observation_physics.collision_layer = 1 if enabled else 0
+		observation_physics.collision_mask = 1 if enabled else 0
+	if is_instance_valid(observation_shutter_body):
+		var shut: int = 1 if enabled and not lab_power_restored else 0
+		observation_shutter_body.collision_layer = shut
+		observation_shutter_body.collision_mask = shut
 	for door in side_doors:
 		if is_instance_valid(door):
 			var body := door.get_meta("body") as StaticBody3D
@@ -464,15 +620,44 @@ func update_visitor(player_position: Vector3) -> bool:
 	return true
 
 func door_result(player_position: Vector3) -> String:
-	if laboratory_entered and lab_power_failed and not lab_power_restored and player_position.distance_to(backup_panel_position) < 2.15:
+	# Two switches must be operated in physical order. Their locations are
+	# visibly modelled by human-authored Kenney GLBs, not a text-entry riddle.
+	if lab_power_restored and not signal_traced and is_instance_valid(observation_root) and player_position.distance_to(observation_console_position) < 1.6:
+		signal_traced = true
+		if is_instance_valid(delayed_steps) and delayed_steps.stream != null:
+			delayed_steps.global_position = Vector3(11.2,1.0,-11.6)
+			delayed_steps.play()
+		if is_instance_valid(observation_light):
+			var surge := create_tween()
+			surge.tween_property(observation_light,"light_energy",0.18,0.25)
+			surge.tween_property(observation_light,"light_energy",2.0,0.6)
+		return "TRACE"
+	if laboratory_entered and door_slammed and not lab_power_restored and player_position.distance_to(breaker_position) < 1.5:
+		if breaker_isolated: return "ISOLATED"
+		breaker_isolated = true
+		if is_instance_valid(breaker_model):
+			create_tween().tween_property(breaker_model,"rotation:z",-0.40,0.27)
+		if is_instance_valid(breaker_click) and breaker_click.stream != null:
+			breaker_click.global_position = breaker_position
+			breaker_click.play()
+		if is_instance_valid(lab_emergency_light):
+			lab_emergency_light.light_color = Color(0.96,0.46,0.16)
+			lab_emergency_light.light_energy = 1.12
+		return "BREAKER"
+	if laboratory_entered and lab_power_failed and not lab_power_restored and player_position.distance_to(backup_panel_position) < 1.65:
+		if not breaker_isolated: return "SHORT"
 		lab_power_restored = true
 		lab_power_failed = false
+		if is_instance_valid(backup_model):
+			create_tween().tween_property(backup_model,"rotation:z",0.35,0.35)
 		if is_instance_valid(lab_central_light):
 			create_tween().tween_property(lab_central_light,"light_energy",1.8,0.75)
 		if is_instance_valid(lab_emergency_light):
 			lab_emergency_light.light_color = Color(0.52,0.83,0.71)
 			lab_emergency_light.light_energy = 1.2
 		_animate_door(true)
+		_build_observation_wing()
+		_open_observation_shutter()
 		if is_instance_valid(near_door_audio) and near_door_audio.stream != null:
 			near_door_audio.global_position = backup_panel_position
 			near_door_audio.play()
@@ -541,7 +726,7 @@ func _module(source: String, at: Vector3, material: StandardMaterial3D, dimensio
 	authored_modules += 1
 
 func _exit_tree() -> void:
-	for source in [low_rumble, far_clang, smiler_sound, door_audio, near_door_audio, slam_audio, pickup_audio]:
+	for source in [low_rumble, far_clang, smiler_sound, door_audio, near_door_audio, slam_audio, pickup_audio, breaker_click, delayed_steps]:
 		if is_instance_valid(source):
 			source.stop()
 			source.stream = null

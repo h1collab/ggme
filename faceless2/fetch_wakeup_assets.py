@@ -24,6 +24,8 @@ MODELS = {
     "container_tall": ("74ad63aa022d7d4435c87218422575277a610c36", 20492),
     "structure_panel": ("382b5b4a4cac8732755d2a65c05e00735e7afd61", 19956),
     "wall_door": ("f93c167cd5ed23d2a7d7e6f7b4a2b19853a36211", 17332),
+    "wall_switch": ("afd544793eb363d788dc195c3af319d03384a2fc", 10632),
+    "chair": ("e10229e50bbb4a737656c27df65451fa7b0cfd82", 14392),
 }
 
 def verify(data: bytes, expected: str, size: int) -> None:

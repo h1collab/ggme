@@ -28,9 +28,11 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
         components[kind] = (source, bounds)
 
     batches = defaultdict(list)
+    corridor_batches = defaultdict(list)
+    wing_batches = defaultdict(list)
     count = 0
 
-    def piece(kind: str, group: str, xyz: tuple, dims: tuple):
+    def piece(kind: str, group: str, xyz: tuple, dims: tuple, into=None):
         nonlocal count
         src, bounds = components[kind]
         size = np.maximum(bounds[1] - bounds[0], 0.0001)
@@ -47,7 +49,7 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
             if not isinstance(original, trimesh.Trimesh) or len(original.faces) == 0:
                 continue
             original.apply_transform(matrix @ transform)
-            batches[group].append(original)
+            (batches if into is None else into)[group].append(original)
             added += 1
         if added == 0:
             raise ValueError("Empty licensed prefab: " + kind)
@@ -66,7 +68,37 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
     # Both cross-walls have small overlap so no end-of-room holes.
     for x in (8.0, 9.5, 11.0, 12.5, 14.0):
         piece("wall", "Wall", (x, -0.02, 0.38), (1.60, 3.16, .29))
-        piece("wall", "Wall", (x, -0.02, -7.33), (1.60, 3.16, .29))
+        # Actual powered observation door at the far end of the experiment.
+        if x != 11.0:
+            piece("wall", "Wall", (x, -0.02, -7.33), (1.60, 3.16, .29))
+    piece("wall_door", "Frame", (11.0, -0.02, -7.33), (2.35, 3.16, .29))
+    lab_count = count
+
+    # Complete corridor shell: still ONLY transformed original Kenney mesh faces.
+    # Previous GDScript instantiated ~80 duplicate GLB scene graphs at startup.
+    for x in (-3.0, -1.5, 0.0, 1.5, 3.0):
+        for z in (3.0, 1.5, 0.0, -1.5, -3.0, -4.5, -6.0, -7.5, -9.0):
+            piece("floor_panel", "Corridor_Floor", (x, -0.075, z), (1.51, .18, 1.51), corridor_batches)
+    for z in (3.0, 1.5, 0.0, -1.5, -3.0, -4.5, -6.0, -7.5, -9.0):
+        piece("wall", "Corridor_Walls", (-3.8, -0.02, z), (.22, 3.16, 1.51), corridor_batches)
+        if z not in (0.0, -1.5):
+            piece("wall", "Corridor_Walls", (3.8, -0.02, z), (.22, 3.16, 1.51), corridor_batches)
+        piece("structure_panel", "Corridor_Roof", (0, 3.09, z), (7.5, .18, 1.51), corridor_batches)
+    for x in (-3.0, -1.5, 0.0, 1.5, 3.0):
+        piece("wall", "Corridor_End", (x, -0.02, -10.0), (1.51, 3.16, .3), corridor_batches)
+    corridor_count = count - lab_count
+
+    # This wing exists as a separate GLB and is NEVER instantiated before the
+    # player finishes the live breaker puzzle. Main room stays opaque and sealed.
+    for z in (-8.2, -9.7, -11.2):
+        for x in (9.5, 11.0, 12.5):
+            piece("floor_panel", "Wing_Floor", (x, -0.075, z), (1.55, .18, 1.55), wing_batches)
+        piece("structure_panel", "Wing_Roof", (11.0, 3.09, z), (4.8, .22, 1.55), wing_batches)
+        piece("wall", "Wing_Walls", (8.0, -0.02, z), (.27, 3.16, 1.55), wing_batches)
+        piece("wall", "Wing_Walls", (14.0, -0.02, z), (.27, 3.16, 1.55), wing_batches)
+    for x in (9.5, 11.0, 12.5):
+        piece("wall", "Wing_End", (x, -0.02, -12.0), (1.55, 3.16, .3), wing_batches)
+    wing_count = count - lab_count - corridor_count
 
     output = trimesh.Scene()
     faces_total = 0
@@ -87,12 +119,33 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
     if data[:4] != b"glTF" or len(data) < 2048:
         raise ValueError("Bad sealed GLB export")
     digest = hashlib.sha256(data).hexdigest()
+
+    def export_batch(collection, filename):
+        source = trimesh.Scene()
+        for group, meshes in sorted(collection.items()):
+            merged = trimesh.util.concatenate(meshes)
+            if len(merged.faces) < 10:
+                raise ValueError("Missing sourced triangles: " + group)
+            merged.visual = trimesh.visual.ColorVisuals(
+                mesh=merged, vertex_colors=np.tile([210, 215, 215, 255], (len(merged.vertices), 1)))
+            source.add_geometry(merged, geom_name="Kenney_CC0_" + group)
+        path = vendor / filename
+        path.write_bytes(source.export(file_type="glb"))
+        if path.read_bytes()[:4] != b"glTF":
+            raise ValueError("Invalid GLB: " + filename)
+        return {"sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "bytes": path.stat().st_size, "meshes": len(collection)}
+
+    corridor = export_batch(corridor_batches, "facility_corridor_cc0.glb")
+    wing = export_batch(wing_batches, "observation_wing_cc0.glb")
     result = {
         "source": "Kenney Space Station Kit (CC0)",
         "catalog": "https://kenney.nl/assets/space-station-kit",
         "source_files": sorted(components),
         "license": "CC0-1.0",
-        "assembled_modules": count, "merged_batches": len(batches),
+        "assembled_modules": lab_count, "merged_batches": len(batches),
+        "corridor_modules": corridor_count, "corridor": corridor,
+        "observation_modules": wing_count, "observation": wing,
         "triangles": faces_total, "glb_size": len(data), "glb_sha256": digest,
     }
     report.parent.mkdir(parents=True, exist_ok=True)
@@ -105,8 +158,14 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
                 "verified inputs by `fetch_wakeup_assets.py`, authored layout / "
                 "batching in `bake_laboratory_glb.py`. "
                 f"Package file `assets/vendor/laboratory_shell_cc0.glb`: SHA-256 `{digest}`, "
-                f"{count} authored modules combined into {len(batches)} GLB meshes. "
-                "This is modified licensed geometry, not procedural primitive models.\n")
+                f"{lab_count} authored modules combined into {len(batches)} GLB meshes. "
+                "This is modified licensed geometry, not procedural primitive models.\n"
+                f"v0.26 corridor combined {corridor_count} original GLB modules into {corridor['meshes']} meshes; "
+                f"`facility_corridor_cc0.glb` SHA-256 `{corridor['sha256']}`. "
+                f"New on-demand observation wing combines {wing_count} Kenney source modules "
+                f"into {wing['meshes']} meshes; `observation_wing_cc0.glb` SHA-256 `{wing['sha256']}`. "
+                "The observation wing is instantiated only after restoring real breaker power; "
+                "all models remain Kenney CC0 authored geometry, not generated primitives.\n")
     print("LABORATORY_SHELL_PASS", json.dumps(result))
 
 

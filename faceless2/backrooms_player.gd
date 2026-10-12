@@ -209,9 +209,9 @@ func _physics_process(delta: float) -> void:
 				if flash_smiler_exposure > 0.14: game.wakeup_room.smiler_flashlight_hit()
 			else: flash_smiler_exposure = 0.0
 		else: flash_smiler_exposure = 0.0
-		if not game.wakeup_room.frowner_started and flashlight_owned and global_position.z < -2.4 and not game.wakeup_room.frowner_finished:
+		if not game.wakeup_room.frowner_started and flashlight_owned and game.wakeup_room.smiler_flashlight_faded and global_position.z < -2.4 and not game.wakeup_room.frowner_finished:
 			game.wakeup_room.begin_frowner()
-			frowner_camera_active = true
+			frowner_camera_active = game.shock_glance_enabled
 			player_look_override = false
 			frowner_camera_seconds = 0.0
 		if frowner_camera_active and not player_look_override and not game.ui.modal:
@@ -222,7 +222,18 @@ func _physics_process(delta: float) -> void:
 			rotation.y = yaw
 			if frowner_camera_seconds > 3.4: frowner_camera_active = false
 		if game.wakeup_room.update_visitor(global_position):
-			game.ui.show_timed_hint(game.ui.localized("POWER LOST — FIND THE BACKUP CONTROL", "电源中断——寻找备用控制台"),2.6)
+			game.ui.show_timed_hint(game.ui.localized("THE DOOR SLAMMED — ISOLATE THE BREAKER", "门突然关闭——先断开隔离开关"),2.6)
+		if game.wakeup_room.update_observation(global_position):
+			game.ui.show_timed_hint(game.ui.localized("SOMETHING MOVED BEHIND YOU", "背后有什么东西移动了"),2.5)
+		# Show short physical interaction prompts only near a real imported switch
+		# or console, and do not allocate new UI widgets during movement.
+		if game.wakeup_room.door_slammed and not game.wakeup_room.lab_power_restored and not game.ui.transient_hint.visible:
+			if not game.wakeup_room.breaker_isolated and global_position.distance_to(game.wakeup_room.breaker_position) < 1.65:
+				game.ui.show_timed_hint(game.ui.localized("E / ISOLATE RED BREAKER", "E / 关闭红色隔离开关"),1.0)
+			elif game.wakeup_room.breaker_isolated and global_position.distance_to(game.wakeup_room.backup_panel_position) < 1.65:
+				game.ui.show_timed_hint(game.ui.localized("E / RESTORE BACKUP CIRCUIT", "E / 接通备用电路"),1.0)
+		if game.wakeup_room.lab_power_restored and not game.wakeup_room.signal_traced and global_position.distance_to(game.wakeup_room.observation_console_position) < 1.75 and not game.ui.transient_hint.visible:
+			game.ui.show_timed_hint(game.ui.localized("E / TRACE THE ECHO", "E / 追踪异常回声"),1.0)
 		if not game.wakeup_room.flashlight_collected and global_position.distance_to(game.wakeup_room.flashlight_pickup_position) < 1.55:
 			if not game.ui.transient_hint.visible:
 				game.ui.show_timed_hint(game.ui.localized("E / PICK UP FLASHLIGHT", "E / 拾起手电筒"),1.0)
@@ -315,8 +326,16 @@ func interact_or_locked_door() -> void:
 			"FLASHLIGHT":
 				take_flashlight()
 				game.ui.show_timed_hint(game.ui.localized("FLASHLIGHT ACQUIRED — PRESS F / LIGHT", "获得手电——按 F / LIGHT 开关"), 2.4)
+			"BREAKER":
+				game.ui.show_timed_hint(game.ui.localized("CIRCUIT ISOLATED — RECONNECT THE BACKUP SWITCH", "回路已隔离——去接通备用电路"),2.6)
+			"ISOLATED":
+				game.ui.show_timed_hint(game.ui.localized("ISOLATION ACTIVE — FIND THE BACKUP SWITCH", "隔离开关已关闭——去找备用开关"),1.7)
+			"SHORT":
+				game.ui.show_timed_hint(game.ui.localized("SHORT CIRCUIT — ISOLATE RED BREAKER FIRST", "回路短路——先关闭红色隔离开关"),2.1)
 			"POWER":
-				game.ui.show_timed_hint(game.ui.localized("BACKUP POWER RESTORED — THE DOOR UNLOCKED", "备用电源恢复——门已解锁"), 2.4)
+				game.ui.show_timed_hint(game.ui.localized("POWER RESTORED — THE OBSERVATION AIRLOCK IS OPEN", "电力恢复——观察室隔离门开启"),3.0)
+			"TRACE":
+				game.ui.show_timed_hint(game.ui.localized("THE RECORDED FOOTSTEPS ARE YOUR OWN — TWO SECONDS EARLY", "录下的脚步声是你自己的——却提前了两秒"),4.5)
 			"OPENED":
 				game.ui.show_timed_hint(game.ui.localized("THE LABORATORY IS OPEN", "实验室入口已打开"), 1.1)
 			"LOCK":

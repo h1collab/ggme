@@ -325,8 +325,10 @@ func _process(delta: float) -> void:
 		var speed := actor.position.distance_to(target)
 		actor.position = actor.position.lerp(target, minf(delta * 12, 1))
 		actor.rotation.y = lerp_angle(actor.rotation.y, float(actor.get_meta("yaw", 0.0)), minf(delta * 10, 1))
-		for animation_player in actor.find_children("*", "AnimationPlayer", true, false):
-			animation_player.speed_scale = 1.0 if speed > 0.015 else 0.0
+		# Cache authored animation nodes once per crew instance; no recursive
+		# find_children allocation on every render frame for four remote peers.
+		for animator in actor.get_meta("cached_animation_nodes", []):
+			if is_instance_valid(animator): (animator as AnimationPlayer).speed_scale = 1.0 if speed > 0.015 else 0.0
 	ui.refresh()
 	if running and (failed or completed):
 		if not ui.result_shown: ui.open_result()
@@ -570,6 +572,7 @@ func _crew_avatar(id: int) -> Node3D:
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.outline_size = 0
 	avatar.add_child(label)
+	avatar.set_meta("cached_animation_nodes",avatar.find_children("*", "AnimationPlayer", true, false))
 	return avatar
 
 func remove_crew(id: int) -> void:

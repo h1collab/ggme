@@ -45,6 +45,8 @@ var jump_button: Button
 var light_button: Button
 var transient_hint: Label
 var hint_timer := 0.0
+var facility_goal_label: Label
+var facility_goal_phase := -1
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
@@ -172,6 +174,8 @@ func _build_hud() -> void:
 	transient_hint = _label(hud, "", Vector2(365, 660), 870, 25, ACCENT)
 	transient_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	transient_hint.visible = false
+	facility_goal_label = _label(hud,"",Vector2(42,48),760,22,ACCENT)
+	facility_goal_label.visible = false
 	run.button_down.connect(func(): run_held = true)
 	run.button_up.connect(func(): run_held = false)
 
@@ -185,6 +189,8 @@ func _clear(kind: String) -> void:
 	if facility_hud_mode:
 		for child in hud.get_children(): child.visible = true
 		facility_hud_mode = false
+		facility_goal_phase = -1
+		if is_instance_valid(facility_goal_label): facility_goal_label.visible = false
 	if is_instance_valid(game) and is_instance_valid(game.player): game.player.cancel_focus()
 	panel_kind = kind
 	for child in panels.get_children():
@@ -357,8 +363,10 @@ func prologue_finished() -> void:
 	facility_hud_mode = true
 	hud.visible = true
 	for child in hud.get_children():
-		child.visible = child == joystick or child == jump_button or child == light_button or child == transient_hint or (child is Button and ((child as Button).text == "RUN" or (child as Button).text.contains("INTERACT")) )
+		child.visible = child == joystick or child == jump_button or child == light_button or child == transient_hint or child == facility_goal_label or (child is Button and ((child as Button).text == "RUN" or (child as Button).text.contains("INTERACT")) )
 	panels.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	facility_goal_phase = -1
+	_refresh_facility_goal()
 	var line := _label(panels, "", Vector2(340,750),920,37,PAPER)
 	line.visible = false
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -590,6 +598,38 @@ func show_timed_hint(message: String, seconds: float = 2.0) -> void:
 		transient_hint.visible = true
 		hint_timer = seconds
 
+func _refresh_facility_goal() -> void:
+	if not is_instance_valid(game.wakeup_room) or not is_instance_valid(facility_goal_label): return
+	var room: Node3D = game.wakeup_room
+	var step := 0
+	if game.player.flashlight_owned: step = 1
+	if room.smiler_flashlight_faded: step = 2
+	if room.frowner_started and not room.frowner_finished: step = 3
+	if room.frowner_finished: step = 4
+	if room.laboratory_entered: step = 5
+	if room.door_slammed: step = 6
+	if room.breaker_isolated: step = 7
+	if room.lab_power_restored: step = 8
+	if room.observation_seen: step = 9
+	if room.signal_traced: step = 10
+	if step == facility_goal_phase: return
+	facility_goal_phase = step
+	var goals_en := [
+		"FIND THE FLASHLIGHT AT YOUR FEET", "RAISE THE BEAM / FACE THE DARKNESS",
+		"FOLLOW THE SECOND DOOR / LISTEN", "THE FACE IS WATCHING YOU",
+		"FIND THE MARKED LABORATORY DOOR", "STEP INSIDE / LOOK FOR THE CONTROL",
+		"ISOLATE THE BREAKER INSIDE THE LAB", "CONNECT THE BACKUP POWER",
+		"ENTER THE UNLOCKED OBSERVATION ROOM", "TRACE THE FOOTSTEPS AT THE TERMINAL",
+		"TRANSMISSION TRACED / EXPLORE THE ROOM"]
+	var goals_zh := [
+		"拾起脚边的手电筒", "举起手电 / 面向黑暗",
+		"靠近另一扇门 / 聆听", "那张脸正在看你",
+		"寻找带标记的实验室门", "走进实验室 / 寻找控制台",
+		"找到实验室隔离开关", "接通备用电源",
+		"进入开启的观察室", "在终端追查脚步声",
+		"信号追踪完成 / 继续探索"]
+	facility_goal_label.text = localized(goals_en[step],goals_zh[step])
+
 func refresh() -> void:
 	if not is_instance_valid(game.level): return
 	if hint_timer > 0:
@@ -597,6 +637,10 @@ func refresh() -> void:
 		if hint_timer == 0 and is_instance_valid(transient_hint): transient_hint.visible = false
 	# New facility has no evidence cards, journal loop, water ripples or persistent subtitles.
 	if facility_hud_mode:
+		_refresh_facility_goal()
+		if hint_timer > 0:
+			hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
+			if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
 		return
 	status_label.text = game.level.title if game.language == "zh" else ["FACELESS 2 / THE ENTRANCE", "FACELESS 2 / DORMITORY", "FACELESS 2 / REFLECTION", "FACELESS 2 / ZERO SHAFT"][game.stage]
 	goal_label.text = localized("CLUES %d/3  ·  WATER %d  ·  %s", "线索 %d/3  ·  杏仁水 %d  ·  %s") % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
