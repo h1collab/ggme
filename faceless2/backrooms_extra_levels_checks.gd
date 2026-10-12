@@ -27,7 +27,10 @@ func run() -> void:
 		check(game.extra_levels.interact(game.extra_levels.exits[0]) == "BACK","Return path is interactive")
 		var model_count: int = game.extra_levels.scene_root.find_children("*","MeshInstance3D",true,false).size()
 		check(model_count >= 40,"New space uses genuine imported model meshes, not empty scene")
-		var floor_sections: int = game.extra_levels.scene_root.find_children("LicensedKenney_floor_panel","Node3D",true,false).size()
+		var floor_sections := 0
+		for child in game.extra_levels.scene_root.get_children():
+			if child.name == "LicensedKenney_floor_panel" and child is Node3D:
+				floor_sections += 1
 		check(floor_sections == 10,"Each real-GLB sector uses 10 large continuous floor sections instead of 70 thin floor tiles")
 		var physically_scanned: StandardMaterial3D = game.extra_levels._surface("floor",Color(.65,.67,.66))
 		check(physically_scanned.albedo_texture != null and physically_scanned.normal_texture != null and physically_scanned.roughness_texture != null,"Scanned Poly Haven PBR diffuse, normal and roughness are all bound")
