@@ -19,14 +19,14 @@ def bake(source: Path, target: Path) -> None:
     if src.width != 1024 or src.height != 608:
         raise ValueError("Unexpected original Smiler geometry bake resolution")
     width, height = src.size
-    top = 308
+    top = 205
     # Preserve the original eye mesh pixels; transform ONLY the grin's lower half.
     result = Image.new("RGBA", src.size, (0, 0, 0, 0))
     mouth = Image.new("RGBA", src.size, (0, 0, 0, 0))
     for x in range(width):
         norm = min(1.0, abs(x - width * 0.5) / (width * 0.5))
         # Mouth ends droop; centre moves towards the eyes.
-        dy = round(-146.0 * (1 - norm**1.65) + 67.0 * norm**1.65)
+        dy = round(-155.0 * (1 - norm**1.65) + 145.0 * norm**1.65)
         column = src.crop((x, top, x + 1, height))
         mouth.paste(column, (x, top + dy), column)
     result.alpha_composite(mouth)

@@ -115,8 +115,8 @@ func _ready() -> void:
 		flashlight_model = Assets.fitted("vendor/flashlight_cc0.glb",1.0)
 		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
-		flashlight_model.scale *= 0.24 / maxf(bbox.x,maxf(bbox.y,bbox.z))
-		flashlight_model.position = Vector3(-0.26,1.12,0.72)
+		flashlight_model.scale *= 0.43 / maxf(bbox.x,maxf(bbox.y,bbox.z))
+		flashlight_model.position = Vector3(-0.27,1.22,0.26)
 		# Viewmodel parent faces 180 degrees: positive local Z is in front of POV.
 		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
 		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
@@ -139,7 +139,7 @@ func take_flashlight() -> void:
 	flashlight_model.visible = true
 	flashlight_model.position.y += 0.19
 	flashlight_pickup_tween = create_tween()
-	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",1.12,0.33).set_trans(Tween.TRANS_SINE)
+	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",1.22,0.33).set_trans(Tween.TRANS_SINE)
 	# Pickup and turning the light on are separate intentional actions.
 	torch.visible = false
 
@@ -156,7 +156,7 @@ func reset_flashlight() -> void:
 	if flashlight_pickup_tween != null and flashlight_pickup_tween.is_running(): flashlight_pickup_tween.kill()
 	if is_instance_valid(flashlight_model):
 		flashlight_model.visible = false
-		flashlight_model.position.y = 1.12
+		flashlight_model.position.y = 1.22
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return

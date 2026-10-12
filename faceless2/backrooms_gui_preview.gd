@@ -111,8 +111,8 @@ func run() -> void:
 		game.wakeup_room.smiler_flashlight_hit()
 		await create_timer(0.40).timeout
 		await _capture("14c_smiler_banished")
-		game.player.pitch = -1.04
-		game.player.camera.rotation.x = -1.04
+		game.player.pitch = -0.82
+		game.player.camera.rotation.x = -0.82
 		game.player.leg_root.visible = true
 		await _capture("14d_actual_glb_feet_downlook")
 		game.player.pitch = 0.0
