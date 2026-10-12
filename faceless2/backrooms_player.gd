@@ -208,7 +208,7 @@ func _physics_process(delta: float) -> void:
 			frowner_camera_seconds = 0.0
 		if frowner_camera_active and not player_look_override and not game.ui.modal:
 			frowner_camera_seconds += delta
-			var to_entity := game.wakeup_room.frowner_position - camera.global_position
+			var to_entity: Vector3 = game.wakeup_room.frowner_position - camera.global_position
 			var desired := atan2(-to_entity.x, -to_entity.z)
 			yaw = lerp_angle(yaw, desired, minf(delta * 0.62,0.06))
 			rotation.y = yaw

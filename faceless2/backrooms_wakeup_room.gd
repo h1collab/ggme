@@ -261,7 +261,7 @@ func _build_laboratory() -> void:
 	var shell := Assets.path("vendor/laboratory_shell_cc0.glb")
 	if not ResourceLoader.exists(shell): push_error("Missing sealed laboratory GLB")
 	else:
-		var scene := load(shell).instantiate()
+		var scene: Node3D = load(shell).instantiate()
 		scene.name = "KenneyCC0_SealedLaboratory_GLBBatched"
 		laboratory_root.add_child(scene)
 		for m in scene.find_children("*","MeshInstance3D",true,false):
