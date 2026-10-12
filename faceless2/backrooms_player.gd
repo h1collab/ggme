@@ -32,6 +32,10 @@ var focus_allowed := false
 var jump_requested := false
 var jump_count := 0
 var last_near_door: Node3D
+var frowner_camera_active := false
+var frowner_camera_seconds := 0.0
+var player_look_override := false
+var flash_smiler_exposure := 0.0
 
 func _ready() -> void:
 	name = "LocalCrew"
@@ -87,7 +91,8 @@ func _ready() -> void:
 	if ResourceLoader.exists(feet_path):
 		leg_root = Node3D.new()
 		leg_root.name = "CesiumFirstPersonFeet"
-		leg_root.position = Vector3(0.0, 0.02, 0.0)
+		leg_root.position = Vector3(0.0, 0.045, -0.24)
+		leg_root.scale = Vector3.ONE * 1.12
 		leg_root.rotation.y = PI
 		add_child(leg_root)
 		var feet: Node3D = load(feet_path).instantiate()
@@ -111,7 +116,7 @@ func _ready() -> void:
 		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
 		flashlight_model.scale *= 0.24 / maxf(bbox.x,maxf(bbox.y,bbox.z))
-		flashlight_model.position = Vector3(0.27,0.98,-0.37)
+		flashlight_model.position = Vector3(0.22,1.12,-0.88)
 		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
 		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
 		else: camera.add_child(flashlight_model)
@@ -129,10 +134,11 @@ func _ready() -> void:
 func take_flashlight() -> void:
 	if flashlight_owned or not is_instance_valid(flashlight_model): return
 	flashlight_owned = true
+	if game.prologue.phase == "ended" and game.wakeup_room.visible: game.wakeup_room.reveal_torch_smiler()
 	flashlight_model.visible = true
 	flashlight_model.position.y += 0.19
 	flashlight_pickup_tween = create_tween()
-	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.98,0.33).set_trans(Tween.TRANS_SINE)
+	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",1.12,0.33).set_trans(Tween.TRANS_SINE)
 	# Pickup and turning the light on are separate intentional actions.
 	torch.visible = false
 
@@ -149,7 +155,7 @@ func reset_flashlight() -> void:
 	if flashlight_pickup_tween != null and flashlight_pickup_tween.is_running(): flashlight_pickup_tween.kill()
 	if is_instance_valid(flashlight_model):
 		flashlight_model.visible = false
-		flashlight_model.position.y = 0.98
+		flashlight_model.position.y = 1.12
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -170,9 +176,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		look(event.relative * 1.15)
 
 func look(delta: Vector2) -> void:
+	if delta.length() > 0.7:
+		player_look_override = true
+		frowner_camera_active = false
 	if delta.length() > 1: cancel_focus()
-	yaw -= delta.x * 0.0021 * game.sensitivity
-	pitch = clampf(pitch - delta.y * 0.0021 * game.sensitivity, -1.25, 1.25)
+	yaw -= clampf(delta.x,-90.0,90.0) * 0.0019 * game.sensitivity
+	pitch = clampf(pitch - clampf(delta.y,-90.0,90.0) * 0.0019 * game.sensitivity, -1.36, 1.30)
 	rotation.y = yaw
 	camera.rotation.x = pitch
 
@@ -182,6 +191,28 @@ func _physics_process(delta: float) -> void:
 		aim_pointer = -1
 		return
 	if game.prologue.phase == "ended" and game.wakeup_room.visible:
+		game.wakeup_room.update_frowner(delta)
+		# Light only banishes a visible face actually inside its forward cone.
+		var sprite := game.wakeup_room.smiler as Sprite3D
+		if torch.visible and is_instance_valid(sprite) and sprite.visible:
+			var target := sprite.global_position - camera.global_position
+			if target.length() < torch.spot_range and -camera.global_transform.basis.z.dot(target.normalized()) > 0.86:
+				flash_smiler_exposure += delta
+				if flash_smiler_exposure > 0.14: game.wakeup_room.smiler_flashlight_hit()
+			else: flash_smiler_exposure = 0.0
+		else: flash_smiler_exposure = 0.0
+		if not game.wakeup_room.frowner_started and flashlight_owned and global_position.z < -2.4 and not game.wakeup_room.frowner_finished:
+			game.wakeup_room.begin_frowner()
+			frowner_camera_active = true
+			player_look_override = false
+			frowner_camera_seconds = 0.0
+		if frowner_camera_active and not player_look_override and not game.ui.modal:
+			frowner_camera_seconds += delta
+			var to_entity := game.wakeup_room.frowner_position - camera.global_position
+			var desired := atan2(-to_entity.x, -to_entity.z)
+			yaw = lerp_angle(yaw, desired, minf(delta * 0.62,0.06))
+			rotation.y = yaw
+			if frowner_camera_seconds > 3.4: frowner_camera_active = false
 		if game.wakeup_room.update_visitor(global_position):
 			game.ui.show_timed_hint(game.ui.localized("POWER LOST — FIND THE BACKUP CONTROL", "电源中断——寻找备用控制台"),2.6)
 		if not game.wakeup_room.flashlight_collected and global_position.distance_to(game.wakeup_room.flashlight_pickup_position) < 1.55:
@@ -249,8 +280,8 @@ func _physics_process(delta: float) -> void:
 		# Low-angle downward looks show actual skinned knees, boots and steps;
 		# arms remain in the lower field of view. Keep the body unobtrusive when
 		# the player looks forward to avoid visual clipping.
-		leg_root.visible = not lift_riding and pitch < -0.16
-		leg_root.position.y = lerpf(leg_root.position.y, 0.02 + bob*0.18, minf(delta*6.0, 1.0))
+		leg_root.visible = not lift_riding and pitch < -0.10
+		leg_root.position.y = lerpf(leg_root.position.y, 0.045 + bob*0.18, minf(delta*6.0, 1.0))
 		if is_instance_valid(leg_animation):
 			leg_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
 	step_clock -= delta
@@ -301,6 +332,10 @@ func reset_to(pos: Vector3) -> void:
 	landing_dip = 0.0
 	last_grounded = false
 	last_near_door = null
+	frowner_camera_active = false
+	frowner_camera_seconds = 0.0
+	player_look_override = false
+	flash_smiler_exposure = 0.0
 
 func begin_focus(target: Vector3, duration: float = 1.2) -> void:
 	focus_target = target

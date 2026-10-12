@@ -100,6 +100,28 @@ func run() -> void:
 	for i in range(3): prologue.advance(0.15)
 	if prologue.phase == "ended":
 		await _capture("14_controls_unlocked")
+		# Visual QA: the actual held GLB and light drive a separate Smiler fade.
+		game.player.global_position = game.wakeup_room.flashlight_pickup_position
+		game.player.interact_or_locked_door()
+		await _capture("14a_glb_flashlight_held")
+		game.player.toggle_torch()
+		game.player.camera.look_at(game.wakeup_room.smiler.global_position)
+		await _capture("14b_smiler_lit_before_banish")
+		game.wakeup_room.smiler_flashlight_hit()
+		await create_timer(0.40).timeout
+		await _capture("14c_smiler_banished")
+		game.player.pitch = -1.04
+		game.player.camera.rotation.x = -1.04
+		game.player.leg_root.visible = true
+		await _capture("14d_actual_glb_feet_downlook")
+		game.player.pitch = 0.0
+		game.player.camera.rotation.x = 0.0
+		game.player.global_position = Vector3(0,0.10,-3.1)
+		game.wakeup_room.begin_frowner()
+		await _capture("14e_frowner_second_door")
+		game.wakeup_room.update_frowner(4.8)
+		await create_timer(1.8).timeout
+		await _capture("14f_frowner_fades")
 		game.player.look(Vector2(90,0))
 		await _capture("15_player_looks_around")
 		var door: Node3D = game.wakeup_room.openable_door

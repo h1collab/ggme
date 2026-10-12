@@ -11,6 +11,8 @@ on:
       - "faceless2/backrooms_wakeup_room.gd"
       - "faceless2/backrooms_player.gd"
       - "faceless2/fetch_flashlight.py"
+      - "faceless2/bake_frowner_sprite.py"
+      - "faceless2/bake_laboratory_glb.py"
       - "faceless2/backrooms_ui.gd"
       - ".github/workflows/faceless2-preview.yml"
 concurrency:
@@ -77,6 +79,8 @@ jobs:
           python faceless2/fetch_flashlight.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/flashlight-assets.log
           python faceless2/fetch_sketchfab_cast.py app/assets/vendor
           python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
+          python faceless2/bake_frowner_sprite.py app/assets/vendor/sketchfab_smiler_face.png app/assets/vendor/frowner_derivative.png
+          python faceless2/bake_laboratory_glb.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/laboratory-shell.json
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio

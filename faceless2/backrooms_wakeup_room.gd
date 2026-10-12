@@ -37,6 +37,12 @@ var pickup_audio: AudioStreamPlayer3D
 var module_target: Node3D
 var door_tween: Tween
 var proximity_last_ms := -100000
+var frowner: Sprite3D
+var frowner_started := false
+var frowner_finished := false
+var frowner_timer := 0.0
+var frowner_position := Vector3(-3.05,1.63,-4.4)
+var smiler_flashlight_faded := false
 
 func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
@@ -87,6 +93,18 @@ func _ready() -> void:
 			warning.shaded = false
 			warning.position = Vector3(3.13,1.50,-0.9)
 			add_child(warning)
+	var frowner_file := Assets.path("vendor/frowner_derivative.png")
+	if ResourceLoader.exists(frowner_file):
+		frowner = Sprite3D.new()
+		frowner.name = "FrownerInspired_CC_BY_Derivative"
+		frowner.texture = load(frowner_file)
+		frowner.position = frowner_position
+		frowner.pixel_size = 0.00145
+		frowner.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		frowner.shaded = false
+		frowner.no_depth_test = false
+		frowner.visible = false
+		add_child(frowner)
 	# The interactive body has a simple invisible physical floor and perimeter.
 	walkable_floor = StaticBody3D.new()
 	walkable_floor.name = "InvisibleFacilityPhysics"
@@ -201,30 +219,59 @@ func _ready() -> void:
 	visible = false
 	set_process(false)
 
+func begin_frowner() -> void:
+	if frowner_started or frowner_finished or not is_instance_valid(frowner): return
+	frowner_started = true
+	frowner_timer = 0.0
+	frowner.visible = true
+	frowner.modulate.a = 0.0
+	create_tween().tween_property(frowner,"modulate:a",0.9,0.65)
+
+func update_frowner(delta: float) -> void:
+	if not frowner_started or frowner_finished: return
+	frowner_timer += delta
+	if frowner_timer > 2.6:
+		frowner_finished = true
+		var fade := create_tween()
+		fade.tween_property(frowner,"modulate:a",0.0,1.6)
+		fade.finished.connect(func():
+			if is_instance_valid(frowner): frowner.visible = false)
+
+func reveal_torch_smiler() -> void:
+	if smiler_flashlight_faded or not is_instance_valid(smiler): return
+	smiler.modulate.a = 1.0
+	smiler.position = Vector3(0.0,1.6,-3.2)
+	smiler.visible = true
+
+func smiler_flashlight_hit() -> void:
+	if smiler_flashlight_faded or not is_instance_valid(smiler) or not smiler.visible: return
+	smiler_flashlight_faded = true
+	var fade := create_tween()
+	fade.tween_property(smiler,"modulate:a",0.0,0.27)
+	fade.finished.connect(func():
+		if is_instance_valid(smiler): smiler.visible = false)
+
 func _build_laboratory() -> void:
 	if is_instance_valid(laboratory_root): return
 	laboratory_root = Node3D.new()
 	laboratory_root.name = "StreamedLaboratory_GLBSector"
 	add_child(laboratory_root)
 	module_target = laboratory_root
-	# Abandoned laboratory is built exclusively from previously sourced Kenney
-	# industrial GLB architecture/furniture. It is reached through the open door.
-	# No visible BoxMesh or procedurally invented 3D props.
-	var dusty := _finish(Color(0.27,0.33,0.32),"concrete.jpg")
-	var steel := _finish(Color(0.16,0.22,0.24))
-	for x in [8.0,9.5,11.0,12.5,14.0]:
-		for z in [-0.5,-2.0,-3.5,-5.0,-6.5]:
-			_module("floor_panel",Vector3(x,-0.06,z),dusty,Vector3(1.5,0.18,1.5))
-			laboratory_modules += 1
-	for z in [-0.5,-2.0,-3.5,-5.0,-6.5]:
-		if z != -0.5 and z != -2.0: _module("wall",Vector3(7.15,1.55,z),dusty,Vector3(0.25,3.1,1.5))
-		_module("wall",Vector3(14.8,1.55,z),dusty,Vector3(0.25,3.1,1.5))
-		_module("structure_panel",Vector3(11.0,3.1,z),steel,Vector3(7.5,0.2,1.5))
-		laboratory_modules += 3
-	for x in [8.0,9.5,11.0,12.5,14.0]:
-		for z in [0.3,-7.3]:
-			_module("wall",Vector3(x,1.55,z),dusty,Vector3(1.5,3.1,0.25))
-			laboratory_modules += 1
+	# A single watertight, authored and batch-merged Kenney GLB shell.
+	var shell := Assets.path("vendor/laboratory_shell_cc0.glb")
+	if not ResourceLoader.exists(shell): push_error("Missing sealed laboratory GLB")
+	else:
+		var scene := load(shell).instantiate()
+		scene.name = "KenneyCC0_SealedLaboratory_GLBBatched"
+		laboratory_root.add_child(scene)
+		for m in scene.find_children("*","MeshInstance3D",true,false):
+			var material := StandardMaterial3D.new()
+			material.albedo_color = Color(0.46,0.53,0.54)
+			material.roughness = 0.83
+			material.cull_mode = BaseMaterial3D.CULL_DISABLED
+			(m as MeshInstance3D).material_override = material
+		laboratory_modules = 58
+	var steel := _finish(Color(0.27,0.34,0.36))
 	for spot in [Vector3(9.0,1.25,-3.1),Vector3(12.8,1.25,-4.8)]:
 		_module("computer_screen",spot,steel,Vector3(0.75,0.85,0.45))
 		laboratory_modules += 1
@@ -232,26 +279,24 @@ func _build_laboratory() -> void:
 		_module("container_tall",spot,steel,Vector3(0.9,1.8,0.9))
 		laboratory_modules += 1
 	var lab_light := OmniLight3D.new()
-	lab_light.position = Vector3(10.6,2.65,-3.1)
-	lab_light.light_color = Color(0.56,0.78,0.77)
-	lab_light.light_energy = 2.15
-	lab_light.omni_range = 7.0
+	lab_light.position = Vector3(10.6,2.55,-3.1)
+	lab_light.light_color = Color(0.65,0.83,0.90)
+	lab_light.light_energy = 2.8
+	lab_light.omni_range = 9.0
 	lab_light.shadow_enabled = false
 	laboratory_root.add_child(lab_light)
 	lab_central_light = lab_light
-	facility_lights.append(lab_light)
 	var emergency := SpotLight3D.new()
-	emergency.name = "AbandonedLab_FailedInspectionLamp"
+	emergency.name = "AbandonedLab_Emergency"
 	emergency.position = Vector3(13.25,2.65,-5.15)
-	emergency.light_color = Color(0.84,0.89,0.79)
-	emergency.light_energy = 2.65
-	emergency.spot_range = 7.4
-	emergency.spot_angle = 53.0
+	emergency.light_color = Color(0.90,0.93,0.87)
+	emergency.light_energy = 2.1
+	emergency.spot_range = 8.0
+	emergency.spot_angle = 62.0
 	emergency.shadow_enabled = false
 	laboratory_root.add_child(emergency)
-	lab_emergency_light = emergency
 	emergency.look_at(Vector3(10.8,0.9,-3.4))
-	facility_lights.append(emergency)
+	lab_emergency_light = emergency
 	module_target = null
 	lab_physics = StaticBody3D.new()
 	lab_physics.name = "Laboratory_ProxyCollision"
@@ -287,6 +332,12 @@ func reset_facility() -> void:
 	lab_power_restored = false
 	flashlight_collected = false
 	if is_instance_valid(flashlight_world): flashlight_world.visible = true
+	frowner_started = false
+	frowner_finished = false
+	frowner_timer = 0.0
+	smiler_flashlight_faded = false
+	if is_instance_valid(frowner): frowner.visible = false
+	if is_instance_valid(smiler): smiler.modulate.a = 1.0
 	if is_instance_valid(openable_door):
 		var hinge := openable_door.get_meta("hinge") as Node3D
 		if is_instance_valid(hinge): hinge.rotation.y = 0.0
