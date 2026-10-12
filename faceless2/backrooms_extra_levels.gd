@@ -13,6 +13,7 @@ var spatial_sound: AudioStreamPlayer3D
 var area_lights: Array[Light3D] = []
 var mat_cache: Dictionary = {}
 var visit_clock := 0.0
+var event_tweens: Array[Tween] = []
 
 func _ready() -> void:
 	name = "GLB_ThreeLevel_Exploration"
@@ -218,19 +219,25 @@ func update_player(at: Vector3, delta: float) -> String:
 			spatial_sound.play()
 		if not passive_entities.is_empty():
 			var witness := passive_entities[0]
-			create_tween().tween_property(witness,"rotation:y",witness.rotation.y+PI,1.7)
+			var turn := create_tween()
+			event_tweens.append(turn)
+			turn.tween_property(witness,"rotation:y",witness.rotation.y+PI,1.7)
 		return "WITNESS"
 	if at.z < -22.4 and not event_flags.has("vanishing"):
 		event_flags["vanishing"] = true
 		if passive_entities.size()>1:
 			var last := passive_entities[1]
 			var fade := create_tween()
+			event_tweens.append(fade)
 			fade.tween_property(last,"scale",Vector3(.02,.02,.02),2.1)
 		return "VANISH"
 	return ""
 
 func clear() -> void:
 	set_process(false)
+	for tween in event_tweens:
+		if tween != null and tween.is_running(): tween.kill()
+	event_tweens.clear()
 	if is_instance_valid(spatial_sound): spatial_sound.stop()
 	if is_instance_valid(scene_root): scene_root.queue_free()
 	scene_root = null

@@ -46,8 +46,16 @@ func run() -> void:
 	check(game.extra_levels.current == 2,"Interactive return Level 130 to Level 2")
 	game.show_title_room()
 	check(not game.extra_levels.visible,"Main menu releases new zone")
+	# Release original imported GLB resources and streams before engine teardown.
+	game.net.leave()
+	for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:
+		for sound in game.find_children("*",kind,true,false):
+			sound.stop()
+			sound.stream = null
+	for animator in game.find_children("*","AnimationPlayer",true,false): animator.stop()
 	game.queue_free()
-	for i in range(8): await process_frame
+	for i in range(16): await process_frame
+	await create_timer(0.4).timeout
 	if not failed:
 		print("Faceless 2 extra levels checks: PASS / licensed GLB scenes, passive entities and traversable links")
 		quit(0)
