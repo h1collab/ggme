@@ -78,7 +78,7 @@ def bake(vendor: Path, credits: Path, report: Path) -> None:
         # Preserve the geometric origin while standardising low-cost material.
         # Per-class PBR textures are assigned in Godot with double-sided culling.
         merged.visual = trimesh.visual.ColorVisuals(
-            mesh=merged, face_colors=np.tile([210, 215, 215, 255], (len(merged.faces), 1))
+            mesh=merged, vertex_colors=np.tile([210, 215, 215, 255], (len(merged.vertices), 1))
         )
         output.add_geometry(merged, geom_name="Kenney_CC0_Lab_" + group)
     outpath = vendor / "laboratory_shell_cc0.glb"
