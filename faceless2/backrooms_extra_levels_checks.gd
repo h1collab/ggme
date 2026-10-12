@@ -25,7 +25,7 @@ func run() -> void:
 		check(game.extra_levels.exits.size()==2,"Non-locking entry and exit exist")
 		check(game.extra_levels.interact(game.extra_levels.exits[1]) == "NEXT","Exit is interactive")
 		check(game.extra_levels.interact(game.extra_levels.exits[0]) == "BACK","Return path is interactive")
-		var model_count := game.extra_levels.scene_root.find_children("*","MeshInstance3D",true,false).size()
+		var model_count: int = game.extra_levels.scene_root.find_children("*","MeshInstance3D",true,false).size()
 		check(model_count >= 40,"New space uses genuine imported model meshes, not empty scene")
 		var kind: String = game.extra_levels.update_player(Vector3(0,0,-16),0.3)
 		check(kind == "WITNESS","Watcher turns when approached")
