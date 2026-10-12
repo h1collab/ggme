@@ -92,7 +92,7 @@ func _ready() -> void:
 	if ResourceLoader.exists(feet_path):
 		leg_root = Node3D.new()
 		leg_root.name = "CesiumFirstPersonFeet"
-		leg_root.position = Vector3(0.0, 0.012, -0.36)
+		leg_root.position = Vector3(0.0, 0.012, -0.94)
 		leg_root.scale = Vector3(1.12, 1.0, 1.12)
 		leg_root.rotation.y = PI
 		add_child(leg_root)

@@ -226,6 +226,40 @@ func enter(level_number: int) -> Vector3:
 	elif level_number == 133:
 		for z in [-9.0,-19.0,-26.0]:
 			_scan("industrial_wall_lamp",Vector3(-w+.2,2.4,z),.54)
+	# Break up the repeating hallway with real authored GLB side rooms,
+	# scanning one-off props and architectural choke points. Every visible
+	# structural piece is an imported mesh, collisions remain cheap invisible
+	# shapes, leaving a >=2.4 m walkable central evacuation lane.
+	if level_number == 0:
+		for i in range(5):
+			var z := -3.7 - float(i)*5.5
+			var wall_side := -1.0 if i%2==0 else 1.0
+			_piece("wall",Vector3(wall_side*(w-1.7),1.52,z),Vector3(3.15,3.1,.19),layout_mat)
+			_solid(Vector3(wall_side*(w-1.7),1.52,z),Vector3(3.0,3.0,.23))
+			_piece("wall_pillar",Vector3(-wall_side*1.8,1.5,z-.65),Vector3(.25,3.0,.25),layout_mat)
+	elif level_number == 5:
+		_scan("gothicbed_01",Vector3(-w+1.45,.03,-4.0),1.1)
+		_scan("painted_wooden_sofa",Vector3(w-1.15,.03,-6.0),.93)
+		_scan("chandelier_03",Vector3(0,2.40,-3.0),.88)
+	elif level_number == 6:
+		_piece("wall",Vector3(-w+.8,1.5,-7.5),Vector3(.2,3.0,4.2),industrial)
+		_piece("pipe",Vector3(w-.3,2.3,-3.0),Vector3(.45,.45,4.2),industrial)
+	elif level_number == 130:
+		_scan("wheelchair_01",Vector3(w-1.25,.03,-2.9),1.1)
+		_scan("vintage_day_bed",Vector3(-w+1.75,.04,-5.5),1.03)
+		_piece("wall_window",Vector3(-w+.15,1.7,-7.6),Vector3(.25,2.5,2.0),hospital)
+	elif level_number == 131:
+		_scan("painted_wooden_sofa",Vector3(w-1.25,.02,-3.5),1.04)
+		_scan("rubber_duck_toy",Vector3(-w+.85,.25,-3.5),.65)
+		_light(Vector3(-1.2,2.5,-4.5),Color(.92,.25,.59),1.65,6.4)
+	elif level_number == 132:
+		_scan("bar_chair_round_01",Vector3(w-1.02,.03,-3.5),.86)
+		_piece("pipe",Vector3(-w+.4,2.40,-4.0),Vector3(.35,.35,4.7),industrial)
+		_light(Vector3(.5,2.4,-5.4),Color(1,.13,.11),1.38,6.0)
+	elif level_number == 133:
+		_piece("wall_window",Vector3(-w+.10,1.7,-5.8),Vector3(.25,2.5,2.3),hospital)
+		_scan("industrial_wall_lamp",Vector3(w-.2,2.5,-3.5),.45)
+		_scan("modular_airduct_circular_01",Vector3(-w+.45,2.8,-7.0),1.2)
 	_piece("wall_door",Vector3(0,1.45,-29.7),Vector3(2.1,2.7,.2),layout_mat)
 	exits = [Vector3(0,0.1,2.0),Vector3(0,0.1,-28.2)]
 	return Vector3(0,0.1,2.2)

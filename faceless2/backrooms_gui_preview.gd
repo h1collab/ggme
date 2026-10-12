@@ -117,8 +117,8 @@ func run() -> void:
 			failures.append("Light cone aiming did not make visible Smiler disappear")
 		await create_timer(0.40).timeout
 		await _capture("14c_smiler_banished")
-		game.player.pitch = -0.82
-		game.player.camera.rotation.x = -0.82
+		game.player.pitch = -1.03
+		game.player.camera.rotation.x = -1.03
 		game.player.leg_root.visible = true
 		await _capture("14d_actual_glb_feet_downlook")
 		game.player.pitch = 0.0
