@@ -103,6 +103,7 @@ func run() -> void:
 		# Visual QA: the actual held GLB and light drive a separate Smiler fade.
 		game.player.global_position = game.wakeup_room.flashlight_pickup_position
 		game.player.interact_or_locked_door()
+		game.player.camera.rotation.x = -0.12
 		await _capture("14a_glb_flashlight_held")
 		game.player.toggle_torch()
 		game.player.camera.look_at(game.wakeup_room.smiler.global_position)
@@ -118,6 +119,8 @@ func run() -> void:
 		game.player.camera.rotation.x = 0.0
 		game.player.global_position = Vector3(0,0.10,-3.1)
 		game.wakeup_room.begin_frowner()
+		game.player.camera.look_at(game.wakeup_room.frowner.global_position)
+		await create_timer(0.8).timeout
 		await _capture("14e_frowner_second_door")
 		game.wakeup_room.update_frowner(4.8)
 		await create_timer(1.8).timeout

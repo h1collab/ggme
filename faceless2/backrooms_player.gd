@@ -91,8 +91,8 @@ func _ready() -> void:
 	if ResourceLoader.exists(feet_path):
 		leg_root = Node3D.new()
 		leg_root.name = "CesiumFirstPersonFeet"
-		leg_root.position = Vector3(0.0, 0.045, -0.24)
-		leg_root.scale = Vector3.ONE * 1.12
+		leg_root.position = Vector3(0.0, 0.025, -0.58)
+		leg_root.scale = Vector3.ONE * 1.06
 		leg_root.rotation.y = PI
 		add_child(leg_root)
 		var feet: Node3D = load(feet_path).instantiate()
@@ -116,7 +116,8 @@ func _ready() -> void:
 		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
 		flashlight_model.scale *= 0.24 / maxf(bbox.x,maxf(bbox.y,bbox.z))
-		flashlight_model.position = Vector3(0.22,1.12,-0.88)
+		flashlight_model.position = Vector3(-0.26,1.12,0.72)
+		# Viewmodel parent faces 180 degrees: positive local Z is in front of POV.
 		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
 		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
 		else: camera.add_child(flashlight_model)
