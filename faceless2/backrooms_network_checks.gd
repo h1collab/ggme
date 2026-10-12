@@ -4,11 +4,13 @@ var game: Node3D
 var role := ""
 var port := 24712
 var failure := false
+var sync_dir := ""
 
 func _initialize() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--role="): role = arg.trim_prefix("--role=")
 		if arg.begins_with("--port="): port = int(arg.trim_prefix("--port="))
+		if arg.begins_with("--sync-dir="): sync_dir = arg.trim_prefix("--sync-dir=")
 	call_deferred("run")
 
 func check(ok: bool, detail: String) -> void:
@@ -47,8 +49,20 @@ func run() -> void:
 		check(moved, "Real client motion replicated")
 		game.apply_action("collect", 0, game.level.relays[0] + Vector3(0,0,1), false)
 		check(game.repaired[0], "Host collects real story clue")
-		await wait_seconds(2)
-		game.start_shift(1)
+		print("HOST_CLUE_READY")
+		# Barrier only coordinates independent test PROCESSES; the late client
+		# still MUST join with real ENet UDP and receive the authoritative
+		# snapshot. Fixed sleep previously raced against the layer transition.
+		var late_verified := false
+		for i in range(150):
+			if FileAccess.file_exists(sync_dir.path_join("late-clue-verified")):
+				late_verified = true
+				break
+			await wait_seconds(0.1)
+		check(late_verified, "Late client independently confirmed current clue before host transitions")
+		if late_verified:
+			game.start_shift(1)
+			print("HOST_LAYER_TRANSITION_AFTER_LATE_ACK")
 		await wait_seconds(5)
 		check(game.net.disconnected_count >= 2, "Wrong-key and graceful disconnect cleaned")
 		check(game.net.members.size() == 2, "Late join still occupies one slot")
@@ -85,11 +99,24 @@ func run() -> void:
 	elif role == "late":
 		check(game.net.join("127.0.0.1", port, "faceless16") == OK, "Late client socket open")
 		await wait_join()
-		for i in range(25):
-			if game.repaired[0]: break
+		for i in range(110):
+			if game.repaired[0] and game.stage == 0: break
 			await wait_seconds(0.1)
-		check(game.repaired[0] and game.stage == 0, "Late client gets current shared clue")
-		await wait_seconds(8)
+		check(game.repaired[0] and game.stage == 0, "Late ENet join must receive existing stage-0 clue, stage=%d repaired=%s revision=%d" % [game.stage,str(game.repaired),game.revision])
+		if not failure:
+			var ack := FileAccess.open(sync_dir.path_join("late-clue-verified"), FileAccess.WRITE)
+			check(ack != null, "Test synchronizer is writable")
+			if ack != null:
+				ack.store_string("Authenticated via ENet UDP: stage=0 and repaired[0]=true")
+				ack.close()
+				print("LATE_SHARED_CLUE_VERIFIED")
+		for i in range(115):
+			if game.stage == 1: break
+			await wait_seconds(0.1)
+		check(game.stage == 1 and game.repaired == [false,false,false], "Late joiner receives host transition and new-level clue reset")
+		for i in range(150):
+			if game.net.mode == "solo" and not game.running: break
+			await wait_seconds(0.1)
 		check(game.net.mode == "solo" and not game.running, "Host loss returns to lobby")
 		check(game.ui.panel_kind == "lobby", "Disconnect leaves usable lobby")
 	elif role == "reject":

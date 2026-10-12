@@ -4,6 +4,7 @@ from pathlib import Path
 import socket
 import subprocess
 import time
+import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--godot', default='godot')
@@ -18,11 +19,15 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
 script = 'faceless2/backrooms_network_checks.gd' if (Path(args.project) / 'faceless2/backrooms_network_checks.gd').exists() else 'scripts/backrooms_network_checks.gd'
 processes = {}
 handles = []
+# Per-run isolated filesystem barrier; it NEVER substitutes for UDP packets.
+# The late client writes an ACK only after Godot receives host game state.
+sync_workspace = tempfile.TemporaryDirectory(prefix="enet-late-", dir=str(out.resolve()))
+sync_dir = str(Path(sync_workspace.name).resolve())
 
 def start(role):
     handle = (out / ('p2p-' + role + '.log')).open('w')
     handles.append(handle)
-    processes[role] = subprocess.Popen([args.godot, '--headless', '--path', args.project, '--script', script, '--', '--role=' + role, '--port=' + str(port)], stdout=handle, stderr=subprocess.STDOUT)
+    processes[role] = subprocess.Popen([args.godot, '--headless', '--path', args.project, '--script', script, '--', '--role=' + role, '--port=' + str(port), '--sync-dir=' + sync_dir], stdout=handle, stderr=subprocess.STDOUT)
 
 def wait_marker(role, marker, seconds):
     deadline = time.monotonic() + seconds
@@ -40,7 +45,9 @@ try:
         time.sleep(.1)
     start('client')
     start('reject')
-    time.sleep(3)
+    # Start only after the host really collects the clue; host defers
+    # its layer transition until late verifies the authenticated snapshot.
+    wait_marker('host', 'HOST_CLUE_READY', 12)
     start('late')
     for role, process in processes.items():
         code = process.wait(timeout=25)
@@ -67,3 +74,4 @@ finally:
             try: process.wait(timeout=3)
             except subprocess.TimeoutExpired: process.kill()
     for handle in handles: handle.close()
+    sync_workspace.cleanup()
