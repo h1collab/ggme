@@ -16,7 +16,7 @@ func run() -> void:
 	game.running = true
 	game.ui.prologue_finished()
 	check(not game.extra_levels.visible,"No extra sector visible at title")
-	for number in [1,2,130]:
+	for number in [0,1,2,5,6,130,131,132,133]:
 		game.open_backrooms_level(number)
 		check(game.extra_levels.visible and game.extra_levels.current == number,"New level loads in authored GLB zone")
 		check(game.extra_levels.scene_root != null,"Actual separate 3D level root exists")

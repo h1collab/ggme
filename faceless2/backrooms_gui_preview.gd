@@ -137,55 +137,12 @@ func run() -> void:
 		if is_instance_valid(door):
 			game.player.global_position = door.global_position + Vector3(0,0.10,0.65)
 			game.player.interact_or_locked_door()
-			await _capture("16_open_door_to_abandoned_lab")
-			if game.wakeup_room.laboratory_entered:
-				game.player.global_position = game.wakeup_room.laboratory_spawn
-				game.wakeup_room.update_visitor(game.player.global_position)
-				await _capture("16a_smiler_door_slam")
-				game.player.camera.look_at(Vector3(11.0,1.5,-4.8))
-				await _capture("17_authorized_glb_abandoned_laboratory")
-				# New non-text progression: isolate, restore, enter real GLB wing,
-				# then watch a Kenney chair turn and follow an acoustic echo.
-				game.player.global_position = game.wakeup_room.backup_panel_position + Vector3(0,-1.14,0.45)
-				game.player.interact_or_locked_door()
-				if game.wakeup_room.breaker_isolated: failures.append("Backup breaker order accepted illegally")
-				game.player.global_position = Vector3(11.3,0.12,-3.35)
-				game.player.camera.look_at(game.wakeup_room.backup_panel_position)
-				await _capture("18_backup_short_red_alarm")
-				game.player.global_position = game.wakeup_room.breaker_position + Vector3(0,-1.14,0.35)
-				game.player.global_position = Vector3(10.9,0.12,-4.5)
-				game.player.camera.look_at(game.wakeup_room.breaker_position)
-				await _capture("19_original_glb_isolation_breaker")
-				game.player.global_position = game.wakeup_room.breaker_position + Vector3(0,-1.14,0.35)
-				game.player.interact_or_locked_door()
-				game.player.global_position = Vector3(10.9,0.12,-4.5)
-				game.player.camera.look_at(game.wakeup_room.breaker_position)
-				await _capture("20_circuit_isolation_amber")
-				game.player.global_position = game.wakeup_room.backup_panel_position + Vector3(0,-1.14,0.45)
-				game.player.interact_or_locked_door()
-				await create_timer(1.35).timeout
-				game.player.global_position = Vector3(11.0,0.12,-6.3)
-				game.player.camera.look_at(Vector3(11.0,1.5,-7.7))
-				await _capture("21_observation_airlock_open")
-				if not game.wakeup_room.lab_power_restored or game.wakeup_room.observation_root == null:
-					failures.append("Powered GLB observation room inaccessible")
-				game.player.global_position = Vector3(12.6,0.12,-9.0)
-				game.player.camera.look_at(Vector3(10.0,1.05,-9.7))
-				game.wakeup_room.update_observation(game.player.global_position)
-				await _capture("22_kenney_observation_chair_turning")
-				await create_timer(1.15).timeout
-				await _capture("23_observation_chair_follows_footsteps")
-				game.player.global_position = game.wakeup_room.observation_console_position + Vector3(0,-1.11,0.3)
-				game.player.camera.look_at(game.wakeup_room.observation_console_position)
-				game.player.interact_or_locked_door()
-				game.player.global_position = Vector3(12.8,0.12,-9.9)
-				game.player.camera.look_at(game.wakeup_room.observation_console_position)
-				await _capture("24_echo_trace_terminal_answer")
-			else:
-				failures.append("Openable marked laboratory door was not activated")
+			if not game.extra_levels.visible or game.extra_levels.current != 0: failures.append("GLB threshold must lead straight to Level 0")
+			await _capture("16_kenney_glb_threshold_into_level_0")
+		else: failures.append("Missing authored transition doorway")
 	else: failures.append("Second apparition did not release movement")
 	# Desktop-rendered stage inspection must exercise licensed real GLB imports.
-	for number in [1,2,130]:
+	for number in [0,1,2,5,6,130,131,132,133]:
 		game.open_backrooms_level(number)
 		game.player.global_position = Vector3(0,0.10,1.3)
 		game.player.camera.look_at(Vector3(-1.5,1.4,-13.0))

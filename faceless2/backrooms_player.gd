@@ -68,10 +68,11 @@ func _ready() -> void:
 	if ResourceLoader.exists(asset_path):
 		viewmodel_root = Node3D.new()
 		viewmodel_root.name = "SketchfabFirstPersonHands"
-		viewmodel_root.position = Vector3(0.0, -1.10, -0.64)
+		viewmodel_root.position = Vector3(0.0, -0.62, -0.37)
 		viewmodel_root.rotation.y = PI
 		camera.add_child(viewmodel_root)
-		var arms: Node3D = load(asset_path).instantiate()
+		var arms: Node3D = Assets.fitted("vendor/sketchfab_fps_arms.glb",1.18)
+		arms.name = "ScaledLicensedOriginal_RealGLBSkinnedHands"
 		viewmodel_root.add_child(arms)
 		for arm_mesh in arms.find_children("*", "MeshInstance3D", true, false):
 			arm_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -91,8 +92,8 @@ func _ready() -> void:
 	if ResourceLoader.exists(feet_path):
 		leg_root = Node3D.new()
 		leg_root.name = "CesiumFirstPersonFeet"
-		leg_root.position = Vector3(0.0, 0.025, -0.58)
-		leg_root.scale = Vector3.ONE * 1.06
+		leg_root.position = Vector3(0.0, 0.012, -0.36)
+		leg_root.scale = Vector3(1.12, 1.0, 1.12)
 		leg_root.rotation.y = PI
 		add_child(leg_root)
 		var feet: Node3D = load(feet_path).instantiate()
@@ -100,8 +101,8 @@ func _ready() -> void:
 		# Matte dark workwear over the original Cesium skinned leg/boot triangles.
 		# Avoid the bright blue Cesium demo checker pattern in close-up.
 		var boot_finish := StandardMaterial3D.new()
-		boot_finish.albedo_color = Color(0.105,0.137,0.151)
-		boot_finish.roughness = 0.93
+		boot_finish.albedo_color = Color(0.125,0.126,0.128)
+		boot_finish.roughness = 0.83
 		boot_finish.metallic = 0.03
 		for limb in feet.find_children("*", "MeshInstance3D", true, false):
 			limb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -123,7 +124,7 @@ func _ready() -> void:
 		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
 		flashlight_model.scale *= 0.43 / maxf(bbox.x,maxf(bbox.y,bbox.z))
-		flashlight_model.position = Vector3(-0.30,0.75,0.30)
+		flashlight_model.position = Vector3(-0.27,0.50,0.40)
 		# Viewmodel parent faces 180 degrees: positive local Z is in front of POV.
 		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
 		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
@@ -146,7 +147,7 @@ func take_flashlight() -> void:
 	flashlight_model.visible = true
 	flashlight_model.position.y += 0.19
 	flashlight_pickup_tween = create_tween()
-	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.75,0.33).set_trans(Tween.TRANS_SINE)
+	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.50,0.33).set_trans(Tween.TRANS_SINE)
 	# Pickup and turning the light on are separate intentional actions.
 	torch.visible = false
 
@@ -163,7 +164,7 @@ func reset_flashlight() -> void:
 	if flashlight_pickup_tween != null and flashlight_pickup_tween.is_running(): flashlight_pickup_tween.kill()
 	if is_instance_valid(flashlight_model):
 		flashlight_model.visible = false
-		flashlight_model.position.y = 0.75
+		flashlight_model.position.y = 0.50
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -208,7 +209,7 @@ func _physics_process(delta: float) -> void:
 		var sprite := game.wakeup_room.smiler as Sprite3D
 		if torch.visible and is_instance_valid(sprite) and sprite.visible:
 			var target := sprite.global_position - camera.global_position
-			if target.length() < torch.spot_range and -camera.global_transform.basis.z.dot(target.normalized()) > 0.86:
+			if target.length() < torch.spot_range and -camera.global_transform.basis.z.dot(target.normalized()) > 0.86 and game.wakeup_room.smiler_clear_ray(camera.global_position,get_rid()):
 				flash_smiler_exposure += delta
 				if flash_smiler_exposure > 0.14: game.wakeup_room.smiler_flashlight_hit()
 			else: flash_smiler_exposure = 0.0
@@ -281,7 +282,7 @@ func _physics_process(delta: float) -> void:
 	last_grounded = is_on_floor()
 	landing_dip = move_toward(landing_dip, 0.0, delta * 0.18)
 	if position.y < -2:
-		position = Vector3(0,0.1,3.1) if game.prologue.phase == "ended" and game.wakeup_room.visible else game.level.spawn
+		position = Vector3(0,0.1,3.1) if game.prologue.phase == "ended" and game.wakeup_room.visible else (game.extra_levels.exits[0]+Vector3(0,0.05,0.3) if is_instance_valid(game.extra_levels) and game.extra_levels.visible else game.level.spawn)
 		velocity = Vector3.ZERO
 	var moving := Vector2(velocity.x, velocity.z).length() > 0.3
 	motion_clock += delta * (10 if sprinting else 7) if moving else delta
@@ -293,8 +294,8 @@ func _physics_process(delta: float) -> void:
 		# Inertial arm sway + gait cycle; zero per-frame GLB allocations.
 		var moving_strength := clampf(Vector2(velocity.x,velocity.z).length()/4.3, 0.0, 1.0)
 		var target := Vector3(-input.x*0.033 + sin(motion_clock)*0.028*moving_strength,
-			-1.10 - 0.027*absf(sin(motion_clock))*moving_strength + landing_dip*0.6,
-			-0.59 - 0.035*moving_strength)
+			-0.62 - 0.027*absf(sin(motion_clock))*moving_strength + landing_dip*0.6,
+			-0.37 - 0.035*moving_strength)
 		viewmodel_root.position = viewmodel_root.position.lerp(target, minf(delta*8.0, 1.0))
 		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.028, minf(delta*5.0,1.0))
 		viewmodel_root.visible = not lift_riding or lift_clock < 3.0
@@ -303,7 +304,7 @@ func _physics_process(delta: float) -> void:
 		# Low-angle downward looks show actual skinned knees, boots and steps;
 		# arms remain in the lower field of view. Keep the body unobtrusive when
 		# the player looks forward to avoid visual clipping.
-		leg_root.visible = not lift_riding and pitch < -0.10
+		leg_root.visible = not lift_riding and pitch < -0.34
 		leg_root.position.y = lerpf(leg_root.position.y, 0.045 + bob*0.18, minf(delta*6.0, 1.0))
 		if is_instance_valid(leg_animation):
 			leg_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
@@ -326,11 +327,11 @@ func interact_or_locked_door() -> void:
 		var transition: String = game.extra_levels.interact(global_position)
 		if transition == "NEXT":
 			var number: int = game.extra_levels.current
-			game.open_backrooms_level(2 if number == 1 else (130 if number == 2 else 1))
+			game.open_backrooms_level(game.extra_levels.next_level())
 			game.ui.show_timed_hint(game.ui.localized("THE HALLWAY HAS CHANGED", "走廊已经改变"),2.5)
 		elif transition == "BACK":
-			if game.extra_levels.current == 1: game.backrooms_return()
-			else: game.open_backrooms_level(1 if game.extra_levels.current == 2 else 2)
+			if game.extra_levels.current == 0: game.backrooms_return()
+			else: game.open_backrooms_level(game.extra_levels.previous_level())
 		else: game.ui.show_timed_hint(game.ui.localized("KEEP EXPLORING", "继续探索"),1.1)
 	elif game.prologue.phase == "ended" and game.wakeup_room.visible:
 		if game.wakeup_room.signal_traced and global_position.distance_to(Vector3(11.0,0.1,-11.75)) < 2.15:
@@ -339,6 +340,9 @@ func interact_or_locked_door() -> void:
 			return
 		var result: String = game.wakeup_room.door_result(global_position)
 		match result:
+			"THRESHOLD":
+				game.open_backrooms_level(0)
+				game.ui.show_timed_hint(game.ui.localized("LEVEL 0 — THE LOBBY", "层级 0 —— 大堂"),2.8)
 			"OPEN":
 				game.ui.show_timed_hint(game.ui.localized("DOOR OPEN — ENTER THE LABORATORY", "门已打开——进入实验室"), 2.2)
 			"FLASHLIGHT":

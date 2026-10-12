@@ -602,8 +602,9 @@ func _refresh_facility_goal() -> void:
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
 		facility_goal_label.visible = true
 		var number: int = game.extra_levels.current
-		var title := "LEVEL %d / NON-HOSTILE ENTITIES" % number
-		var translated := "层级 %d / 实体暂不攻击" % number
+		var display_name := "FUN" if number == 131 else ("!" if number == 132 else ("EX" if number == 133 else str(number)))
+		var title := "LEVEL %s / NON-HOSTILE ENTITIES" % display_name
+		var translated := "层级 %s / 实体暂不攻击" % display_name
 		facility_goal_label.text = localized(title, translated)
 		return
 	if not is_instance_valid(game.wakeup_room) or not is_instance_valid(facility_goal_label): return
@@ -624,14 +625,14 @@ func _refresh_facility_goal() -> void:
 	var goals_en := [
 		"FIND THE FLASHLIGHT AT YOUR FEET", "RAISE THE BEAM / FACE THE DARKNESS",
 		"FOLLOW THE SECOND DOOR / LISTEN", "THE FACE IS WATCHING YOU",
-		"FIND THE MARKED LABORATORY DOOR", "STEP INSIDE / LOOK FOR THE CONTROL",
+		"FIND THE MARKED THRESHOLD", "ENTER LEVEL 0",
 		"ISOLATE THE BREAKER INSIDE THE LAB", "CONNECT THE BACKUP POWER",
 		"ENTER THE UNLOCKED OBSERVATION ROOM", "TRACE THE FOOTSTEPS AT THE TERMINAL",
 		"TRANSMISSION TRACED / EXPLORE THE ROOM"]
 	var goals_zh := [
 		"拾起脚边的手电筒", "举起手电 / 面向黑暗",
 		"靠近另一扇门 / 聆听", "那张脸正在看你",
-		"寻找带标记的实验室门", "走进实验室 / 寻找控制台",
+		"寻找带标记的出口", "进入层级 0",
 		"找到实验室隔离开关", "接通备用电源",
 		"进入开启的观察室", "在终端追查脚步声",
 		"信号追踪完成 / 继续探索"]

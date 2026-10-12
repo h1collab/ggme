@@ -118,10 +118,10 @@ func _ready() -> void:
 			warning.shaded = false
 			warning.position = Vector3(3.13,1.50,-0.9)
 			add_child(warning)
-	var frowner_file := Assets.path("vendor/frowner_derivative.png")
+	var frowner_file := Assets.path("vendor/frowner_online_ccby.png")
 	if ResourceLoader.exists(frowner_file):
 		frowner = Sprite3D.new()
-		frowner.name = "FrownerInspired_CC_BY_Derivative"
+		frowner.name = "FrownerInspired_InternetTwemoji_CC_BY4"
 		frowner.texture = load(frowner_file)
 		frowner.position = frowner_position
 		frowner.pixel_size = 0.00145
@@ -165,9 +165,9 @@ func _ready() -> void:
 		sprite.texture = load(sprite_path)
 		sprite.pixel_size = 0.0020
 		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		sprite.no_depth_test = true
+		sprite.no_depth_test = false
 		sprite.shaded = false
-		sprite.no_depth_test = true
+		# Depth-tested against the facility walls; NEVER draw the face through concrete.
 		sprite.double_sided = true
 		sprite.transparent = true
 		sprite.position = Vector3(0,1.50,-5.4)
@@ -553,6 +553,14 @@ func _barrier(at: Vector3, size: Vector3, parent_body: StaticBody3D = null) -> v
 	var target: StaticBody3D = parent_body if is_instance_valid(parent_body) else walkable_floor
 	target.add_child(collision)
 
+func smiler_clear_ray(from_eye: Vector3, player_rid: RID) -> bool:
+	# Occlusion is checked by physics (and the Sprite3D uses depth testing).
+	# The same predicate is required before counting spotlight exposure.
+	if not is_instance_valid(smiler) or not smiler.visible: return false
+	var query := PhysicsRayQueryParameters3D.create(from_eye,smiler.global_position)
+	query.exclude = [player_rid]
+	return get_world_3d().direct_space_state.intersect_ray(query).is_empty()
+
 func smiler_stage(_progress: float, stage: String) -> void:
 	if not is_instance_valid(smiler): return
 	smiler.visible = stage == "watch" or stage == "near"
@@ -673,14 +681,14 @@ func door_result(player_position: Vector3) -> String:
 	var door := nearest_door(player_position,2.2)
 	if door == null: return "NONE"
 	if door == openable_door:
-		if laboratory_entered: return "OPENED"
-		laboratory_entered = true
-		_build_laboratory()
-		_animate_door(true)
+		# v0.28 RETIRES the visually unconvincing laboratory entirely.
+		# The authored real-GLB door opens onto playable Level 0 instead.
+		# Do not instantiate the old laboratory or the observation wing.
+		if not bool(door.get_meta("opened",false)): _animate_door(true)
 		if is_instance_valid(near_door_audio) and near_door_audio.stream != null:
 			near_door_audio.global_position = door.global_position
-			near_door_audio.play()
-		return "OPEN"
+			if not near_door_audio.playing: near_door_audio.play()
+		return "THRESHOLD"
 	if is_instance_valid(door_audio) and door_audio.stream != null:
 		door_audio.global_position = door.global_position
 		if not door_audio.playing: door_audio.play()

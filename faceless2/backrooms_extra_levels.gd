@@ -1,7 +1,16 @@
 extends Node3D
 # Additional standalone, collidable Backrooms levels: original imported GLB meshes only.
 const Assets = preload("backrooms_assets.gd")
-const LEVELS := [1,2,130]
+const LEVELS := [0,1,2,5,6,130,131,132,133]
+# Level Fun, Level ! and Level EX use distinct numeric routing IDs.
+const LEVEL_FUN := 131
+const LEVEL_BANG := 132
+const LEVEL_EX := 133
+const ROUTE := [0,1,2,130,5,6,131,132,133]
+func next_level() -> int:
+	return ROUTE[(ROUTE.find(current)+1) % ROUTE.size()]
+func previous_level() -> int:
+	return ROUTE[posmod(ROUTE.find(current)-1,ROUTE.size())]
 const TITLES := {"1":"LEVEL 1 / HABITABLE ZONE","2":"LEVEL 2 / PIPE DREAMS","130":"LEVEL 130 / WELLBORN HOSPITAL"}
 var current := 0
 var scene_root: Node3D
@@ -91,7 +100,7 @@ func _passive(kind: String, where: Vector3, facing: float) -> void:
 	# Passive real model or licensed source-bake Sprite3D, never invented geometry.
 	var avatar: Node3D
 	if kind == "smiler" or kind == "frowner":
-		var image := "vendor/sketchfab_smiler_face.png" if kind == "smiler" else "vendor/frowner_derivative.png"
+		var image := "vendor/sketchfab_smiler_face.png" if kind == "smiler" else "vendor/frowner_online_ccby.png"
 		if not ResourceLoader.exists(Assets.path(image)): return
 		var sprite := Sprite3D.new()
 		sprite.texture = load(Assets.path(image))
@@ -130,9 +139,16 @@ func enter(level_number: int) -> Vector3:
 	var industrial := _surface("rust",Color(.62,.57,.53))
 	var hospital := _surface("tile",Color(.83,.86,.85))
 	var carpet := _surface("carpet",Color(.73,.72,.60))
-	var layout_mat: Material = wall_mat if level_number == 1 else (industrial if level_number == 2 else hospital)
-	var floor_render: Material = floor_mat if level_number == 1 else (industrial if level_number == 2 else hospital)
-	var width := 8.8 if level_number == 1 else (4.6 if level_number == 2 else 7.3)
+	var layout_mat: Material = wall_mat if level_number in [0,1,131] else (industrial if level_number in [2,6,132,133] else hospital)
+	if level_number == 0: layout_mat = _surface("wall",Color(.84,.78,.38))
+	if level_number == 5: layout_mat = _surface("wall",Color(.48,.26,.21))
+	if level_number == 131: layout_mat = _surface("wall",Color(.82,.39,.68))
+	if level_number == 132: layout_mat = _surface("rust",Color(.74,.20,.17))
+	var floor_render: Material = floor_mat if level_number in [0,1,131] else (industrial if level_number in [2,6,132,133] else hospital)
+	if level_number == 0: floor_render = carpet
+	if level_number == 5: floor_render = _surface("carpet",Color(.64,.20,.20))
+	if level_number == 131: floor_render = _surface("tile",Color(.66,.53,.65))
+	var width := 8.8 if level_number in [0,1,5,131] else (4.6 if level_number in [2,6,132] else 7.3)
 	var total_length := 34.0 if level_number == 1 else (35.0 if level_number == 2 else 32.0)
 	# Reused authored Kenney building module, closed shell with door-shaped openings.
 	var w := width/2.0
@@ -153,11 +169,11 @@ func enter(level_number: int) -> Vector3:
 	var max_range := 5 if level_number == 2 else 7
 	for i in range(max_range):
 		var z := 1.0 - float(i)*5.15
-		if level_number == 1:
+		if level_number in [0,1,5,131]:
 			_piece("container_tall",Vector3(-w+0.84,.02,z),Vector3(.9,2.05,1.0),industrial)
 			_piece("container_tall",Vector3(w-1.1,.04,z-1.2),Vector3(1.45,.65,1.1),carpet)
 			if i%2==0: _piece("pipe",Vector3(-w+.18,2.95,z),Vector3(.24,.26,2.8),industrial)
-		elif level_number == 2:
+		elif level_number in [2,6,132,133]:
 			for side in [-1,1]:
 				_piece("pipe",Vector3(float(side)*(w-.24),2.6,z),Vector3(.22,.30,4.3),industrial)
 				_piece("pipe",Vector3(float(side)*(w-.32),1.7,z-1.8),Vector3(.38,.42,.4),industrial)
@@ -169,22 +185,47 @@ func enter(level_number: int) -> Vector3:
 				_scan("wheelchair_01",Vector3(-w+1.15,.07,z-.8),1.25)
 		if i % 2 == 0:
 			_light(Vector3(0,2.8,z),Color(.64,.77,.74) if level_number==1 else (Color(1,.39,.25) if level_number==2 else Color(.68,.83,1.0)),1.55 if level_number != 2 else 1.05,6.4)
-	if level_number == 1:
+	if level_number in [0,1,5,131]:
 		_scan("cardboard_box_01",Vector3(-w+1.55,.08,-13.2),.86)
 	else:
 		_scan("Barrel_02",Vector3(w-.95,.06,-13.2),1.1)
-	if level_number == 2: _scan("modular_airduct_circular_01",Vector3(0,2.74,-18.0),2.3)
+	if level_number in [2,6,132,133]: _scan("modular_airduct_circular_01",Vector3(0,2.74,-18.0),2.3)
 	if level_number == 130: _scan("industrial_wall_lamp",Vector3(0,2.65,-19.0),.5)
 	# None of the new entities can injure, collide with or chase the player.
-	if level_number == 1:
+	if level_number in [0,1,5,131]:
 		_passive("faceless_witness",Vector3(-1.5,.03,-17.5),PI)
 		_passive("smiler",Vector3(w-.20,1.6,-24.0),PI)
-	elif level_number == 2:
+	elif level_number in [2,6,132,133]:
 		_passive("frowner",Vector3(0,1.7,-23.0),PI)
 		_passive("faceless_witness",Vector3(-1.05,.03,-26.5),PI)
 	else:
 		_passive("faceless_witness",Vector3(-1.85,.03,-19.0),PI)
 		_passive("frowner",Vector3(2.6,1.6,-28.0),PI)
+# Distinct licensed scanned hero props and topology accents per level.
+	# No primitive render meshes; BoxShape3D remains collision-only.
+	if level_number == 0:
+		for j in range(6):
+			_piece("wall",Vector3((-w+.5) if j%2==0 else (w-.5),1.5,-3.0-j*4.1),Vector3(width*.33,3.0,.24),layout_mat,PI/2)
+	elif level_number == 5:
+		for z in [-5.0,-14.0,-23.0]:
+			_scan("chandelier_03",Vector3(0,2.43,z),.82)
+			_scan("vintage_day_bed",Vector3(-w+1.7,.04,z-1.3),1.1)
+		_scan("gothicbed_01",Vector3(w-1.8,.02,-18),1.2)
+	elif level_number == 6:
+		for lamp in area_lights: lamp.light_energy = 0.055
+		_scan("wooden_lantern_01",Vector3(-w+.6,.35,-19),.7)
+	elif level_number == 130:
+		_scan("vintage_day_bed",Vector3(-w+1.4,.05,-15),1.0)
+	elif level_number == 131:
+		for z in [-7.0,-16.0,-25.0]:
+			_scan("rubber_duck_toy",Vector3(-w+.9,.20,z),.55)
+			_scan("painted_wooden_sofa",Vector3(w-1.0,.07,z),1.12)
+	elif level_number == 132:
+		for z in [-8.0,-18.0,-25.0]:
+			_scan("bar_chair_round_01",Vector3(w-.7,.05,z),.86)
+	elif level_number == 133:
+		for z in [-9.0,-19.0,-26.0]:
+			_scan("industrial_wall_lamp",Vector3(-w+.2,2.4,z),.54)
 	_piece("wall_door",Vector3(0,1.45,-29.7),Vector3(2.1,2.7,.2),layout_mat)
 	exits = [Vector3(0,0.1,2.0),Vector3(0,0.1,-28.2)]
 	return Vector3(0,0.1,2.2)

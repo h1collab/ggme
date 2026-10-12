@@ -228,7 +228,7 @@ func set_legacy_collisions(enabled: bool) -> void:
 		physics.collision_layer = int(physics.get_meta("pre_prologue_layer")) if enabled else 0
 
 func open_backrooms_level(level_number: int) -> void:
-	if not [1,2,130].has(level_number): return
+	if not extra_levels.LEVELS.has(level_number): return
 	if is_instance_valid(wakeup_room):
 		wakeup_room.visible = false
 		wakeup_room.set_physics_active(false)
@@ -252,7 +252,7 @@ func backrooms_return() -> void:
 	if is_instance_valid(wakeup_room):
 		wakeup_room.visible = true
 		wakeup_room.set_physics_active(true)
-	player.reset_to(Vector3(11.1,0.1,-10.3))
+	player.reset_to(Vector3(0.0,0.1,2.6))
 	ui.prologue_finished()
 	running = true
 

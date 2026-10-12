@@ -83,7 +83,7 @@ jobs:
           python faceless2/fetch_flashlight.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/flashlight-assets.log
           python faceless2/fetch_sketchfab_cast.py app/assets/vendor
           python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
-          python faceless2/bake_frowner_sprite.py app/assets/vendor/sketchfab_smiler_face.png app/assets/vendor/frowner_derivative.png
+          python faceless2/bake_online_frowner.py faceless2/assets/third_party/twemoji_2639.svg app/assets/vendor/frowner_online_ccby.png app/ASSET_CREDITS.md
           python faceless2/bake_laboratory_glb.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/laboratory-shell.json
           python faceless2/fetch_real_backrooms_assets.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/real-backrooms-assets.json
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm

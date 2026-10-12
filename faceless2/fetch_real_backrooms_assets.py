@@ -17,6 +17,14 @@ MODELS = {
     "modular_airduct_circular_01": "Riley Queen",
     "wheelchair_01": "Garreth Dean",
     "industrial_wall_lamp": "Kuutti Siitonen",
+    # Human-authored CC0 scanned furniture/lighting for the brand-new sectors.
+    "GothicBed_01": "Kirill Sannikov",
+    "Chandelier_03": "Kirill Sannikov",
+    "vintage_day_bed": "Aron Łyczek",
+    "wooden_lantern_01": "James Ray Cock",
+    "bar_chair_round_01": "Dairon Sanchez",
+    "rubber_duck_toy": "Plat251",
+    "painted_wooden_sofa": "Kirill Sannikov",
 }
 SURFACES = {
     "concrete_floor": "eye-candy.xyz",
