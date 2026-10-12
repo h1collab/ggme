@@ -709,7 +709,7 @@ func _photographic_pbr(name: String, tint: Color, scale: float = 1.0) -> Standar
 	mat.roughness = 0.86
 	mat.metallic = 0.03
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.texture_repeat = BaseMaterial3D.TEXTURE_REPEAT_ENABLED
+	# The authored GLB UV0 and StandardMaterial3D wrap the sampled scan maps.
 	mat.uv1_scale = Vector3(scale,scale,1.0)
 	for ext in [".jpg",".png",".jpeg"]:
 		var diffuse := Assets.path("vendor/pbr_%s_diffuse%s" % [name,ext])
