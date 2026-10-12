@@ -177,6 +177,8 @@ func begin() -> void:
 	if not is_instance_valid(game) or not is_instance_valid(game.level): return
 	_stop_audio()
 	game.net.leave()
+	game.player.reset_flashlight()
+	game.wakeup_room.reset_facility()
 	game.running = false
 	game.level.visible = false
 	game.prologue_room.visible = true
@@ -241,6 +243,9 @@ func _transition(next_phase: String) -> void:
 		game.prologue_room.visible = false
 		game.wakeup_room.visible = true
 		game.wakeup_room.set_physics_active(true)
+		# Legacy audio/water are silent while exploring the independently streamed facility.
+		if game.ambience.playing: game.ambience.stop()
+		if is_instance_valid(game.flooded_ambience): game.flooded_ambience.stop()
 		# No luminous world beyond the sealed black-site tunnel.
 		game.environment.environment.background_color = Color(0.004,0.007,0.011)
 		game.environment.environment.ambient_light_energy = 0.13
@@ -337,7 +342,7 @@ func finish() -> void:
 	game.player.visible = true
 	game.player.set_physics_process(true)
 	game.player.camera.make_current()
-	game.player.torch.visible = false
+	game.player.reset_flashlight()
 	if is_instance_valid(wake_hands): wake_hands.visible = false
 	game.running = true
 	game.ui.prologue_finished()
@@ -353,6 +358,7 @@ func exit_to_menu() -> void:
 		game.wakeup_room.set_physics_active(false)
 		game.wakeup_room.low_rumble.stop()
 		game.wakeup_room.far_clang.stop()
+		game.wakeup_room.reset_facility()
 	game.environment.environment.background_color = Color(0.028, 0.035, 0.038)
 	game.environment.environment.ambient_light_energy = 0.17
 	game.environment.environment.fog_light_color = Color(0.13,0.15,0.15)

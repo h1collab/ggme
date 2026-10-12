@@ -310,7 +310,9 @@ func _process(delta: float) -> void:
 				get_viewport().scaling_3d_scale = maxf(lower, get_viewport().scaling_3d_scale - 0.045)
 			elif frame_ema < 0.017 and get_viewport().scaling_3d_scale < target:
 				get_viewport().scaling_3d_scale = minf(target, get_viewport().scaling_3d_scale + 0.025)
-	if running:
+	# The hidden four-floor legacy simulation must not consume CPU while exploring
+	# the new underground facility: especially ripple buffers, objectives, AI and audio.
+	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible):
 		level.update_state(doors, true, anomaly, repaired, elapsed, player.position, [0, 1, 2][quality])
 		if ambience.stream != null and not ambience.playing: ambience.play()
 		if is_instance_valid(flooded_ambience) and flooded_ambience.stream != null and not flooded_ambience.playing:
@@ -591,7 +593,10 @@ func set_quality(value: int) -> void:
 	auto_scale_timer = 0
 	get_viewport().scaling_3d_scale = [0.58, 0.74, 0.91][quality] if OS.has_feature("android") else [0.68, 0.85, 1.0][quality]
 	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X][quality]
-	player.torch.shadow_enabled = quality > 0 and not OS.has_feature("android")
+	# Shadow casting is desktop quality-only. Mobile beam uses compact unshadowed cone.
+	player.torch.shadow_enabled = quality == 2 and not OS.has_feature("android")
+	player.torch.spot_range = [9.0, 11.5, 14.0][quality]
+	player.torch.light_energy = [1.45,1.9,2.15][quality]
 	save_settings()
 
 func save_settings() -> void:

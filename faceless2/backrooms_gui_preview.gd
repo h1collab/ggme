@@ -108,6 +108,9 @@ func run() -> void:
 			game.player.interact_or_locked_door()
 			await _capture("16_open_door_to_abandoned_lab")
 			if game.wakeup_room.laboratory_entered:
+				game.player.global_position = game.wakeup_room.laboratory_spawn
+				game.wakeup_room.update_visitor(game.player.global_position)
+				await _capture("16a_smiler_door_slam")
 				game.player.camera.look_at(Vector3(11.0,1.5,-4.8))
 				await _capture("17_authorized_glb_abandoned_laboratory")
 			else:

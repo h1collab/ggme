@@ -14,6 +14,10 @@ var last_grounded := false
 var landing_dip := 0.0
 var camera: Camera3D
 var torch: SpotLight3D
+var flashlight_owned := false
+var flashlight_model: Node3D
+var flashlight_click: AudioStreamPlayer3D
+var flashlight_pickup_tween: Tween
 var yaw := 0.0
 var pitch := 0.0
 var aim_pointer := -1
@@ -45,12 +49,14 @@ func _ready() -> void:
 	camera.current = true
 	add_child(camera)
 	torch = SpotLight3D.new()
-	torch.position = Vector3(0.1, -0.1, -0.08)
+	torch.position = Vector3(0.27, -0.48, -0.82)
 	torch.light_color = Color(0.93, 0.96, 1.0)
-	torch.light_energy = 1.5
-	torch.spot_range = 14
-	torch.spot_angle = 36
-	torch.shadow_enabled = true
+	torch.light_energy = 1.9
+	torch.spot_range = 11.5
+	torch.spot_angle = 33
+	torch.spot_attenuation = 1.65
+	torch.shadow_enabled = false
+	torch.visible = false
 	camera.add_child(torch)
 	# First-person arm meshes use the separately licensed and imported Sketchfab GLB.
 	# Keep its authored skin and armature; Cesium is retained only for leg/foot movement.
@@ -98,6 +104,53 @@ func _ready() -> void:
 				break
 			if is_instance_valid(leg_animation): break
 
+	# The authored GLB is attached to the original skinned arms, not a primitive.
+	var flashlight_path := Assets.path("vendor/flashlight_cc0.glb")
+	if ResourceLoader.exists(flashlight_path):
+		flashlight_model = Assets.fitted("vendor/flashlight_cc0.glb",1.0)
+		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
+		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
+		flashlight_model.scale *= 0.24 / maxf(bbox.x,maxf(bbox.y,bbox.z))
+		flashlight_model.position = Vector3(0.27,0.98,-0.37)
+		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
+		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
+		else: camera.add_child(flashlight_model)
+		for mesh in flashlight_model.find_children("*","MeshInstance3D",true,false):
+			(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		flashlight_model.visible = false
+	flashlight_click = AudioStreamPlayer3D.new()
+	flashlight_click.name = "HeldTorchSwitch3D"
+	flashlight_click.max_distance = 5.0
+	flashlight_click.unit_size = 0.6
+	if ResourceLoader.exists("res://audio/flashlight_click.wav"):
+		flashlight_click.stream = load("res://audio/flashlight_click.wav")
+	camera.add_child(flashlight_click)
+
+func take_flashlight() -> void:
+	if flashlight_owned or not is_instance_valid(flashlight_model): return
+	flashlight_owned = true
+	flashlight_model.visible = true
+	flashlight_model.position.y += 0.19
+	flashlight_pickup_tween = create_tween()
+	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.98,0.33).set_trans(Tween.TRANS_SINE)
+	# Pickup and turning the light on are separate intentional actions.
+	torch.visible = false
+
+func toggle_torch() -> void:
+	if not game.running or not flashlight_owned or not is_instance_valid(flashlight_model):
+		if game.running and not game.ui.modal: game.ui.show_timed_hint(game.ui.localized("FIND THE FLASHLIGHT FIRST", "先拾起脚边的手电"),1.4)
+		return
+	torch.visible = not torch.visible
+	if is_instance_valid(flashlight_click) and flashlight_click.stream != null: flashlight_click.play()
+
+func reset_flashlight() -> void:
+	flashlight_owned = false
+	torch.visible = false
+	if flashlight_pickup_tween != null and flashlight_pickup_tween.is_running(): flashlight_pickup_tween.kill()
+	if is_instance_valid(flashlight_model):
+		flashlight_model.visible = false
+		flashlight_model.position.y = 0.98
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -107,7 +160,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_E: interact_or_locked_door()
 			KEY_SPACE: request_jump()
 			KEY_J: game.ui.open_journal()
-			KEY_F: torch.visible = not torch.visible
+			KEY_F: toggle_torch()
 			KEY_ESCAPE: game.ui.open_pause()
 	if event is InputEventScreenTouch:
 		if event.pressed and event.position.x > get_viewport().get_visible_rect().size.x * 0.38 and aim_pointer == -1:
@@ -129,6 +182,11 @@ func _physics_process(delta: float) -> void:
 		aim_pointer = -1
 		return
 	if game.prologue.phase == "ended" and game.wakeup_room.visible:
+		if game.wakeup_room.update_visitor(global_position):
+			game.ui.show_timed_hint(game.ui.localized("POWER LOST — FIND THE BACKUP CONTROL", "电源中断——寻找备用控制台"),2.6)
+		if not game.wakeup_room.flashlight_collected and global_position.distance_to(game.wakeup_room.flashlight_pickup_position) < 1.55:
+			if not game.ui.transient_hint.visible:
+				game.ui.show_timed_hint(game.ui.localized("E / PICK UP FLASHLIGHT", "E / 拾起手电筒"),1.0)
 		var near: Node3D = game.wakeup_room.player_near_door(global_position)
 		if near != last_near_door:
 			last_near_door = near
@@ -214,9 +272,14 @@ func interact_or_locked_door() -> void:
 		var result: String = game.wakeup_room.door_result(global_position)
 		match result:
 			"OPEN":
-				global_position = game.wakeup_room.laboratory_spawn
-				velocity = Vector3.ZERO
-				game.ui.show_timed_hint(game.ui.localized("LABORATORY — KEEP MOVING", "废弃实验室——继续探索"), 2.3)
+				game.ui.show_timed_hint(game.ui.localized("DOOR OPEN — ENTER THE LABORATORY", "门已打开——进入实验室"), 2.2)
+			"FLASHLIGHT":
+				take_flashlight()
+				game.ui.show_timed_hint(game.ui.localized("FLASHLIGHT ACQUIRED — PRESS F / LIGHT", "获得手电——按 F / LIGHT 开关"), 2.4)
+			"POWER":
+				game.ui.show_timed_hint(game.ui.localized("BACKUP POWER RESTORED — THE DOOR UNLOCKED", "备用电源恢复——门已解锁"), 2.4)
+			"OPENED":
+				game.ui.show_timed_hint(game.ui.localized("THE LABORATORY IS OPEN", "实验室入口已打开"), 1.1)
 			"LOCK":
 				game.ui.show_timed_hint(game.ui.localized("LOCK", "已锁"), 2.0)
 			_:

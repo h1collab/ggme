@@ -53,6 +53,17 @@ def render(name: str, duration: float, seed: int):
         elif name == 'door_creak':
             attack = min(1.,t*12.) * max(0.,1-t/duration)
             sample = (math.sin(2*math.pi*(91 + t*140)*t)*0.17 + smooth*.19)*attack
+        elif name == 'door_slam':
+            impact = math.exp(-t * 15.0)
+            boom = math.sin(2*math.pi*(65-18*t)*t) * .47
+            rattle = math.sin(2*math.pi*322*t) * math.exp(-t*23) * .12
+            sample = (boom + smooth*.58)*impact + rattle
+        elif name == 'flashlight_pickup':
+            envelope = math.exp(-t*9.0)
+            sample = (math.sin(2*math.pi*(410-110*t)*t)*.30 + smooth*.09)*envelope
+        elif name == 'flashlight_click':
+            envelope = math.exp(-t*36.0)
+            sample = (smooth*.42 + math.sin(2*math.pi*790*t)*.09)*envelope
         elif name == 'elevator_move':
             fade = min(1.0, t * 2.2, max(0.0, (duration-t) * 2.2))
             sample = (math.sin(2*math.pi*38*t)*.15 + math.sin(2*math.pi*72*t)*.12 + smooth*.09) * fade
@@ -64,7 +75,7 @@ def render(name: str, duration: float, seed: int):
 
 def write(destination: Path):
     destination.mkdir(parents=True, exist_ok=True)
-    for name, duration, seed in [('splash', .46, 18), ('elevator_door', 1.35, 127), ('elevator_move', 4.1, 210), ('phone_ring', 3.0, 414), ('phone_disconnect', .46, 51), ('phone_fall', 2.4, 91), ('phone_static', 3.5, 940), ('smiler_sting', .98, 301), ('door_locked', .45, 472), ('door_creak', 1.18, 615)]:
+    for name, duration, seed in [('splash', .46, 18), ('elevator_door', 1.35, 127), ('elevator_move', 4.1, 210), ('phone_ring', 3.0, 414), ('phone_disconnect', .46, 51), ('phone_fall', 2.4, 91), ('phone_static', 3.5, 940), ('smiler_sting', .98, 301), ('door_locked', .45, 472), ('door_creak', 1.18, 615), ('door_slam', 0.75, 227), ('flashlight_pickup', 0.42, 381), ('flashlight_click', 0.16, 723)]:
         with wave.open(str(destination / (name + '.wav')), 'wb') as fd:
             fd.setnchannels(1)
             fd.setsampwidth(2)
