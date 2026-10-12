@@ -10,6 +10,8 @@ on:
       - "faceless2/backrooms_prologue_room.gd"
       - "faceless2/backrooms_wakeup_room.gd"
       - "faceless2/backrooms_player.gd"
+      - "faceless2/backrooms_extra_levels.gd"
+      - "faceless2/fetch_real_backrooms_assets.py"
       - "faceless2/fetch_flashlight.py"
       - "faceless2/bake_frowner_sprite.py"
       - "faceless2/bake_laboratory_glb.py"
@@ -83,6 +85,7 @@ jobs:
           python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
           python faceless2/bake_frowner_sprite.py app/assets/vendor/sketchfab_smiler_face.png app/assets/vendor/frowner_derivative.png
           python faceless2/bake_laboratory_glb.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/laboratory-shell.json
+          python faceless2/fetch_real_backrooms_assets.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/real-backrooms-assets.json
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio

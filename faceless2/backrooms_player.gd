@@ -198,7 +198,11 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		aim_pointer = -1
 		return
-	if game.prologue.phase == "ended" and game.wakeup_room.visible:
+	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
+		var episode: String = game.extra_levels.update_player(global_position,delta)
+		if episode == "WITNESS": game.ui.show_timed_hint(game.ui.localized("SOMEONE TURNED AROUND BEHIND YOU", "身后有人转过身来"),2.8)
+		elif episode == "VANISH": game.ui.show_timed_hint(game.ui.localized("THERE WAS SOMEONE HERE", "刚才这里还有一个人"),2.2)
+	elif game.prologue.phase == "ended" and game.wakeup_room.visible:
 		game.wakeup_room.update_frowner(delta)
 		# Light only banishes a visible face actually inside its forward cone.
 		var sprite := game.wakeup_room.smiler as Sprite3D
@@ -306,7 +310,7 @@ func _physics_process(delta: float) -> void:
 	step_clock -= delta
 	if moving and is_on_floor() and step_clock <= 0:
 		step_clock = 0.34 if sprinting else 0.52
-		if game.prologue.phase == "ended" and game.wakeup_room.visible:
+		if (game.prologue.phase == "ended" and game.wakeup_room.visible) or (is_instance_valid(game.extra_levels) and game.extra_levels.visible):
 			game.footstep()
 		elif not game.level.add_water_step(position):
 			game.footstep()
@@ -318,7 +322,21 @@ func request_jump() -> void:
 		jump_requested = true
 
 func interact_or_locked_door() -> void:
-	if game.prologue.phase == "ended" and game.wakeup_room.visible:
+	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
+		var transition: String = game.extra_levels.interact(global_position)
+		if transition == "NEXT":
+			var number: int = game.extra_levels.current
+			game.open_backrooms_level(2 if number == 1 else (130 if number == 2 else 1))
+			game.ui.show_timed_hint(game.ui.localized("THE HALLWAY HAS CHANGED", "走廊已经改变"),2.5)
+		elif transition == "BACK":
+			if game.extra_levels.current == 1: game.backrooms_return()
+			else: game.open_backrooms_level(1 if game.extra_levels.current == 2 else 2)
+		else: game.ui.show_timed_hint(game.ui.localized("KEEP EXPLORING", "继续探索"),1.1)
+	elif game.prologue.phase == "ended" and game.wakeup_room.visible:
+		if game.wakeup_room.signal_traced and global_position.distance_to(Vector3(11.0,0.1,-11.75)) < 2.15:
+			game.open_backrooms_level(1)
+			game.ui.show_timed_hint(game.ui.localized("LEVEL 1 — THE HABITABLE ZONE", "层级 1 —— 宜居地带"),3.0)
+			return
 		var result: String = game.wakeup_room.door_result(global_position)
 		match result:
 			"OPEN":

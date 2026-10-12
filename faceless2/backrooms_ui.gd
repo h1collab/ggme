@@ -599,6 +599,13 @@ func show_timed_hint(message: String, seconds: float = 2.0) -> void:
 		hint_timer = seconds
 
 func _refresh_facility_goal() -> void:
+	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
+		facility_goal_label.visible = true
+		var number: int = game.extra_levels.current
+		var title := "LEVEL %d / NON-HOSTILE ENTITIES" % number
+		var translated := "层级 %d / 实体暂不攻击" % number
+		facility_goal_label.text = localized(title, translated)
+		return
 	if not is_instance_valid(game.wakeup_room) or not is_instance_valid(facility_goal_label): return
 	var room: Node3D = game.wakeup_room
 	var step := 0

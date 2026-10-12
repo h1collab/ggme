@@ -8,6 +8,7 @@ const StoryScript = preload("backrooms_story.gd")
 const PrologueScript = preload("backrooms_prologue.gd")
 const PrologueRoomScript = preload("backrooms_prologue_room.gd")
 const WakeRoomScript = preload("backrooms_wakeup_room.gd")
+const ExtraLevelsScript = preload("backrooms_extra_levels.gd")
 const RoomsScript = preload("backrooms_rooms.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
@@ -72,6 +73,8 @@ var story: Node3D
 var prologue: Node3D
 var prologue_room: Node3D
 var wakeup_room: Node3D
+var extra_levels: Node3D
+var last_extra_level := 0
 
 func _ready() -> void:
 	name = "Faceless 2"
@@ -120,6 +123,8 @@ func _ready() -> void:
 	add_child(prologue_room)
 	wakeup_room = WakeRoomScript.new()
 	add_child(wakeup_room)
+	extra_levels = ExtraLevelsScript.new()
+	add_child(extra_levels)
 	var config := ConfigFile.new()
 	if config.load("user://faceless2.cfg") == OK:
 		quality = int(config.get_value("display", "quality", 1))
@@ -222,7 +227,37 @@ func set_legacy_collisions(enabled: bool) -> void:
 			physics.set_meta("pre_prologue_layer",physics.collision_layer)
 		physics.collision_layer = int(physics.get_meta("pre_prologue_layer")) if enabled else 0
 
+func open_backrooms_level(level_number: int) -> void:
+	if not [1,2,130].has(level_number): return
+	if is_instance_valid(wakeup_room):
+		wakeup_room.visible = false
+		wakeup_room.set_physics_active(false)
+	if is_instance_valid(prologue_room): prologue_room.visible = false
+	if is_instance_valid(prologue): prologue.visible = false
+	if is_instance_valid(level): level.visible = false
+	set_legacy_collisions(false)
+	var spawn: Vector3 = extra_levels.enter(level_number)
+	last_extra_level = level_number
+	player.reset_to(spawn)
+	player.visible = true
+	player.set_physics_process(true)
+	player.camera.make_current()
+	ui.close_panels()
+	ui.facility_hud_mode = true
+	ui.prologue_finished()
+	running = true
+
+func backrooms_return() -> void:
+	if is_instance_valid(extra_levels): extra_levels.clear()
+	if is_instance_valid(wakeup_room):
+		wakeup_room.visible = true
+		wakeup_room.set_physics_active(true)
+	player.reset_to(Vector3(11.1,0.1,-10.3))
+	ui.prologue_finished()
+	running = true
+
 func show_title_room() -> void:
+	if is_instance_valid(extra_levels): extra_levels.clear()
 	# Only the isolated authored-GLB apartment is visible on the title screen.
 	# The old Backrooms test levels remain loaded but cannot leak into the story.
 	if is_instance_valid(level): level.visible = false
@@ -245,6 +280,7 @@ func start_prologue() -> void:
 	if is_instance_valid(prologue): prologue.begin()
 
 func start_solo() -> void:
+	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(prologue_room): prologue_room.visible = false
 	if is_instance_valid(wakeup_room): wakeup_room.visible = false
 	if is_instance_valid(prologue): prologue.visible = false
@@ -260,6 +296,7 @@ func start_solo() -> void:
 	ui.open_briefing()
 
 func start_shift(index: int) -> void:
+	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(prologue_room): prologue_room.visible = false
 	if is_instance_valid(wakeup_room): wakeup_room.visible = false
 	if is_instance_valid(prologue): prologue.visible = false
@@ -296,7 +333,7 @@ func start_shift(index: int) -> void:
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(ui): return
-	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and net.authoritative() and not failed and not completed:
+	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible) and net.authoritative() and not failed and not completed:
 		if not (net.mode == "solo" and ui.modal): _tick(delta)
 	if OS.has_feature("android") and running:
 		# Bound resolution changes and avoid rapid frame-to-frame quality pumping.
@@ -312,7 +349,7 @@ func _process(delta: float) -> void:
 				get_viewport().scaling_3d_scale = minf(target, get_viewport().scaling_3d_scale + 0.025)
 	# The hidden four-floor legacy simulation must not consume CPU while exploring
 	# the new underground facility: especially ripple buffers, objectives, AI and audio.
-	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible):
+	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible):
 		level.update_state(doors, true, anomaly, repaired, elapsed, player.position, [0, 1, 2][quality])
 		if ambience.stream != null and not ambience.playing: ambience.play()
 		if is_instance_valid(flooded_ambience) and flooded_ambience.stream != null and not flooded_ambience.playing:

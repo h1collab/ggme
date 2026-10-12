@@ -184,6 +184,20 @@ func run() -> void:
 			else:
 				failures.append("Openable marked laboratory door was not activated")
 	else: failures.append("Second apparition did not release movement")
+	# Desktop-rendered stage inspection must exercise licensed real GLB imports.
+	for number in [1,2,130]:
+		game.open_backrooms_level(number)
+		game.player.global_position = Vector3(0,0.10,1.3)
+		game.player.camera.look_at(Vector3(-1.5,1.4,-13.0))
+		await _capture("30_level_%d_entrance_authored_glb" % number)
+		game.player.global_position = Vector3(0,0.10,-13.0)
+		game.player.camera.look_at(Vector3(-1.8,1.4,-19.0))
+		game.extra_levels.update_player(game.player.global_position,.15)
+		await _capture("31_level_%d_passive_entity" % number)
+		game.player.global_position = Vector3(0,0.10,-21.5)
+		game.player.camera.look_at(Vector3(0,1.6,-27.0))
+		await _capture("32_level_%d_real_depth" % number)
+	game.extra_levels.clear()
 	game.net.leave()
 	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
 		for sound in game.find_children("*", kind, true, false):
