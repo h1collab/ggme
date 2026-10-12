@@ -38,8 +38,15 @@ def bake(source: Path, target: Path) -> None:
             r, g, b, a = pixels[x, y]
             if a:
                 pixels[x, y] = (min(255, int(r*0.69)), min(255, int(g*0.85)), min(255, int(b*1.0)), a)
-    # Downturned brows are 2D editor-drawn accents, not a fabricated 3D monster.
+    # The original grin teeth alone still read as a smile after deformation.
+    # Clear the inherited lower half and draw a single obvious downturned
+    # expression, while preserving the original authored eye mesh geometry.
+    # This remains explicitly a 2D derivative, not a newly modelled creature.
+    clear = ImageDraw.Draw(result)
+    clear.rectangle((225, 210, 805, 575), fill=(0, 0, 0, 0))
     d = ImageDraw.Draw(result)
+    d.arc((274, 255, 760, 525), 184, 356, fill=(191, 214, 232, 244), width=27)
+    # Downturned brows are 2D editor-drawn accents, not a fabricated 3D monster.
     d.arc((274, 109, 496, 197), 192, 354, fill=(137, 172, 208, 234), width=13)
     d.arc((535, 109, 757, 197), 188, 351, fill=(137, 172, 208, 234), width=13)
     if result.getbbox() is None:

@@ -68,7 +68,7 @@ func _ready() -> void:
 	if ResourceLoader.exists(asset_path):
 		viewmodel_root = Node3D.new()
 		viewmodel_root.name = "SketchfabFirstPersonHands"
-		viewmodel_root.position = Vector3(0.0, -1.49, -0.59)
+		viewmodel_root.position = Vector3(0.0, -1.10, -0.64)
 		viewmodel_root.rotation.y = PI
 		camera.add_child(viewmodel_root)
 		var arms: Node3D = load(asset_path).instantiate()
@@ -97,8 +97,15 @@ func _ready() -> void:
 		add_child(leg_root)
 		var feet: Node3D = load(feet_path).instantiate()
 		leg_root.add_child(feet)
+		# Matte dark workwear over the original Cesium skinned leg/boot triangles.
+		# Avoid the bright blue Cesium demo checker pattern in close-up.
+		var boot_finish := StandardMaterial3D.new()
+		boot_finish.albedo_color = Color(0.105,0.137,0.151)
+		boot_finish.roughness = 0.93
+		boot_finish.metallic = 0.03
 		for limb in feet.find_children("*", "MeshInstance3D", true, false):
 			limb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			limb.material_override = boot_finish
 		for animator in feet.find_children("*", "AnimationPlayer", true, false):
 			for clip in animator.get_animation_list():
 				if clip == "RESET": continue
@@ -116,7 +123,7 @@ func _ready() -> void:
 		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
 		flashlight_model.scale *= 0.43 / maxf(bbox.x,maxf(bbox.y,bbox.z))
-		flashlight_model.position = Vector3(-0.27,1.22,0.26)
+		flashlight_model.position = Vector3(-0.30,0.75,0.30)
 		# Viewmodel parent faces 180 degrees: positive local Z is in front of POV.
 		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
 		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
@@ -139,7 +146,7 @@ func take_flashlight() -> void:
 	flashlight_model.visible = true
 	flashlight_model.position.y += 0.19
 	flashlight_pickup_tween = create_tween()
-	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",1.22,0.33).set_trans(Tween.TRANS_SINE)
+	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.75,0.33).set_trans(Tween.TRANS_SINE)
 	# Pickup and turning the light on are separate intentional actions.
 	torch.visible = false
 
@@ -156,7 +163,7 @@ func reset_flashlight() -> void:
 	if flashlight_pickup_tween != null and flashlight_pickup_tween.is_running(): flashlight_pickup_tween.kill()
 	if is_instance_valid(flashlight_model):
 		flashlight_model.visible = false
-		flashlight_model.position.y = 1.22
+		flashlight_model.position.y = 0.75
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -271,7 +278,7 @@ func _physics_process(delta: float) -> void:
 		# Inertial arm sway + gait cycle; zero per-frame GLB allocations.
 		var moving_strength := clampf(Vector2(velocity.x,velocity.z).length()/4.3, 0.0, 1.0)
 		var target := Vector3(-input.x*0.033 + sin(motion_clock)*0.028*moving_strength,
-			-1.49 - 0.027*absf(sin(motion_clock))*moving_strength + landing_dip*0.6,
+			-1.10 - 0.027*absf(sin(motion_clock))*moving_strength + landing_dip*0.6,
 			-0.59 - 0.035*moving_strength)
 		viewmodel_root.position = viewmodel_root.position.lerp(target, minf(delta*8.0, 1.0))
 		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.028, minf(delta*5.0,1.0))
