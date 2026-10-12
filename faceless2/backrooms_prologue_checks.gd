@@ -117,48 +117,21 @@ func run() -> void:
 	check(game.wakeup_room.frowner_started and game.wakeup_room.frowner.visible, "Frowner derivative appears only at next story beat")
 	game.wakeup_room.update_frowner(4.0)
 	check(game.wakeup_room.frowner_finished, "Frowner fades and releases local gaze")
-	check(game.wakeup_room.openable_door != null, "One Smiler-marked hallway door leads to laboratory")
+	check(game.wakeup_room.openable_door != null, "One Smiler-marked Kenney GLB door exists")
 	var locked_door: Node3D = game.wakeup_room.side_doors[0]
-	check(game.wakeup_room.door_result(locked_door.global_position) == "LOCK", "Sealed door returns explicit LOCK")
-	check(not game.wakeup_room.laboratory_entered, "Locked hallway door must not load the lab")
-	var lab_door: Node3D = game.wakeup_room.openable_door
-	check(game.wakeup_room.door_result(lab_door.global_position) == "OPEN", "Smiler-marked door can open")
-	check(game.wakeup_room.laboratory_entered and lab_door.visible and game.wakeup_room.laboratory_modules >= 45, "Opening animates sourced GLB and streams GLB lab")
-	check(game.wakeup_room.update_visitor(Vector3(9,0.12,-3)), "Entering lab slams door and cuts power once")
-	check(not game.wakeup_room.update_visitor(Vector3(9,0.12,-3)), "No repeated jumpscare per entry")
-	check(game.wakeup_room.observation_root == null, "Sealed observation wing is not allocated before power")
-	check(game.wakeup_room.door_result(game.wakeup_room.backup_panel_position) == "SHORT", "Shorted backup power cannot bypass the isolation breaker")
-	check(not game.wakeup_room.breaker_isolated, "Failed backup attempt did not change the breaker")
-	check(game.wakeup_room.door_result(game.wakeup_room.breaker_position) == "BREAKER", "Player physically isolates the Kenney GLB breaker")
-	check(game.wakeup_room.breaker_isolated, "Breaker state is latched and visible")
-	check(game.wakeup_room.door_result(game.wakeup_room.breaker_position) == "ISOLATED", "Isolation switch cannot be repeatedly farmed")
-	check(game.wakeup_room.door_result(game.wakeup_room.backup_panel_position) == "POWER", "Backup switch restores power and opens the observation shutter")
-	check(game.wakeup_room.observation_root != null and game.wakeup_room.observation_shutter != null, "Complete authored observation GLB sector is loaded only after restoration")
-	check(game.wakeup_room.lab_power_restored and not game.wakeup_room.lab_power_failed, "Power state transitions out of emergency mode")
-	check(game.wakeup_room.update_observation(Vector3(11,0.12,-9.4)), "Inside observation wing, chair and rear footsteps react exactly once")
-	check(not game.wakeup_room.update_observation(Vector3(11,0.12,-9.4)), "Observation chair cannot repeatedly jumpscare")
-	check(game.wakeup_room.door_result(game.wakeup_room.observation_console_position) == "TRACE", "Physical observation terminal reveals the displaced footstep source")
-	check(game.wakeup_room.signal_traced, "Story trace is latched and can be reset through replay")
-	check(game.wakeup_room.observation_shutter_body.collision_layer == 0, "The opened GLB airlock has passable physics collision")
-	# Real Godot CharacterBody3D integration, not a stage/position teleporter:
-	# walk from the laboratory to the streamed observation sector through
-	# the newly created physical doorway, using the existing PC controls.
-	game.player.reset_to(Vector3(11.0,0.10,-6.45))
-	game.player.set_physics_process(true)
-	var advance_key := InputEventKey.new()
-	advance_key.physical_keycode = KEY_W
-	advance_key.pressed = true
-	Input.parse_input_event(advance_key)
-	for i in range(90): await physics_frame
-	advance_key.pressed = false
-	Input.parse_input_event(advance_key)
-	game.player.set_physics_process(false)
-	check(game.player.position.z < -8.2, "Player actually walks through the authored airlock into observation wing without a teleport")
+	check(game.wakeup_room.door_result(locked_door.global_position) == "LOCK", "Non-opening door still gives LOCK")
+	check(not game.wakeup_room.laboratory_entered and game.wakeup_room.laboratory_root == null, "Retired lab never instantiates")
+	var marked: Node3D = game.wakeup_room.openable_door
+	check(game.wakeup_room.door_result(marked.global_position) == "THRESHOLD", "Old laboratory door now opens a Level 0 threshold")
+	check(game.wakeup_room.laboratory_root == null and game.wakeup_room.laboratory_modules == 0, "No obsolete laboratory GLB allocated")
+	game.open_backrooms_level(0)
+	check(game.extra_levels.current == 0 and game.extra_levels.visible, "Playable actual imported GLB Level 0 loads")
+	game.extra_levels.clear()
+	game.wakeup_room.visible = true
+	game.wakeup_room.set_physics_active(true)
 
-	check(game.wakeup_room.laboratory_spawn.x > 7.0, "Open door leads into independent lab zone")
-	
 	game.start_prologue()
-	check(game.wakeup_room.observation_root == null and not game.wakeup_room.signal_traced and not game.wakeup_room.breaker_isolated, "Replay clears observation geometry and all circuit story states")
+	check(game.wakeup_room.laboratory_root == null and not game.wakeup_room.laboratory_entered, "Replay keeps obsolete laboratory removed")
 	check(prologue.phase == "push" and prologue.active, "Replay resets the cinematic timeline")
 	prologue.exit_to_menu()
 	check(game.ui.panel_kind == "menu" and not prologue.active, "Exit restores main menu and local camera")
