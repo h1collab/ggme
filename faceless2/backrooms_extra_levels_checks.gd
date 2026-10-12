@@ -29,7 +29,7 @@ func run() -> void:
 		check(model_count >= 40,"New space uses genuine imported model meshes, not empty scene")
 		var floor_sections := 0
 		for child in game.extra_levels.scene_root.get_children():
-			if child.name == "LicensedKenney_floor_panel" and child is Node3D:
+			if child is Node3D and String(child.name).begins_with("LicensedKenney_floor_panel"):
 				floor_sections += 1
 		check(floor_sections == 10,"Each real-GLB sector uses 10 large continuous floor sections instead of 70 thin floor tiles")
 		var physically_scanned: StandardMaterial3D = game.extra_levels._surface("floor",Color(.65,.67,.66))
