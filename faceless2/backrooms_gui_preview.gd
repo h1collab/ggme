@@ -108,7 +108,10 @@ func run() -> void:
 		game.player.toggle_torch()
 		game.player.camera.look_at(game.wakeup_room.smiler.global_position)
 		await _capture("14b_smiler_lit_before_banish")
-		game.wakeup_room.smiler_flashlight_hit()
+		# Invoke the real player spotlight cone/range check, not the banish method.
+		game.player._physics_process(0.22)
+		if not game.wakeup_room.smiler_flashlight_faded:
+			failures.append("Light cone aiming did not make visible Smiler disappear")
 		await create_timer(0.40).timeout
 		await _capture("14c_smiler_banished")
 		game.player.pitch = -0.82
