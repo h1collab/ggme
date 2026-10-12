@@ -139,6 +139,22 @@ func run() -> void:
 	check(not game.wakeup_room.update_observation(Vector3(11,0.12,-9.4)), "Observation chair cannot repeatedly jumpscare")
 	check(game.wakeup_room.door_result(game.wakeup_room.observation_console_position) == "TRACE", "Physical observation terminal reveals the displaced footstep source")
 	check(game.wakeup_room.signal_traced, "Story trace is latched and can be reset through replay")
+	check(game.wakeup_room.observation_shutter_body.collision_layer == 0, "The opened GLB airlock has passable physics collision")
+	# Real Godot CharacterBody3D integration, not a stage/position teleporter:
+	# walk from the laboratory to the streamed observation sector through
+	# the newly created physical doorway, using the existing PC controls.
+	game.player.reset_to(Vector3(11.0,0.10,-6.45))
+	game.player.set_physics_process(true)
+	var advance_key := InputEventKey.new()
+	advance_key.physical_keycode = KEY_W
+	advance_key.pressed = true
+	Input.parse_input_event(advance_key)
+	for i in range(90): await physics_frame
+	advance_key.pressed = false
+	Input.parse_input_event(advance_key)
+	game.player.set_physics_process(false)
+	check(game.player.position.z < -8.2, "Player actually walks through the authored airlock into observation wing without a teleport")
+
 	check(game.wakeup_room.laboratory_spawn.x > 7.0, "Open door leads into independent lab zone")
 	
 	game.start_prologue()
