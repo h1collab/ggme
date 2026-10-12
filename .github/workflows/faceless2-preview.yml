@@ -85,6 +85,8 @@ jobs:
           python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
           python faceless2/bake_online_frowner.py faceless2/assets/third_party/twemoji_2639.svg app/assets/vendor/frowner_online_ccby.png app/ASSET_CREDITS.md
           python faceless2/bake_laboratory_glb.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/laboratory-shell.json
+          # v0.28 retired the old experimental lab; only keep the sourced corridor.
+          rm app/assets/vendor/laboratory_shell_cc0.glb app/assets/vendor/observation_wing_cc0.glb
           python faceless2/fetch_real_backrooms_assets.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/real-backrooms-assets.json
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg

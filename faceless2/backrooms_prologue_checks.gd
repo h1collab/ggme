@@ -124,6 +124,7 @@ func run() -> void:
 	var marked: Node3D = game.wakeup_room.openable_door
 	check(game.wakeup_room.door_result(marked.global_position) == "THRESHOLD", "Old laboratory door now opens a Level 0 threshold")
 	check(game.wakeup_room.laboratory_root == null and game.wakeup_room.laboratory_modules == 0, "No obsolete laboratory GLB allocated")
+	check(not ResourceLoader.exists("res://assets/vendor/laboratory_shell_cc0.glb"),"Old laboratory GLB is excluded from new APK resources")
 	game.open_backrooms_level(0)
 	check(game.extra_levels.current == 0 and game.extra_levels.visible, "Playable actual imported GLB Level 0 loads")
 	game.extra_levels.clear()
