@@ -88,7 +88,7 @@ jobs:
           s=s.replace('Escape Black Pine','Faceless 2').replace('School Brawl','Faceless 2')
           s=s.replace('res://ui/icon.svg','res://ui/game_icon.png')
           s=re.sub(r'(?m)^version/code=.*','version/code=31',s)
-          s=re.sub(r'(?m)^version/name=.*','version/name="0.30.0"',s)
+          s=re.sub(r'(?m)^version/name=.*','version/name="0.31.0"',s)
           # Export all resources: scripts load imported GLBs, audio and textures by path.
           # A resource-only selection is unsafe for dynamic ResourceLoader paths.
           s=re.sub(r'(?m)^export_filter=.*', 'export_filter="all_resources"', s)
@@ -252,21 +252,21 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless2-v030-zorix.apk
-          test -s app/build/faceless2-v030-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless2-v031-zorix.apk
+          test -s app/build/faceless2-v031-zorix.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: faceless2-v031-zorix-apk
-          path: app/build/faceless2-v030-zorix.apk
+          path: app/build/faceless2-v031-zorix.apk
           if-no-files-found: error
 
       - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v030-headless-qa
+          name: faceless2-v031-headless-qa
           path: qa
           if-no-files-found: error
