@@ -82,7 +82,9 @@ func _finish_create(code: String, key: String) -> void:
 	room_code = code
 	room_key = key
 	state = "host"
-	game.start_shift(0)
+	# All public/private matchmaking now enters the independent FPS arena;
+	# do NOT spawn a legacy Backrooms level when a room becomes host.
+	game.start_fps_arena()
 	room_created.emit(code)
 
 func discover() -> void:
