@@ -189,12 +189,22 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		look(event.relative)
+	if event is InputEventMouseButton and is_instance_valid(game.fps) and game.fps.active:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed: game.fps.fire()
+		elif event.button_index == MOUSE_BUTTON_RIGHT: game.fps.set_aim(event.pressed)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_E: interact_or_locked_door()
 			KEY_SPACE: request_jump()
 			KEY_J: game.ui.open_journal()
-			KEY_F: toggle_torch()
+			KEY_F:
+				if is_instance_valid(game.fps) and game.fps.active:
+					game.fps.select_flashlight()
+					if not game.fps.is_equipped(): toggle_torch()
+				else: toggle_torch()
+			KEY_R: if is_instance_valid(game.fps): game.fps.reload()
+			KEY_1: if is_instance_valid(game.fps): game.fps.select_blaster()
+			KEY_2: if is_instance_valid(game.fps): game.fps.select_flashlight()
 			KEY_ESCAPE: game.ui.open_pause()
 	if event is InputEventScreenTouch:
 		if event.pressed and event.position.x > get_viewport().get_visible_rect().size.x * 0.38 and aim_pointer == -1:
@@ -323,7 +333,7 @@ func _physics_process(delta: float) -> void:
 		viewmodel_root.position = viewmodel_root.position.lerp(target, minf(delta*8.0, 1.0))
 		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.018, minf(delta*5.0,1.0))
 		# Do not let the hands reappear during movement or camera pans.
-		viewmodel_root.visible = not flashlight_owned and (not lift_riding or lift_clock < 3.0)
+		viewmodel_root.visible = not flashlight_owned and (not lift_riding or lift_clock < 3.0) and (not is_instance_valid(game.fps) or not game.fps.is_equipped())
 		if is_instance_valid(walk_animation):
 			walk_animation.speed_scale = 0.0 if flashlight_owned or not moving else (1.35 if sprinting else 0.78)
 	if is_instance_valid(flashlight_rig):
@@ -340,7 +350,7 @@ func _physics_process(delta: float) -> void:
 		# Lighting starts at the same moving camera-space point as the
 		# original handheld Poly Haven GLB, instead of the old centre-light.
 		torch.position = flashlight_rig.position + Vector3(-0.02,0.09,-0.13)
-		flashlight_rig.visible = not lift_riding or lift_clock < 3.0
+		flashlight_rig.visible = (not lift_riding or lift_clock < 3.0) and (not is_instance_valid(game.fps) or not game.fps.is_equipped())
 	if is_instance_valid(leg_root):
 		# Imported skinned GLB boots belong near the collision capsule on the
 		# real floor. Only show them on an intentional deep downward look.
@@ -373,6 +383,7 @@ func interact_or_locked_door() -> void:
 			"STAIRS": game.ui.show_timed_hint(game.ui.localized("SERVICE STAIR DOOR OPENING", "消防楼梯门开启"),2.0)
 			"LOCKED": game.ui.show_timed_hint(game.ui.localized("WRONG FLOOR — SELECT THE LIT BUTTON", "楼层错误——请按亮起的按钮"),1.7)
 			"CLIMB_STAIRS": game.ui.show_timed_hint(game.ui.localized("CLIMB THE STAIRS TO REACH THE SWITCH", "请先爬到楼梯顶端按下按钮"),2.0)
+			"SECURITY_LOCKED": game.ui.show_timed_hint(game.ui.localized("SECURITY ACTIVE — DISABLE THE LEVEL 2 TARGETS", "警戒系统运行中——先清除层级 2 的警戒靶"),2.0)
 			"BUSY": pass
 			_: game.ui.show_timed_hint(game.ui.localized("FACE THE FLOOR SELECTOR AND PRESS E", "面向楼层按钮按 E"),1.6)
 	elif game.prologue.phase == "ended" and game.wakeup_room.visible:

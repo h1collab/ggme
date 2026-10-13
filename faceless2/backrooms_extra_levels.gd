@@ -28,6 +28,7 @@ var floor_section_nodes: Array[Node3D] = []
 var side_room_floor_nodes: Array[Node3D] = []
 var solid_prop_count := 0
 var transport: Node3D
+var fps_chamber_nodes: Array[Node3D] = []
 
 func _ready() -> void:
 	name = "GLB_NineLevel_Exploration"
@@ -324,7 +325,23 @@ func enter(level_number: int) -> Vector3:
 		_passive("frowner",Vector3(2.6,1.6,-28.0),PI)
 # Distinct licensed scanned hero props and topology accents per level.
 	# No primitive render meshes; BoxShape3D remains collision-only.
-	if level_number == 0:
+	if level_number == 2:
+		# Dedicated combat wing, authored Kenney structural GLBs only.
+		# Distinct from the pipe hall: narrow cross-section, maintenance alcove,
+		# reinforced staggered bulkheads and industrial sight lanes.
+		var steel := Assets.projected_pbr(industrial,.83)
+		for z in [-5.0,-11.0,-17.0,-23.0]:
+			for side in [-1.0,1.0]:
+				var x := side*(w-.52)
+				var rack := _piece("container_tall",Vector3(x,.03,z),Vector3(.54,1.58,1.15),industrial)
+				if rack != null: fps_chamber_nodes.append(rack)
+				_solid_prop(Vector3(x,0,z),Vector3(.53,1.45,1.08))
+			_piece("pipe",Vector3(0,2.83,z),Vector3(2.18,.18,.30),industrial)
+			_infill_glb(Vector3(-w+.22,1.48,z-1.4),Vector3(.11,2.75,1.1),steel,true)
+		for z in [-9.0,-21.0]:
+			_scan("industrial_wall_lamp",Vector3(-w+.30,2.4,z),.6)
+		_light(Vector3(.45,2.46,-13.5),Color(.91,.44,.22),1.25,6.7)
+	elif level_number == 0:
 		for j in range(6):
 			_piece("wall",Vector3((-w+.5) if j%2==0 else (w-.5),1.5,-3.0-j*4.1),Vector3(width*.33,3.0,.24),layout_mat,PI/2)
 	elif level_number == 5:
@@ -429,6 +446,8 @@ func _scan(name: String, at: Vector3, height: float) -> void:
 
 func interact(at: Vector3) -> String:
 	if not visible or not is_instance_valid(transport): return "NONE"
+	if current == 2 and is_instance_valid(get_parent().fps) and get_parent().fps.active and get_parent().fps.remaining_targets() > 0:
+		return "SECURITY_LOCKED"
 	# No magical transfer on approaching a marker. The protagonist must look
 	# directly at the correctly labeled GLB switch; stairs require climbing.
 	var player := get_parent().player as CharacterBody3D
@@ -493,6 +512,7 @@ func clear() -> void:
 	colliders = null
 	passive_entities.clear()
 	floor_section_nodes.clear()
+	fps_chamber_nodes.clear()
 	side_room_floor_nodes.clear()
 	solid_prop_count = 0
 	area_lights.clear()

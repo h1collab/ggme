@@ -1,0 +1,60 @@
+"""Fetch ORIGINAL Kenney Blaster Kit CC0 GLBs for Faceless 2's FPS loop.
+
+Publisher: https://kenney.nl/assets/blaster-kit ; CC0 1.0 commercial reuse.
+Pinned converted GLB mirror: Papyszoo/CC0-Public-Domain-Models.
+Verify exact binary length, Git object SHA-1, SHA-256, GLB header and declared
+chunk length. No generative/replacement geometry; do not bypass validation.
+"""
+from __future__ import annotations
+
+import hashlib
+import sys
+import urllib.request
+from pathlib import Path
+
+REV = "77343cac874f06b73d16ad0063339df7c9ca254c"
+ROOT = ("https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/"
+        + REV + "/packs/kenney-blaster-kit/models")
+MODELS = {
+    "fps_blaster_f": ("blaster_f", 82676,
+        "54c9c7988cec2294c9d8ef4b5cfcbf125a76f76e",
+        "e1fd9bb8839cc60d26bd12d5093cadccda22943b29db6c5846f8e9ec66309868"),
+    "fps_target_large": ("target_large", 17792,
+        "c9dabfded68fd9693cad975bb5abc30af9503b4c",
+        "92cd7fb5faaaa0a118fccb9c374121fd56dd7f5bf16d9842c7114c243ae74be4"),
+    "fps_clip_small": ("clip_small", 18036,
+        "22d033e4c07177f09a951cf06e3cf926d19ecb87",
+        "cf282a14a7cbe5de85a5977a144240d4343faf4f70b37d24d53624f91a738740"),
+}
+
+def verify(data: bytes, name: str) -> None:
+    _, size, git_sha, sha256 = MODELS[name]
+    if len(data) != size or data[:4] != b"glTF" or int.from_bytes(data[8:12], "little") != len(data):
+        raise ValueError("Kenney original GLB length/header mismatch: " + name)
+    git_object = b"blob " + str(len(data)).encode("ascii") + b"\0" + data
+    if hashlib.sha1(git_object).hexdigest() != git_sha:
+        raise ValueError("Kenney original GLB git object changed: " + name)
+    if hashlib.sha256(data).hexdigest() != sha256:
+        raise ValueError("Kenney original GLB SHA-256 changed: " + name)
+
+def main(folder: Path) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    for output, (model, _, _, sha256) in MODELS.items():
+        dest = folder / (output + ".glb")
+        if dest.is_file():
+            try:
+                verify(dest.read_bytes(), output)
+                print("FPS_ORIGINAL_GLB_PASS", output, sha256)
+                continue
+            except ValueError:
+                dest.unlink()
+        url = f"{ROOT}/{model}/{model}.glb"
+        request = urllib.request.Request(url, headers={"User-Agent": "Faceless2-CC0-FPS-Import"})
+        with urllib.request.urlopen(request, timeout=75) as handle:
+            raw = handle.read(250000)
+        verify(raw, output)
+        dest.write_bytes(raw)
+        print("FPS_ORIGINAL_GLB_PASS", output, sha256)
+
+if __name__ == "__main__":
+    main(Path(sys.argv[1] if len(sys.argv) > 1 else "app/assets/vendor"))

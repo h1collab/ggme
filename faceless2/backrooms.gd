@@ -9,6 +9,7 @@ const PrologueScript = preload("backrooms_prologue.gd")
 const PrologueRoomScript = preload("backrooms_prologue_room.gd")
 const WakeRoomScript = preload("backrooms_wakeup_room.gd")
 const ExtraLevelsScript = preload("backrooms_extra_levels.gd")
+const FpsScript = preload("backrooms_fps.gd")
 const RoomsScript = preload("backrooms_rooms.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
@@ -74,6 +75,7 @@ var prologue: Node3D
 var prologue_room: Node3D
 var wakeup_room: Node3D
 var extra_levels: Node3D
+var fps: Node3D
 var last_extra_level := 0
 
 func _ready() -> void:
@@ -125,6 +127,9 @@ func _ready() -> void:
 	add_child(wakeup_room)
 	extra_levels = ExtraLevelsScript.new()
 	add_child(extra_levels)
+	fps = FpsScript.new()
+	fps.game = self
+	add_child(fps)
 	var config := ConfigFile.new()
 	if config.load("user://faceless2.cfg") == OK:
 		quality = int(config.get_value("display", "quality", 1))
@@ -246,8 +251,10 @@ func open_backrooms_level(level_number: int) -> void:
 	ui.facility_hud_mode = true
 	ui.prologue_finished()
 	running = true
+	fps.enter_level(level_number)
 
 func backrooms_return() -> void:
+	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(wakeup_room):
 		wakeup_room.visible = true
@@ -257,6 +264,7 @@ func backrooms_return() -> void:
 	running = true
 
 func show_title_room() -> void:
+	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	# Only the isolated authored-GLB apartment is visible on the title screen.
 	# The old Backrooms test levels remain loaded but cannot leak into the story.
@@ -276,10 +284,12 @@ func show_title_room() -> void:
 	running = false
 
 func start_prologue() -> void:
+	if is_instance_valid(fps): fps.leave_level()
 	# The new opening is solo/local-only; co-op sessions retain their own camera.
 	if is_instance_valid(prologue): prologue.begin()
 
 func start_solo() -> void:
+	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(prologue_room): prologue_room.visible = false
 	if is_instance_valid(wakeup_room): wakeup_room.visible = false
@@ -296,6 +306,7 @@ func start_solo() -> void:
 	ui.open_briefing()
 
 func start_shift(index: int) -> void:
+	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(prologue_room): prologue_room.visible = false
 	if is_instance_valid(wakeup_room): wakeup_room.visible = false

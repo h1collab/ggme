@@ -13,6 +13,7 @@ on:
       - "faceless2/backrooms_player.gd"
       - "faceless2/backrooms_extra_levels_checks.gd"
       - "faceless2/backrooms_extra_levels.gd"
+      - "faceless2/backrooms_fps.gd"
       - "faceless2/backrooms_extra_transport.gd"
       - "faceless2/fetch_real_backrooms_assets.py"
       - "faceless2/fetch_flashlight.py"
@@ -85,6 +86,7 @@ jobs:
           python faceless2/backrooms_audio.py app/audio
           python faceless2/fetch_backrooms_assets.py app/assets/vendor
           python faceless2/fetch_wakeup_assets.py app/assets/vendor
+          python faceless2/fetch_fps_assets.py app/assets/vendor
           python faceless2/fetch_flashlight.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/flashlight-assets.log
           python faceless2/fetch_sketchfab_cast.py app/assets/vendor
           python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png

@@ -44,6 +44,9 @@ var wakeup_veil: ColorRect
 var facility_hud_mode := false
 var jump_button: Button
 var light_button: Button
+var shoot_button: Button
+var reload_button: Button
+var fps_status_label: Label
 var transient_hint: Label
 var hint_timer := 0.0
 var facility_goal_label: Label
@@ -183,6 +186,12 @@ func _build_hud() -> void:
 	_button(hud, localized("INTERACT / E", "调查 / E"), Rect2(1352, 637, 195, 77), func(): game.player.interact_or_locked_door(), true)
 	jump_button = _button(hud, localized("JUMP", "跳跃"), Rect2(1370, 782, 176, 83), func(): game.player.request_jump(), true)
 	light_button = _button(hud, localized("LIGHT / F", "灯光 / F"), Rect2(1352, 714, 195, 64), func(): game.player.toggle_torch(), true)
+	shoot_button = _button(hud, localized("FIRE", "开火"),Rect2(1205,715,137,68),func(): if is_instance_valid(game.fps): game.fps.fire(),true)
+	reload_button = _button(hud,localized("RELOAD", "装弹"),Rect2(1205,785,137,64),func(): if is_instance_valid(game.fps): game.fps.reload(),true)
+	fps_status_label = _label(hud,"",Vector2(52,790),810,25,ACCENT)
+	fps_status_label.visible = false
+	shoot_button.visible = false
+	reload_button.visible = false
 	_button(hud, localized("DRINK ALMOND", "杏仁水 / 喝"), Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
 	_button(hud, localized("REPLAY VOICE", "重播语音"), Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
 	var run := _button(hud, "RUN", Rect2(214, 790, 125, 67), func(): pass, true)
@@ -380,7 +389,7 @@ func prologue_finished() -> void:
 	var use_touch_controls := OS.has_feature("android") or OS.has_feature("ios")
 	for child in hud.get_children():
 		var is_touch_action := child == joystick or child == jump_button or child == light_button or (child is Button and ((child as Button).text == "RUN" or (child as Button).text.contains("INTERACT")))
-		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and is_touch_action)
+		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and (is_touch_action or (child == shoot_button or child == reload_button) and is_instance_valid(game.fps) and game.fps.active)) or (child == fps_status_label and is_instance_valid(game.fps) and game.fps.active)
 	# Keep virtual joystick / RUN / JUMP / LIGHT fully operational on mobile,
 	# but clear the desktop viewport for genuine mouse+keyboard exploration.
 	panels.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -624,8 +633,8 @@ func _refresh_facility_goal() -> void:
 		facility_goal_label.visible = true
 		var number: int = game.extra_levels.current
 		var display_name := "FUN" if number == 131 else ("!" if number == 132 else ("EX" if number == 133 else str(number)))
-		var title := "LEVEL %s / NON-HOSTILE ENTITIES" % display_name
-		var translated := "层级 %s / 实体暂不攻击" % display_name
+		var title := ("LEVEL 2 / SECURITY BREACH — FPS" if number == 2 else "LEVEL %s / NON-HOSTILE ENTITIES" % display_name)
+		var translated := ("层级 2 / 安全失控——第一人称射击" if number == 2 else "层级 %s / 实体暂不攻击" % display_name)
 		facility_goal_label.text = localized(title, translated)
 		return
 	if not is_instance_valid(game.wakeup_room) or not is_instance_valid(facility_goal_label): return
@@ -665,6 +674,11 @@ func refresh() -> void:
 	# Transient hint timer must be advanced exactly once per refresh.
 	if facility_hud_mode:
 		_refresh_facility_goal()
+		var fps_active: bool = is_instance_valid(game.fps) and game.fps.active
+		if is_instance_valid(fps_status_label):
+			fps_status_label.visible = fps_active
+			if fps_active:
+				fps_status_label.text = localized("HP %d  |  AMMO %d/%d  |  TARGETS %d","生命 %d  |  弹药 %d/%d  |  目标 %d") % [game.fps.health,game.fps.magazine,game.fps.reserve,game.fps.remaining_targets()]
 		if hint_timer > 0:
 			hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
 			if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
