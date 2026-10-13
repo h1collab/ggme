@@ -43,13 +43,15 @@ func run() -> void:
 		print("ROOM_READY ", game.rooms.room_code)
 		check(await wait_for(func(): return game.net.members.size() == 2, 12.0), "real ENet peer joined by room code")
 		check(game.fps_arena.visible and game.fps.active, "Host created a real dedicated FPS arena")
-		check(game.fps_arena.visible and game.fps.active, "actual host FPS match launched")
+		check(await wait_for(func(): return int(game.fps.ammo_by_peer.get(2,24)) == 23,7.0), "Remote FPS fire reaches authoritative host via actual ENet UDP")
 		await create_timer(1.0).timeout
 	elif role == "client":
 		game.rooms.join_code(code)
 		check(await wait_for(func(): return game.net.mode == "client" and game.net.members.has(1), 12.0), "no-IP code resolves JS room into native UDP connection")
 		check(game.net.mode == "client" and game.rooms.room_code == code, "joined exact room")
-		check(await wait_for(func(): return game.fps_arena.visible and game.fps.active, 7.0), "actual FPS arena state synchronized over ENet")
+		check(await wait_for(func(): return game.fps_arena.visible and game.fps.active, 7.0), "Actual FPS arena state synchronized over ENet")
+		game.net.request_fps_fire(Vector3.FORWARD)
+		check(await wait_for(func(): return game.fps.magazine == 23,7.0), "Authoritative host ammo update replicated to client")
 	else:
 		check(false, "unknown test role")
 	game.net.leave()

@@ -587,7 +587,8 @@ func _join_by_code() -> void:
 func _room_created(code: String) -> void:
 	if panel_kind == "lobby":
 		if is_instance_valid(room_code_label): room_code_label.text = localized("ROOM CODE: %s  /  SHARE WITH FRIENDS", "房间号：%s  /  请发给好友") % code
-		open_briefing()
+		game.ui.prologue_finished()
+		game.ui.show_timed_hint(game.ui.localized("FPS MATCH CREATED / CODE: %s","FPS 房间已创建 / 房间码：%s") % code,5.0)
 
 func _room_error(message: String) -> void:
 	if panel_kind == "lobby" and is_instance_valid(room_status): room_status.text = message

@@ -364,7 +364,7 @@ func _physics_process(delta: float) -> void:
 	step_clock -= delta
 	if moving and is_on_floor() and step_clock <= 0:
 		step_clock = 0.34 if sprinting else 0.52
-		if (game.prologue.phase == "ended" and game.wakeup_room.visible) or (is_instance_valid(game.extra_levels) and game.extra_levels.visible):
+		if game.fps_arena.visible or (game.prologue.phase == "ended" and game.wakeup_room.visible) or (is_instance_valid(game.extra_levels) and game.extra_levels.visible):
 			game.footstep()
 		elif not game.level.add_water_step(position):
 			game.footstep()
@@ -376,6 +376,7 @@ func request_jump() -> void:
 		jump_requested = true
 
 func interact_or_locked_door() -> void:
+	if is_instance_valid(game.fps_arena) and game.fps_arena.visible: return
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
 		var transition: String = game.extra_levels.interact(global_position)
 		match transition:

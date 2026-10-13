@@ -1,221 +1,54 @@
 extends SceneTree
-# A real Godot desktop viewport preview, not an APK, emulator or headless render.
-# Run only after assets have been imported into the temporary desktop project.
+# Native desktop Godot OpenGL capture, independent of Android APK.
 var game: Node3D
-var prologue: Node3D
 var output_dir := ""
-var failures: Array[String] = []
-
-func _initialize() -> void:
-	call_deferred("run")
-
-func _capture(tag: String) -> void:
-	# This preview intentionally freezes the main game timeline. Refresh the
-	# objective explicitly so screenshots never display stale quest text.
-	if is_instance_valid(game) and is_instance_valid(game.ui): game.ui.refresh()
+var issues: Array[String] = []
+func _initialize() -> void: call_deferred("run")
+func _shot(name: String, position: Vector3, target: Vector3) -> void:
+	game.player.global_position = position
+	game.player.camera.look_at(target)
+	game.ui.refresh()
 	for i in range(5): await process_frame
-	var picture: Image = root.get_texture().get_image()
-	var file := output_dir.path_join(tag + ".png")
-	var result := picture.save_png(file)
-	if result != OK: failures.append("Could not capture Godot viewport: " + tag)
-	else: print("GODOT_GUI_PREVIEW " + tag + " " + str(picture.get_width()) + "x" + str(picture.get_height()))
-	print("PREVIEW_CAMERA " + tag + " camera=" + str(root.get_camera_3d().global_position))
-
-func _advance_frames(count: int) -> void:
-	for i in range(count):
-		prologue.advance(0.15)
-		await process_frame
-
+	await RenderingServer.frame_post_draw
+	var image: Image = root.get_texture().get_image()
+	if image.is_empty() or image.save_png(output_dir.path_join(name + ".png")) != OK:
+		issues.append("Native frame missing: " + name)
+	else: print("GODOT_GUI_PREVIEW " + name)
 func run() -> void:
 	output_dir = OS.get_environment("FACELESS_PREVIEW_DIR")
 	if output_dir.is_empty(): output_dir = OS.get_user_data_dir().path_join("preview_frames")
 	DirAccess.make_dir_recursive_absolute(output_dir)
-	root.size = Vector2i(1600, 900)
+	root.size = Vector2i(1600,900)
 	game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
 	game.ui.intro_timer.stop()
-	game.set_process(false)
-	game.player.set_physics_process(false)
-	game.ui.menu()
-	await _capture("00_title")
-	game.start_prologue()
-	prologue = game.prologue
-	var entity = game.wakeup_room.smiler
-	if entity is Sprite3D:
-		var tex := (entity as Sprite3D).texture
-		print("SMILER_SPRITE_DEBUG imported=", tex != null,
-			" size=", tex.get_size() if tex != null else Vector2.ZERO,
-			" billboard=", (entity as Sprite3D).billboard, " pos=",entity.position)
-		# Do not request a GPU texture readback during GUI scene execution;
-		# the exact source PNG is copied into the artifact in the workflow.
-	prologue.set_process(false)
-	await _capture("01_surveillance_far")
-	await _advance_frames(11)
-	await _capture("02_camera_push")
-	await _advance_frames(8)
-	await _capture("03_phone_ringing")
-	if absf(prologue.phone_lowest_world_y() - (prologue.PHONE_DESK_TOP + 0.004)) > 0.015:
-		failures.append("Imported iPhone bottom does not touch the licensed GLB desk")
-	prologue.answer()
-	await _advance_frames(4)
-	await _advance_frames(6)
-	await _capture("04_distortion")
-	await _advance_frames(12)
-	await _advance_frames(9)
-	await _capture("05_blackout")
-	await _advance_frames(8)
-	if prologue.phone.visible: failures.append("Opening iPhone is floating inside the underground level")
-	await _capture("06_wake_floor_blur")
-	await _advance_frames(19)
-	await _capture("07_wake_mid")
-	await _advance_frames(20)
-	await _capture("08_wake_dark")
-	# Player must actively turn to trigger the direction-dependent entity.
-	await _capture("09_waiting_no_smiler")
-	for i in range(18): prologue.advance(0.15)
-	await _capture("10_still_no_smiler")
-	if prologue.phase != "smiler_wait_turn": failures.append("Sight event auto-triggered without looking")
-	# Pixel-identical paired frames with the same camera and same room. This
-	# detects a real renderer-invisible sprite instead of trusting only state.
-	game.ui.prologue_wake_clear()
-	game.wakeup_room.smiler_stage(0.0, "hidden")
-	await _capture("10a_hidden_comparison")
-	game.wakeup_room.smiler_stage(0.0, "watch")
-	await _capture("10b_forced_visible_comparison")
-	game.wakeup_room.smiler_stage(0.0, "hidden")
-	prologue.look_before_smiler(Vector2(-590,0))
-	for i in range(8):
-		prologue.advance(0.15)
-		await process_frame
-		if prologue.phase == "smiler_watch":
-			prologue.advance(0.08)
-			await process_frame
-			await _capture("11_smiler_far_flash")
-			break
-	for i in range(5): prologue.advance(0.15)
-	await _capture("12_smiler_disappears")
-	for i in range(8):
-		prologue.advance(0.15)
-		await process_frame
-		if prologue.phase == "smiler_near":
-			prologue.advance(0.07)
-			await process_frame
-			await _capture("13_smiler_near_flash")
-			break
-	for i in range(3): prologue.advance(0.15)
-	if prologue.phase == "ended":
-		await _capture("14_controls_unlocked")
-		# Visual QA: the actual held GLB and light drive a separate Smiler fade.
-		game.player.global_position = game.wakeup_room.flashlight_pickup_position
-		game.player.interact_or_locked_door()
-		game.player.camera.rotation.x = -0.12
-		await _capture("14a_glb_flashlight_held")
-		if game.player.viewmodel_root.visible: failures.append("Hands must disappear entirely with the carried GLB flashlight")
-		if not game.player.flashlight_model.visible: failures.append("Independent Poly Haven GLB flashlight is missing from view")
-		game.player.toggle_torch()
-		game.player.camera.look_at(game.wakeup_room.smiler.global_position)
-		await _capture("14b_smiler_lit_before_banish")
-		# Invoke the real player spotlight cone/range check, not the banish method.
-		game.player._physics_process(0.22)
-		if not game.wakeup_room.smiler_flashlight_faded:
-			failures.append("Light cone aiming did not make visible Smiler disappear")
-		await create_timer(0.40).timeout
-		await _capture("14c_smiler_banished")
-		game.player.pitch = -1.15
-		game.player.camera.rotation.x = -1.15
-		game.player.leg_root.visible = true
-		await _capture("14d_actual_glb_feet_downlook")
-		game.player.pitch = 0.0
-		game.player.camera.rotation.x = 0.0
-		game.player.global_position = Vector3(0,0.10,-3.1)
-		game.wakeup_room.begin_frowner()
-		game.player.camera.look_at(game.wakeup_room.frowner.global_position)
-		await create_timer(0.8).timeout
-		await _capture("14e_frowner_second_door")
-		game.wakeup_room.update_frowner(4.8)
-		await create_timer(1.8).timeout
-		await _capture("14f_frowner_fades")
-		game.player.look(Vector2(90,0))
-		await _capture("15_player_looks_around")
-		if prologue.phone.visible: failures.append("Licensed iPhone must never return in gameplay")
-		# Native Godot flashlight photographs of the EXACT user-reported
-		# door slot and formerly missing right-side 3D vestibule. This camera
-		# moves into the real scene; it is not an AI illustration or mask.
-		game.player.global_position = Vector3(2.12,.10,-.90)
-		game.player.camera.look_at(Vector3(6.80,1.52,-.90))
-		await _capture("15a_real_opaque_cc0_door_airlock")
-		game.player.global_position = Vector3(-1.80,.10,-6.00)
-		game.player.camera.look_at(Vector3(-3.90,1.50,-6.00))
-		await _capture("15b_wall_glb_original_apertures_backed")
-		var door: Node3D = game.wakeup_room.openable_door
-		if is_instance_valid(door):
-			game.player.global_position = door.global_position + Vector3(0,0.10,0.65)
-			game.player.interact_or_locked_door()
-			if not game.extra_levels.visible or game.extra_levels.current != 0: failures.append("GLB threshold must lead straight to Level 0")
-			await _capture("16_kenney_glb_threshold_into_level_0")
-		else: failures.append("Missing authored transition doorway")
-	else: failures.append("Second apparition did not release movement")
-	# Desktop-rendered stage inspection must exercise licensed real GLB imports.
-	for number in [0,1,2,5,6,130,131,132,133]:
-		game.open_backrooms_level(number)
-		game.player.global_position = Vector3(0,0.10,1.3)
-		game.player.camera.look_at(Vector3(-1.5,1.4,-13.0))
-		await _capture("30_level_%d_entrance_authored_glb" % number)
-		game.player.global_position = Vector3(0,0.10,-13.0)
-		game.player.camera.look_at(Vector3(-1.8,1.4,-19.0))
-		game.extra_levels.update_player(game.player.global_position,.15)
-		await _capture("31_level_%d_passive_entity" % number)
-		game.player.global_position = Vector3(0,0.10,-21.5)
-		game.player.camera.look_at(Vector3(0,1.6,-27.0))
-		await _capture("32_level_%d_real_depth" % number)
-		if number in [1,5,130,131]:
-			var side: float = -1.0 if number in [1,130] else 1.0
-			var width: float = 8.8 if number in [1,5,131] else 7.3
-			# Inspect from the ACTUAL open room centre after aligning geometry
-			# and collision bounds, rather than teleporting inside a wall GLB.
-			game.player.global_position = Vector3(side*(width*0.5+2.0),0.10,-12.9)
-			game.player.camera.look_at(Vector3(side*(width*0.5+2.8),1.6,-15.1))
-			await _capture("33_level_%d_authored_glb_side_room" % number)
-	# Godot live view of the actual original Kenney Blaster GLB,
-	# security sentry models and Level 2 revised industrial geometry.
-	game.open_backrooms_level(2)
-	game.player.global_position = Vector3(0,.10,-3.0)
-	game.player.camera.look_at(Vector3(-.45,1.55,-8.0))
-	await _capture("39a_level_2_real_kenney_cc0_fps_blaster_and_security_target")
-	game.player.global_position = Vector3(-.15,.10,-11.0)
-	game.player.camera.look_at(Vector3(-4.30,1.45,-12.85))
-	await _capture("39b_level_2_security_wing_glb_geometry_and_target")
-	# Authored real Godot angles cover both moving Kenney doors and the
-	# stepped GLB access route; review screenshots, not boolean-only tests.
-	game.open_backrooms_level(1)
-	game.player.global_position = Vector3(0,0.10,-27.7)
-	game.player.camera.look_at(Vector3(1.22,1.55,-28.5))
-	await _capture("40_elevator_unique_floor_buttons_real_glb")
-	game.player.global_position = Vector3(.12,.10,-27.08)
-	game.player.camera.look_at(Vector3(0,1.53,-28.9))
-	await _capture("40a_real_opaque_elevator_doorway")
-	game.player.global_position = Vector3(0,.10,-28.87)
-	game.player.camera.look_at(Vector3(0,1.56,-30.16))
-	await _capture("40b_real_textured_elevator_interior_bulkhead")
-	game.open_backrooms_level(2)
-	game.player.global_position = Vector3(0,0.10,-24.7)
-	game.player.camera.look_at(Vector3(0,1.0,-29.3))
-	await _capture("41_service_stairs_glb_walking_surface")
-	game.player.global_position = Vector3(0,.72,-28.4)
-	game.player.camera.look_at(Vector3(0,1.40,-30.1))
-	await _capture("41a_glb_stairs_sealed_exit_and_button")
-	game.extra_levels.clear()
 	game.net.leave()
-	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
-		for sound in game.find_children("*", kind, true, false):
-			sound.stop()
-			sound.stream = null
+	game.start_fps_arena()
+	game.player.set_physics_process(false)
+	game.set_process(false)
+	if not game.fps_arena.visible: issues.append("FPS playfield invisible")
+	if game.fps_arena.floor_modules.size() != 16: issues.append("Real GLB ground modules incomplete")
+	if not is_instance_valid(game.fps.weapon_model): issues.append("Licensed firearm GLB missing")
+	await _shot("00_empty_fps_arena_kenney_glb",Vector3(-7,.12,7),Vector3(7,1.6,-7))
+	await _shot("01_glb_blaster_hip_fov",Vector3(-4,.12,3),Vector3(0,1.6,-12))
+	game.fps.set_aim(true)
+	for i in range(25): await process_frame
+	await _shot("02_glb_blaster_aim_down_sights",Vector3(-4,.12,3),Vector3(0,1.6,-12))
+	game.fps.set_aim(false)
+	game.fps.fire()
+	await _shot("03_original_glb_weapon_recoil",Vector3(-2,.12,1),Vector3(0,1.5,-15))
+	await _shot("04_blank_playfield_distance",Vector3(5,.12,6),Vector3(-12,1.5,-14))
+	await _shot("05_texture_uv_real_glb_ground",Vector3(1,.12,1),Vector3(1,0,-4))
+	await _shot("06_weapon_left_sweep",Vector3(0,.12,2),Vector3(-17,1.6,-5))
+	await _shot("07_weapon_right_sweep",Vector3(0,.12,2),Vector3(17,1.6,-5))
+	await _shot("08_interior_gun_at_low_view",Vector3(0,.12,0),Vector3(0,.15,-3))
+	game.net.leave()
 	game.queue_free()
 	for i in range(8): await process_frame
-	if failures.is_empty():
-		print("GODOT_GUI_PREVIEW_PASS (independent desktop viewport, not APK)")
-		quit(0)
-	else:
-		for reason in failures: push_error(reason)
+	if not issues.is_empty():
+		for issue in issues: push_error(issue)
 		quit(1)
+	else:
+		print("GODOT_PREVIEW_PASS empty FPS arena native frames")
+		quit(0)
