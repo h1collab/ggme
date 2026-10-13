@@ -149,7 +149,11 @@ func _build_elevator(direction: int, destination: int) -> void:
 	_glb("floor_panel",Vector3(0,-.080,centre_z),Vector3(3.0,.18,2.74),solid_tile)
 	_collision(Vector3(0,-.08,centre_z),Vector3(3.02,.36,2.75))
 	# Physical roof cannot float 0.2m above the cabin walls.
-	_glb("structure_panel",Vector3(0,2.82,centre_z),Vector3(3.12,.18,2.70),solid_steel)
+	# Kenney structure_panel has through-apertures. Use the ORIGINAL CC0
+	# floor_panel GLB as the ceiling: its verified underside is closed,
+	# avoiding a black sky rectangle above the elevator passengers.
+	var roof: Node3D = _glb("floor_panel",Vector3(0,2.82,centre_z),Vector3(3.12,.18,2.70),solid_steel)
+	if is_instance_valid(roof): roof.name = "KenneyCC0_OpaqueElevatorRoofGLB"
 	_collision(Vector3(0,2.87,centre_z),Vector3(3.08,.15,2.72))
 	for side in [-1.0,1.0]:
 		_glb("wall",Vector3(side*1.55,1.42,centre_z),Vector3(.18,2.85,2.65),metal_plate)

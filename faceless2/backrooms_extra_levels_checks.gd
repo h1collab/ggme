@@ -55,6 +55,9 @@ func run() -> void:
 			check(not surfaces.is_empty() and (surfaces[0] as MeshInstance3D).material_override is StandardMaterial3D,
 				"Each shaft sealing panel renders source GLB triangles with real PBR material")
 		check(transport.station_kind(1) == ("stairs" if number in [2,6,132] else "elevator"), "Next connection uses the sector's authored stair/elevator route")
+		if transport.station_kind(1) == "elevator":
+			var roof_panels: Array[Node] = transport.find_children("KenneyCC0_OpaqueElevatorRoofGLB*","Node3D",true,false)
+			check(not roof_panels.is_empty(), "Elevator roof is sealed using fully opaque verified Kenney source GLB instead of perforated structure_panel")
 		if number != 0: check(transport.station_kind(-1) == ("stairs" if game.extra_levels.previous_level() in [2,6,132] else "elevator"), "Backward route matches incoming transport")
 		for button in transport.buttons:
 			check(is_instance_valid(button["model"]) and button["model"].find_children("*","MeshInstance3D",true,false).size()>0, "Every floor selector uses an actual Kenney GLB")
