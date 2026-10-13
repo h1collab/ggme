@@ -111,6 +111,9 @@ func run() -> void:
 			check(game.extra_levels.passive_entities[1].visible, "Original Sketchfab face appears only after player approaches")
 		check(game.extra_levels.update_player(Vector3(0,0,-16),0.3).is_empty(),"Watcher never repeats every frame")
 		check(game.extra_levels.update_player(Vector3(0,0,-24),0.3) == "VANISH","Non-attacking entity leaves space")
+		if number in [0,1,5,131]:
+			check(not game.extra_levels.passive_entities[1].visible,
+				"Original CC BY Smiler is invisible before the physical elevator entrance; no giant close-up face")
 		check(game.extra_levels.update_player(Vector3(0,0,-24),0.3).is_empty(),"Vanishing event is one shot")
 		game.extra_levels.clear()
 		check(not game.extra_levels.visible and game.extra_levels.scene_root == null,"Leaving sector removes environment and physics")

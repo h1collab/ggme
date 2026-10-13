@@ -310,7 +310,7 @@ func enter(level_number: int) -> Vector3:
 		_passive("faceless_witness",Vector3(-1.5,.03,-17.5),PI)
 		# The corridor endpoint has a Kenney GLB door behind the face.
 		# Place the face in open AIR, not x=w-.20 inside a side wall.
-		_passive("smiler",Vector3(0.0,1.64,-27.2),PI)
+		_passive("smiler",Vector3(0.0,1.64,-25.0),PI)
 	elif level_number == 132:
 		# LEVEL !: only original CC0 horror-creature GLB meshes, not a
 		# smile/frown emoji or a white Cesium astronaut.
@@ -434,6 +434,12 @@ func _transport_arrived(from_id: int, to_id: int) -> void:
 func update_player(at: Vector3, delta: float) -> String:
 	if not visible: return ""
 	visit_clock += delta
+	# The original license-checked Smiler Sprite3D must never appear inside
+	# the open elevator portal. Fade at a comfortable distance; crossing
+	# z=-23.2 removes it completely before entering the physical cabin.
+	var has_corridor_smiler := current in [0,1,5,131] and passive_entities.size() > 1
+	if has_corridor_smiler and at.z < -23.2:
+		passive_entities[1].visible = false
 	if at.z < -13.5 and not event_flags.has("witness"):
 		event_flags["witness"] = true
 		if spatial_sound.stream != null:
@@ -450,15 +456,19 @@ func update_player(at: Vector3, delta: float) -> String:
 	# depth-tested Sprite3D hidden at entrance prevents a floating wall sticker.
 	if at.z < -18.0 and not event_flags.has("smiler_revealed") and current in [0,1,5,131]:
 		event_flags["smiler_revealed"] = true
-		if passive_entities.size() > 1: passive_entities[1].visible = true
+		if passive_entities.size() > 1: passive_entities[1].visible = at.z > -23.2
 	if at.z < -22.4 and not event_flags.has("vanishing"):
 		event_flags["vanishing"] = true
 		if passive_entities.size()>1:
 			var last := passive_entities[1]
-			last.visible = true
-			var fade := create_tween()
-			event_tweens.append(fade)
-			fade.tween_property(last,"scale",Vector3(.02,.02,.02),2.1)
+			# Skip the enormous near-face billboard when a test or a player
+			# is already at the lift threshold. Other passive GLB entities are
+			# still allowed to perform their nonviolent disappearance.
+			last.visible = not has_corridor_smiler or at.z >= -23.2
+			if last.visible:
+				var fade := create_tween()
+				event_tweens.append(fade)
+				fade.tween_property(last,"scale",Vector3(.02,.02,.02),2.1)
 		return "VANISH"
 	return ""
 

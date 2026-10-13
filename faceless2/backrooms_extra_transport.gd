@@ -24,6 +24,7 @@ var metal: Material
 var floor_finish: Material
 var solid_steel: Material
 var solid_tile: Material
+var moving_steel: Material
 var enclosed_panel_count := 0
 
 func _ready() -> void:
@@ -39,6 +40,9 @@ func configure(level_id: int, route: Array, wall_material: Material, floor_mater
 	# the cabin, door leafs and floor; only the broad GLB steel sealing
 	# surfaces use metric world projection to avoid stretched native UVs.
 	solid_steel = Assets.projected_pbr(wall_material,.74)
+	# A door in motion must carry its own scan texture instead of sliding
+	# through a world-locked triplanar pattern during the closing animation.
+	moving_steel = Assets.projected_pbr(wall_material,.74,false)
 	solid_tile = Assets.projected_pbr(floor_material,.82)
 	var idx: int = route.find(source_level)
 	if idx < 0: return
@@ -158,8 +162,8 @@ func _build_elevator(direction: int, destination: int) -> void:
 	_collision(Vector3(0,1.38,far_z),Vector3(3.12,2.75,.20))
 	# Two imported GLB halves slide together, and collision follows their
 	# closed state. Initially OPEN so the player can walk inside the cabin.
-	var left := _panel(Vector3(-1.10,1.34,entrance_z),Vector3(1.00,2.68,.15),solid_steel)
-	var right := _panel(Vector3(1.10,1.34,entrance_z),Vector3(1.00,2.68,.15),solid_steel)
+	var left := _panel(Vector3(-1.10,1.34,entrance_z),Vector3(1.00,2.68,.15),moving_steel)
+	var right := _panel(Vector3(1.10,1.34,entrance_z),Vector3(1.00,2.68,.15),moving_steel)
 	var barrier := _collision(Vector3(0,1.36,entrance_z),Vector3(2.05,2.69,.18))
 	barrier.collision_layer = 0
 	barrier.collision_mask = 0
@@ -246,7 +250,7 @@ func _build_stairs(direction: int, destination: int) -> void:
 	for side in [-1.0,1.0]:
 		_panel(Vector3(side*.94,1.34,exit_z),Vector3(.70,2.68,.19),solid_steel)
 	_panel(Vector3(0,1.34,exit_z+advance*.98),Vector3(2.59,2.68,.15),solid_steel)
-	var exit_gate := _panel(Vector3(0,1.35,exit_z),Vector3(1.18,2.70,.16),solid_steel)
+	var exit_gate := _panel(Vector3(0,1.35,exit_z),Vector3(1.18,2.70,.16),moving_steel)
 	var stair_barrier := _collision(Vector3(0,1.35,exit_z),Vector3(1.18,2.70,.18))
 	station["closed_collision"] = stair_barrier
 	station["door_left"] = exit_gate

@@ -60,11 +60,11 @@ static func licensed_panel(at: Vector3, extent: Vector3, material: Material, sid
 # Use a world-metric PBR projection for only the GLB sealing plates. It
 # prevents the scanned texture from stretching 15m over one source UV shell,
 # without raising draw calls for every original wall/prop mesh on mobile.
-static func projected_pbr(original: Material, repeats_per_meter: float = 0.68) -> Material:
+static func projected_pbr(original: Material, repeats_per_meter: float = 0.68, world_locked: bool = true) -> Material:
 	if not (original is StandardMaterial3D): return original
 	var mat := (original as StandardMaterial3D).duplicate() as StandardMaterial3D
 	mat.uv1_triplanar = true
-	mat.uv1_world_triplanar = true
+	mat.uv1_world_triplanar = world_locked
 	mat.uv1_scale = Vector3(repeats_per_meter,repeats_per_meter,repeats_per_meter)
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return mat
