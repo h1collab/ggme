@@ -102,6 +102,19 @@ func public_rooms() -> Array:
 		if not dup: result.append(item.duplicate())
 	return result
 
+func quick_match() -> void:
+	# Query the published rooms first. This is room matchmaking, NOT a
+	# UDP relay or NAT hole punching system.
+	discover()
+	await get_tree().create_timer(1.5).timeout
+	if state == "host" or state == "client": return
+	for candidate in public_rooms():
+		var found: Dictionary = candidate
+		if int(found.get("players",1)) >= int(found.get("max_players",4)): continue
+		join_code(String(found.get("code","")))
+		return
+	create_room(true,4,"Faceless 2 / FPS Arena")
+
 func join_code(input_code: String) -> void:
 	var code := input_code.strip_edges().to_upper().replace("-", "")
 	if code.length() != 8:

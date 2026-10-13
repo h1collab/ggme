@@ -568,8 +568,14 @@ func open_lobby() -> void:
 	directory_field.text = game.rooms.directory_url
 	panels.add_child(directory_field)
 	_button(panels, localized("SAVE DIRECTORY", "保存服务"), Rect2(1132, 815, 250, 60), _configure_directory)
-	room_status = _label(panels, game.net.status, Vector2(822, 722), 683, 19, ACCENT)
+	_button(panels, localized("QUICK MATCH", "快速匹配"),Rect2(820,722,320,62),_quick_match,true)
+	room_status = _label(panels, game.net.status, Vector2(1155, 722), 355, 17, ACCENT)
 	game.rooms.discover()
+
+func _quick_match() -> void:
+	if is_instance_valid(room_status):
+		room_status.text = localized("Searching public rooms or opening a host...","寻找可加入房间，或创建房间……")
+	game.rooms.quick_match()
 
 func _configure_directory() -> void:
 	game.rooms.configure(directory_field.text)
