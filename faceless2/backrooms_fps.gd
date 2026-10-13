@@ -66,95 +66,57 @@ func _ready() -> void:
     # texture, fingers and wrist joints remain from the original GLB.
     # The gun AND both hands share one pivot: ADS, recoil and gait never
     # make a hand slide away from the rifle.
-    var source_hands := Assets.path("vendor/fps_wrad_grip_hands.glb")
-    if ResourceLoader.exists(source_hands):
-        # The source FULL rig has 4.93 units of height. Cropping to real
-        # wrist-only triangles leaves 1.362 units. Keep the ORIGINAL arm
-        # scale (~0.101), not the previous 0.50m fitted height, which would
-        # triple-size the hands and push the wrists out of frame.
-        grip_hands = Assets.fitted("vendor/fps_wrad_grip_hands.glb",.138)
-        grip_hands.name = "WRAD_CC0_SkinnedFPSGripArms_GLBBoundToGun"
-        grip_hands.position = Vector3(-.015,-.22,.18)
-        weapon_pivot.add_child(grip_hands)
-        var candidates: Array[Node] = grip_hands.find_children("*","Skeleton3D",true,false)
-        if not candidates.is_empty():
-            grip_skeleton = candidates[0] as Skeleton3D
-            # Pin individual authored WRAD wrist bones at the weapon's
-            # receiver and fore-end, NOT at the screen edges.
-            _configure_grip_pose()
-        else:
-            push_error("Original WRAD CC0 arm GLB is missing its authored Skeleton3D")
-        for part in grip_hands.find_children("*","MeshInstance3D",true,false):
+    grip_hands = Node3D.new()
+    grip_hands.name = "LicensedWRAD_SkinnedTwoHandWeaponMount"
+    weapon_pivot.add_child(grip_hands)
+    # Each hand is a separately source-trimmed GLB, still using the
+    # original rigged skin and texture, not generated geometry. Keeping
+    # transforms rigidly on the same weapon pivot prevents dislocated IK
+    # elbows and divergent ADS/running/recoil animation.
+    var mounted := 0
+    for side in ["r","l"]:
+        var path := Assets.path("vendor/fps_wrad_grip_%s.glb" % side)
+        if not ResourceLoader.exists(path):
+            push_error("Verified WRAD CC0 skinned %s hand GLB missing" % side)
+            continue
+        var hand: Node3D = Assets.fitted("vendor/fps_wrad_grip_%s.glb" % side,.18)
+        hand.name = "WRAD_CC0_Skinned_%s_ActualGLBGrip" % side
+        hand.position = Vector3(.135,-.14,.10) if side == "r" else Vector3(-.10,-.13,-.25)
+        hand.rotation = Vector3(-.20,-1.10,-.12) if side == "r" else Vector3(-.16,1.05,.10)
+        grip_hands.add_child(hand)
+        var skeletons: Array[Node] = hand.find_children("*","Skeleton3D",true,false)
+        if skeletons.is_empty():
+            push_error("Original WRAD %s hand has no skinned Skeleton3D" % side)
+            continue
+        var skel := skeletons[0] as Skeleton3D
+        if side == "r": grip_skeleton = skel
+        _curl_hand_fingers(skel,side)
+        for part in hand.find_children("*","MeshInstance3D",true,false):
             (part as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    else:
-        push_error("Verified original WRAD CC0 skinned arm GLB not packaged")
+        mounted += 1
+    grip_ready = mounted == 2
+    grip_error = 0.0 if grip_ready else 999.0
+    print("FPS_ORIGINAL_CC0_TWO_HAND_GRIP=",mounted)
     weapon_pivot.visible = false
     shot_audio = _audio("fps_shot.wav",-12)
     reload_audio = _audio("fps_reload.wav",-15)
     impact_audio = _audio("fps_impact.wav",-12)
 
-# Solve only once when imported. The actual Skeleton3D skin weights keep
-# original authored WRAD geometry attached to elbows, wrists and fingers.
-# This CCD pose is authored around the REAL blaster GLB's receiver/fore-end,
-# rather than rendering two static, disconnected pointing hands.
-func _configure_grip_pose() -> void:
-    if not is_instance_valid(grip_skeleton): return
-    var original_sides := ["r","l"]
-    for side in original_sides:
-        for finger in ["pinky","ring","middle","index","thumb"]:
-            for segment in [1,2,3]:
-                var bone_name := "finger_%s%d.%s" % [finger,segment,side]
-                var index: int = grip_skeleton.find_bone(bone_name)
-                if index < 0: continue
-                # Separate subtle trigger finger from closed supporting grip.
-                var angle := .70 if segment == 1 else (.63 if segment == 2 else .30)
-                if finger == "index" and side == "r": angle *= .55
-                if finger == "thumb": angle *= .63
-                var axis := Vector3.FORWARD if finger != "thumb" else Vector3.RIGHT
-                var direction := 1.0 if side == "r" else -1.0
-                grip_skeleton.set_bone_pose_rotation(index,
-                    Quaternion(axis,angle*direction) * grip_skeleton.get_bone_pose_rotation(index))
-    # Both wrists align to points on the same physical weapon, scaled in
-    # camera space, and do not animate independently of the gun thereafter.
-    _solve_grip("wrist.r",["forearm.r","bicep.r","shoulder.r"],Vector3(.14,-.09,.16))
-    _solve_grip("wrist.l",["forearm.l","bicep.l","shoulder.l"],Vector3(-.15,-.07,-.20))
-    var wrist_r: int = grip_skeleton.find_bone("wrist.r")
-    var wrist_l: int = grip_skeleton.find_bone("wrist.l")
-    grip_ready = wrist_r >= 0 and wrist_l >= 0
-    if grip_ready:
-        var target_r := grip_skeleton.to_local(weapon_pivot.to_global(Vector3(.14,-.09,.16)))
-        var target_l := grip_skeleton.to_local(weapon_pivot.to_global(Vector3(-.15,-.07,-.20)))
-        var r_error := (grip_skeleton.get_bone_global_pose(wrist_r).origin-target_r).length()
-        var l_error := (grip_skeleton.get_bone_global_pose(wrist_l).origin-target_l).length()
-        var imported_scale := grip_skeleton.global_transform.basis.get_scale().length()/sqrt(3.0)
-        grip_error = maxf(r_error,l_error) * imported_scale
-        print("FPS_ORIGINAL_CC0_SKINNED_GRIP error_metres=",snappedf(grip_error,.001))
-    else:
-        push_error("WRAD original GLB wrist joints not available")
-
-func _solve_grip(wrist_name: String, joints: Array[String], target_in_pivot: Vector3) -> void:
-    var wrist: int = grip_skeleton.find_bone(wrist_name)
-    if wrist < 0: return
-    var target := grip_skeleton.to_local(weapon_pivot.to_global(target_in_pivot))
-    for iteration in range(16):
-        for bone_name in joints:
-            var bone: int = grip_skeleton.find_bone(bone_name)
+# Posing fingers uses authored WRAD skeleton bones only. No full-arm
+# shoulder/elbow IK, which visibly bent the source upper arms across the gun.
+func _curl_hand_fingers(skel: Skeleton3D, side: String) -> void:
+    for finger in ["pinky","ring","middle","index","thumb"]:
+        for segment in [1,2,3]:
+            var bone: int = skel.find_bone("finger_%s%d.%s" % [finger,segment,side])
             if bone < 0: continue
-            var pivot: Vector3 = grip_skeleton.get_bone_global_pose(bone).origin
-            var tip: Vector3 = grip_skeleton.get_bone_global_pose(wrist).origin
-            var from_tip: Vector3 = tip-pivot
-            var to_goal: Vector3 = target-pivot
-            if from_tip.length_squared() < .00001 or to_goal.length_squared() < .00001: continue
-            var q := Quaternion(from_tip.normalized(),to_goal.normalized())
-            var parent: int = grip_skeleton.get_bone_parent(bone)
-            var parent_q := Quaternion.IDENTITY
-            if parent >= 0:
-                parent_q = grip_skeleton.get_bone_global_pose(parent).basis.get_rotation_quaternion()
-            var adjustment := parent_q.inverse()*q*parent_q
-            grip_skeleton.set_bone_pose_rotation(bone,
-                (adjustment*grip_skeleton.get_bone_pose_rotation(bone)).normalized())
-            grip_skeleton.force_update_all_bone_transforms()
-        if (grip_skeleton.get_bone_global_pose(wrist).origin-target).length() < .12: break
+            var curl := .54 if segment == 1 else (.70 if segment == 2 else .32)
+            if finger == "thumb": curl *= .58
+            if finger == "index" and side == "r": curl *= .60
+            var direction := 1.0 if side == "r" else -1.0
+            var axis := Vector3.FORWARD if finger != "thumb" else Vector3.RIGHT
+            skel.set_bone_pose_rotation(bone,
+                Quaternion(axis,curl*direction)*skel.get_bone_pose_rotation(bone))
+    skel.force_update_all_bone_transforms()
 
 func _audio(filename: String, volume: float) -> AudioStreamPlayer:
     var sound := AudioStreamPlayer.new()

@@ -7,7 +7,7 @@ import json
 import struct
 from pathlib import Path
 
-def bake(source: Path, output: Path) -> tuple[int, int]:
+def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
     data = source.read_bytes()
     assert data[:4] == b"glTF" and struct.unpack_from("<I",data,4)[0] == 2
     jl, typ = struct.unpack_from("<I4s",data,12)
@@ -31,19 +31,20 @@ def bake(source: Path, output: Path) -> tuple[int, int]:
     all_indices = [item(ia,i)[0] for i in range(acc[ia]["count"])]
     joints = g["skins"][0]["joints"]
     names = [g["nodes"][i].get("name","") for i in joints]
+    if side not in ("both", "r", "l"): raise ValueError("Unknown WRAD hand side")
     def hand_weight(vertex: int) -> float:
         js = item(prim["attributes"]["JOINTS_0"],vertex)
         ws = item(prim["attributes"]["WEIGHTS_0"],vertex)
         return sum(w for j,w in zip(js,ws)
-                   if names[j].startswith("finger_") or names[j].startswith("wrist.")
-                   or names[j].startswith("socket."))
+                   if (side == "both" or names[j].endswith("." + side)) and (names[j].startswith("finger_") or names[j].startswith("wrist.")
+                   or names[j].startswith("socket.")))
     weight = [hand_weight(i) for i in range(acc[prim["attributes"]["POSITION"]]["count"])]
     kept = []
     for t in range(0,len(all_indices),3):
         triangle = all_indices[t:t+3]
         if min(weight[v] for v in triangle) > 0.52:
             kept.extend(triangle)
-    if len(kept) < 2000 or len(kept) >= len(all_indices):
+    if len(kept) < (2000 if side == "both" else 900) or len(kept) >= len(all_indices):
         raise ValueError("WRAD source unexpected grip triangle count: %d" % (len(kept)//3))
     while len(raw)%4: raw.append(0)
     off = len(raw)
@@ -69,5 +70,5 @@ def bake(source: Path, output: Path) -> tuple[int, int]:
 if __name__ == "__main__":
     import sys,hashlib
     src,dst = Path(sys.argv[1]),Path(sys.argv[2])
-    a,b = bake(src,dst)
+    a,b = bake(src,dst,sys.argv[3] if len(sys.argv)>3 else "both")
     print("FPS_WRAD_CC0_GRIP_SUBSET",a,b,hashlib.sha256(dst.read_bytes()).hexdigest())

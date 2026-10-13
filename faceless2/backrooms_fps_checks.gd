@@ -21,6 +21,7 @@ func run() -> void:
 	check(fps.grip_ready and fps.grip_error < .16, "Both authored wrist bones solve at the rifle grip without detached hands")
 	check(not game.player.viewmodel_root.visible, "Original floating Sketchfab hands hidden while holding FPS weapon")
 	check(fps.grip_hands.get_parent() == fps.weapon_pivot, "Rifle and rigged hands share one animated parent")
+	check(fps.grip_hands.get_child_count() == 2, "Two independent authored WRAD skinned hand GLBs grip one weapon, no loose elbows")
 	check(fps.weapon_model != null and fps.weapon_model.find_children("*","MeshInstance3D",true,false).size() >= 2, "Licensed original multi-mesh firearm")
 	check(fps.sentries.is_empty(), "Arena has no scripted Level 2 enemies or Backrooms narrative targets")
 	check(fps.health_by_peer.has(1) and fps.ammo_by_peer.has(1), "Authoritative host initializes HP and ammo")
