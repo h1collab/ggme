@@ -81,7 +81,7 @@ func floor_name(id: int) -> String:
 		133: return "EX"
 		_: return str(id)
 
-func _sign(message: String, at: Vector3, bright: bool = true, scale: float = 0.0017) -> Label3D:
+func _sign(message: String, at: Vector3, bright: bool = true, scale: float = 0.0017, mounted: bool = false) -> Label3D:
 	var sign := Label3D.new()
 	sign.name = "FloorIdentifier_" + message.replace(" ","_")
 	sign.text = message
@@ -90,7 +90,11 @@ func _sign(message: String, at: Vector3, bright: bool = true, scale: float = 0.0
 	sign.font_size = 48
 	sign.outline_size = 6
 	sign.modulate = Color(0.83,0.95,0.89) if bright else Color(0.38,0.43,0.44)
-	sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	# Fixed placards on physical GLB panels should NOT billboard into the
+	# player's eyes when approaching the switches; only distant wayfinding
+	# markers use camera-facing typography.
+	sign.billboard = BaseMaterial3D.BILLBOARD_DISABLED if mounted else BaseMaterial3D.BILLBOARD_ENABLED
+	if mounted: sign.rotation.y = -PI*0.5
 	sign.no_depth_test = false
 	var font_file := Assets.path("vendor/story_font.otf")
 	if ResourceLoader.exists(font_file): sign.font = load(font_file)
@@ -106,7 +110,7 @@ func _button(at: Vector3, target: int, allowed: int, direction: int, kind: Strin
 	if switch != null:
 		# The actual imported GLB depresses into the cabin panel when pressed.
 		switch.set_meta("button_target",target)
-	_sign(floor_name(target),at+Vector3(-.22,.25,0),target == allowed,0.00145)
+	_sign(floor_name(target),at+Vector3(-.19,.18,0),target == allowed,0.00105,true)
 	buttons.append({"node":holder,"model":switch,"target":target,"allowed":allowed,"direction":direction,"kind":kind})
 
 func _build_station(direction: int, destination: int, use_stairs: bool) -> void:
@@ -143,7 +147,7 @@ func _build_elevator(direction: int, destination: int) -> void:
 	# adjacency is energized; wrong buttons are rejected, never teleport.
 	# Real CC0 GLB panel mounting, rather than switches floating in the air.
 	_glb("wall",Vector3(1.40,1.55,centre_z),Vector3(.10,2.14,2.18),metal_plate)
-	_sign("SELECT LEVEL",Vector3(1.07,2.33,centre_z),true,0.0016)
+	_sign("SELECT LEVEL",Vector3(1.07,2.33,centre_z),true,0.00078,true)
 	for idx in range(FLOOR_IDS.size()):
 		var floor_id: int = FLOOR_IDS[idx]
 		var col: int = idx%3

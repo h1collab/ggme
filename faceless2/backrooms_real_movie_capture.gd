@@ -94,11 +94,13 @@ func record() -> void:
 	camera.make_current()
 	var lift_button: Node3D = game.extra_levels.transport.selected_button(2,1)
 	if is_instance_valid(lift_button):
-		var eye: Vector3 = lift_button.global_position + Vector3(0,1.20,.45)
-		var facing: Vector3 = (lift_button.global_position-eye).normalized()
-		game.player.global_position = eye - Vector3(0,1.40,0)
-		var result: String = game.extra_levels.transport.interact(eye,eye,facing)
-		if result != "LIFT": problems.append("Actual lift button refused authorized destination: "+result)
+		# Stage the actual player on the CABIN FLOOR with a natural 1.6m
+		# eye height, not with their face pressed inside a switch model.
+		game.player.global_position = Vector3(0,0.10,-28.9)
+		camera.look_at(lift_button.global_position)
+		var result: String = game.extra_levels.transport.interact(
+			game.player.global_position,camera.global_position,-camera.global_transform.basis.z)
+		if result != "LIFT": problems.append("Actual player view refused authorized GLB floor button: "+result)
 		for i in range(95):
 			if is_instance_valid(game.extra_levels.transport) and game.extra_levels.transport.active:
 				game.extra_levels.transport._process(.052)
