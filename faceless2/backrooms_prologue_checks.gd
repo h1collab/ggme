@@ -73,7 +73,7 @@ func run() -> void:
 	# The old decorative Kenney door left a cut-out showing infinite black
 	# outside the world; real GLB backing and a fully enclosed vestibule
 	# must be present even when the camera approaches from either side.
-	var opaque_backers: Array[Node] = game.wakeup_room.find_children("KenneyCC0_SolidBackedGLB","Node3D",true,false)
+	var opaque_backers: Array[Node] = game.wakeup_room.find_children("KenneyCC0_SolidBackedGLB*","Node3D",true,false)
 	check(opaque_backers.size() >= 20, "Original Kenney CC0 GLB panels close the wall apertures, far door and physical exit vestibule")
 	for panel in opaque_backers:
 		check((panel as Node3D).get_meta("original_kenney_glb","") == "wakeup_floor_panel.glb",
