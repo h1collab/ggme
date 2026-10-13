@@ -92,11 +92,11 @@ func run() -> void:
 		game.extra_levels.clear()
 		check(not game.extra_levels.visible and game.extra_levels.scene_root == null,"Leaving sector removes environment and physics")
 	game.open_backrooms_level(1)
-	var cabin := game.extra_levels.transport
+	var cabin: Node3D = game.extra_levels.transport
 	var target: Node3D = cabin.selected_button(2,1)
 	check(is_instance_valid(target), "Level 1 has unique Level 2 switch")
 	if is_instance_valid(target):
-		var eye := target.global_position + Vector3(0,1.3,.65)
+		var eye: Vector3 = target.global_position + Vector3(0,1.3,.65)
 		check(cabin.interact(eye,eye,(target.global_position-eye).normalized()) == "LIFT","Correct switch starts cabin closing animation")
 		check(cabin.active, "Elevator remains busy and prevents duplicate rides")
 		for tick in range(26): cabin._process(0.20)
