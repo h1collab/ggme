@@ -46,6 +46,8 @@ var jump_button: Button
 var light_button: Button
 var shoot_button: Button
 var reload_button: Button
+var aim_button: Button
+var fps_crosshair: Label
 var fps_status_label: Label
 var transient_hint: Label
 var hint_timer := 0.0
@@ -177,8 +179,8 @@ func _build_hud() -> void:
 	subtitle_backdrop = _card(hud, Rect2(340, 764, 920, 80), Color(0.014, 0.028, 0.027, 0.72))
 	subtitle_label = _label(hud, "", Vector2(358, 777), 882, 20)
 	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var cross := _label(hud, "+", Vector2(780, 425), 42, 21, Color(0.80,0.86,0.82,0.65))
-	cross.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fps_crosshair = _label(hud, "+", Vector2(780, 425), 42, 21, Color(0.80,0.86,0.82,0.77))
+	fps_crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	joystick = Joystick.new()
 	joystick.position = Vector2(16, 689)
 	joystick.size = Vector2(180, 180)
@@ -188,10 +190,15 @@ func _build_hud() -> void:
 	light_button = _button(hud, localized("LIGHT / F", "灯光 / F"), Rect2(1352, 714, 195, 64), func(): game.player.toggle_torch(), true)
 	shoot_button = _button(hud, localized("FIRE", "开火"),Rect2(1205,715,137,68),func(): if is_instance_valid(game.fps): game.fps.fire(),true)
 	reload_button = _button(hud,localized("RELOAD", "装弹"),Rect2(1205,785,137,64),func(): if is_instance_valid(game.fps): game.fps.reload(),true)
-	fps_status_label = _label(hud,"",Vector2(52,790),810,25,ACCENT)
+	aim_button = _button(hud,localized("ADS", "瞄准"),Rect2(1205,640,137,68),func(): pass,true)
+	aim_button.button_down.connect(func(): if is_instance_valid(game.fps): game.fps.set_aim(true))
+	aim_button.button_up.connect(func(): if is_instance_valid(game.fps): game.fps.set_aim(false))
+	fps_status_label = _label(hud,"",Vector2(52,96),810,23,ACCENT)
 	fps_status_label.visible = false
 	shoot_button.visible = false
 	reload_button.visible = false
+	aim_button.visible = false
+	fps_crosshair.visible = false
 	_button(hud, localized("DRINK ALMOND", "杏仁水 / 喝"), Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
 	_button(hud, localized("REPLAY VOICE", "重播语音"), Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
 	var run := _button(hud, "RUN", Rect2(214, 790, 125, 67), func(): pass, true)
@@ -387,9 +394,12 @@ func prologue_finished() -> void:
 	facility_hud_mode = true
 	hud.visible = true
 	var use_touch_controls := OS.has_feature("android") or OS.has_feature("ios")
+	var fps_mode: bool = is_instance_valid(game.fps) and game.fps.active
 	for child in hud.get_children():
-		var is_touch_action := child == joystick or child == jump_button or child == light_button or (child is Button and ((child as Button).text == "RUN" or (child as Button).text.contains("INTERACT")))
-		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and (is_touch_action or (child == shoot_button or child == reload_button) and is_instance_valid(game.fps) and game.fps.active)) or (child == fps_status_label and is_instance_valid(game.fps) and game.fps.active)
+		var is_touch_action := child == joystick or child == jump_button or (child is Button and (child as Button).text == "RUN")
+		if not fps_mode: is_touch_action = is_touch_action or child == light_button or (child is Button and (child as Button).text.contains("INTERACT"))
+		var fps_control := child == shoot_button or child == reload_button or child == aim_button
+		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and (is_touch_action or (fps_mode and fps_control))) or (fps_mode and (child == fps_status_label or child == fps_crosshair))
 	# Keep virtual joystick / RUN / JUMP / LIGHT fully operational on mobile,
 	# but clear the desktop viewport for genuine mouse+keyboard exploration.
 	panels.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -399,10 +409,11 @@ func prologue_finished() -> void:
 	line.visible = false
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
-	_label(panels, localized("MOVE / EXPLORE THE DOORS", "移动 / 探索周围的门"),Vector2(40,820),750,16,MUTED)
+	var movement_instruction := localized("WASD / FIRE LMB / AIM RMB / RELOAD R","移动 / 射击 / 瞄准 / 换弹") if fps_mode else localized("MOVE / EXPLORE THE DOORS","移动 / 探索周围的门")
+	_label(panels,movement_instruction,Vector2(40,820),750,16,MUTED)
 	var replay := _button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
-	var home := _button(panels, localized("MAIN MENU", "主菜单"), Rect2(1380,24,190,64), func(): game.prologue.exit_to_menu())
-	replay.visible = use_touch_controls
+	var home := _button(panels, localized("MAIN MENU", "主菜单"), Rect2(1380,24,190,64), func(): game.net.leave(); game.running = false; menu())
+	replay.visible = use_touch_controls and not fps_mode
 	home.visible = use_touch_controls
 
 func open_briefing() -> void:
@@ -460,25 +471,25 @@ func open_final_choice() -> void:
 	_label(panels, "共同游戏：由第一个成功进入电梯并提交选择的玩家决定房间结局。", Vector2(114, 817), 1400, 19, MUTED)
 
 func open_guide() -> void:
-	_page(localized("HOW TO PLAY", "探索方式"), "guide")
-	_button(panels, localized("EXTRA: LEGACY FOUR-FLOOR TEST", "额外内容：旧四层测试"), Rect2(75, 780, 655, 70), func(): game.start_solo())
+	_page(localized("FPS CONTROLS","FPS 操作说明"),"guide")
 	var entries := [
-		["真实空间", "四个错位楼层，各有不同的证据与现场疑点。调查完成才能解锁电梯。"],
-		["恐惧来自环境", "水会渗进每一层。听脚步和电机，注意偶尔出现在暗处的脸。"],
-		["自由视角", "剧情自动转头默认关闭；即使启用，手动滑动也能立刻打断。"],
-		["调查日志", "按 J 或触摸日志按钮查看证据原文。最后一层可决定送出或封存真相。"],
-		["房间联机", "房间码与公开列表，2–4 人。证据共享，惊吓只控制自己视角。"]]
+		[localized("MOVE / LOOK","移动 / 视角"),localized("WASD + MOUSE / TOUCH JOYSTICK + SWIPE","WASD + 鼠标 / 手机摇杆 + 滑动视角")],
+		[localized("SHOOT / AIM","射击 / 瞄准"),localized("LMB / RMB  •  Android FIRE / ADS","左键 / 右键  •  手机 FIRE / ADS")],
+		[localized("RELOAD","换弹"),localized("R on PC / RELOAD on Android","电脑 R / 手机 RELOAD")],
+		[localized("SPRINT / JUMP","奔跑 / 跳跃"),localized("SHIFT + SPACE / RUN + JUMP","SHIFT + 空格 / RUN + JUMP")],
+		[localized("MATCH / JOIN","匹配 / 加入"),localized("QUICK MATCH / PUBLIC LIST / 8-CHARACTER CODE","快速匹配 / 公开列表 / 八位房间码")]]
 	for i in range(entries.size()):
 		var y := 210 + i * 121
-		_label(panels, entries[i][0], Vector2(77, y), 450, 26, ACCENT)
-		_label(panels, entries[i][1], Vector2(526, y), 945, 24)
+		_label(panels,String(entries[i][0]),Vector2(77,y),450,26,ACCENT)
+		_label(panels,String(entries[i][1]),Vector2(526,y),945,23)
+	_label(panels,localized("Internet rooms need a reachable host UDP port; room codes are not NAT relays.","跨公网仍需房主 UDP 可达；房间号不是 NAT 中继。"),Vector2(77,824),1400,18,MUTED)
 
 func open_about() -> void:
 	_page("ABOUT / FACELESS 2", "about")
 	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 248, 357, 357), true)
 	_label(panels, "Zorix GAme Team", Vector2(580, 244), 840, 45)
 	_label(panels, "Made By Zorix GAme Team", Vector2(584, 335), 850, 27, ACCENT)
-	_label(panels, "FACELESS 2 / THE OTHER SHIFT\nExploration-driven horror with local scripted sightings.\nLicensed real GLB architecture, local animated sightings and P2P co-op.", Vector2(584, 414), 875, 26)
+	_label(panels, "FACELESS 2 / FPS ARENA\nStandalone empty field with licensed original Kenney GLB rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
 	_label(panels, "BUILD 0.18.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
@@ -689,10 +700,13 @@ func refresh() -> void:
 		var mobile_fps: bool = fps_active and (OS.has_feature("android") or OS.has_feature("ios"))
 		if is_instance_valid(shoot_button): shoot_button.visible = mobile_fps
 		if is_instance_valid(reload_button): reload_button.visible = mobile_fps
+		if is_instance_valid(aim_button): aim_button.visible = mobile_fps
+		if is_instance_valid(fps_crosshair): fps_crosshair.visible = fps_active and not game.fps.aiming
 		if is_instance_valid(fps_status_label):
 			fps_status_label.visible = fps_active
 			if fps_active:
-				fps_status_label.text = localized("HP %d  |  AMMO %d/%d  |  TARGETS %d","生命 %d  |  弹药 %d/%d  |  目标 %d") % [game.fps.health,game.fps.magazine,game.fps.reserve,game.fps.remaining_targets()]
+				var my_peer: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
+				fps_status_label.text = localized("HP %d  |  AMMO %d/%d  |  KILLS %d","生命 %d  |  弹药 %d/%d  |  击倒 %d") % [game.fps.health,game.fps.magazine,game.fps.reserve,int(game.fps.scores.get(my_peer,0))]
 		if hint_timer > 0:
 			hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
 			if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
