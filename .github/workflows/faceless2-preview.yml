@@ -20,6 +20,7 @@ on:
       - "faceless2/backrooms_room_checks.gd"
       - "faceless2/generate_sound.py"
       - "faceless2/fetch_fps_assets.py"
+      - "faceless2/bake_fps_grip_hands.py"
       - "faceless2/backrooms_extra_transport.gd"
       - "faceless2/fetch_real_backrooms_assets.py"
       - "faceless2/fetch_flashlight.py"
