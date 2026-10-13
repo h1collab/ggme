@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 16
+const PROTOCOL := 17
 const MAX_CREW := 4
 var game: Node
 var peer: ENetMultiplayerPeer
@@ -87,6 +87,7 @@ func leave() -> void:
 	monitor_flags.clear()
 	action_times.clear()
 	pose_times.clear()
+	if is_instance_valid(game) and is_instance_valid(game.fps): game.fps.leave_level()
 	status = "Offline / solo"
 	if is_instance_valid(game): game.clear_crew()
 	if mapped_gateway != null:
@@ -140,6 +141,7 @@ func _peer_disconnected(id: int) -> void:
 	action_times.erase(id)
 	disconnected_count += 1
 	game.remove_crew(id)
+	if is_instance_valid(game.fps): game.fps.remove_peer(id)
 
 func _connected() -> void:
 	peer.get_peer(1).set_timeout(32, 5000, 15000)
@@ -153,9 +155,11 @@ func _hello(version: int, key: String) -> void:
 		_reject.rpc_id(id, "Version or room key mismatch, or room full.")
 		return
 	members[id] = true
-	poses[id] = {"p":game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0}
+	poses[id] = {"p":game.fps_arena.spawn_for(members.size()) if game.fps_arena.visible else game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0}
+	if game.fps_arena.visible: game.fps.register_peer(id)
 	pose_times[id] = Time.get_ticks_msec()
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
+	if game.fps_arena.visible: _fps_join.rpc_id(id, game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
 	status = "Room / %d of %d" % [members.size(), max_crew]
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -168,7 +172,7 @@ func _welcome(state: Dictionary, spawn: Vector3) -> void:
 	game.player.reset_to(spawn)
 	# Briefing is local UI only; the host controls shared time and never
 	# drives the joining player's camera. The client can dismiss it anytime.
-	game.ui.open_briefing()
+	if not game.fps_arena.visible: game.ui.open_briefing()
 
 @rpc("authority", "call_remote", "reliable", 0)
 func _reject(reason: String) -> void:
@@ -216,7 +220,10 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool) -> void:
 	var now := Time.get_ticks_msec()
 	var elapsed := clampf(float(now - int(pose_times.get(id, now))) / 1000, 0.05, 1.0)
 	var old: Vector3 = poses[id].p
-	if absf(pos.x) > 14.6 or pos.z < -29.6 or pos.z > 11.6 or pos.y < -0.5 or pos.y > 1.0: return
+	if game.fps_arena.visible:
+		if absf(pos.x) > 23.6 or absf(pos.z) > 23.6 or pos.y < -.5 or pos.y > 3.1: return
+	else:
+		if absf(pos.x) > 14.6 or pos.z < -29.6 or pos.z > 11.6 or pos.y < -0.5 or pos.y > 1.0: return
 	if pos.distance_to(old) > elapsed * 5.0 + 0.8: return
 	poses[id] = {"p":pos, "y":yaw}
 	pose_times[id] = now
@@ -249,3 +256,56 @@ func _submit_action(action: String, index: int, monitoring: bool) -> void:
 	# The host still checks the authoritative position before every action.
 	game.apply_action(action, index, poses[id].p, monitoring)
 	_shared_state.rpc(game.snapshot())
+
+# FPS is a separate arena session. ENet room/password/version handshake and
+# real UDP movement stay intact; actions are authenticated and host-authoritative.
+func request_fps_fire(direction: Vector3) -> void:
+	if not game.fps_arena.visible: return
+	if mode == "client":
+		if members.has(1): _fps_fire.rpc_id(1,direction)
+	elif authoritative():
+		game.fps.server_fire(1,direction)
+
+@rpc("any_peer","call_remote","reliable",0)
+func _fps_fire(direction: Vector3) -> void:
+	if mode != "host" or not game.fps_arena.visible: return
+	var id: int = multiplayer.get_remote_sender_id()
+	if not members.has(id): return
+	game.fps.server_fire(id,direction)
+
+func request_fps_reload() -> void:
+	if not game.fps_arena.visible: return
+	if mode == "client":
+		if members.has(1): _fps_reload.rpc_id(1)
+	elif authoritative(): game.fps.server_reload(1)
+
+@rpc("any_peer","call_remote","reliable",0)
+func _fps_reload() -> void:
+	if mode != "host" or not game.fps_arena.visible: return
+	var id: int = multiplayer.get_remote_sender_id()
+	if members.has(id): game.fps.server_reload(id)
+
+func broadcast_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
+	if not authoritative() or not game.fps_arena.visible: return
+	game.fps.receive_fps_state(hp,ammo,points)
+	if mode == "host": _fps_state.rpc(hp,ammo,points)
+
+@rpc("authority","call_remote","reliable",2)
+func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
+	if game.fps_arena.visible: game.fps.receive_fps_state(hp,ammo,points)
+
+@rpc("authority","call_remote","reliable",0)
+func _fps_join(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
+	if mode != "client": return
+	game.start_fps_arena()
+	game.fps.receive_fps_state(hp,ammo,points)
+
+func send_fps_respawn(id: int, pos: Vector3) -> void:
+	if not authoritative() or not game.fps_arena.visible: return
+	if id == 1: game.player.reset_to(pos)
+	elif mode == "host": _fps_respawn.rpc_id(id,pos)
+	poses[id] = {"p":pos,"y":0.0}
+
+@rpc("authority","call_remote","reliable",0)
+func _fps_respawn(pos: Vector3) -> void:
+	if mode == "client" and game.fps_arena.visible: game.player.reset_to(pos)

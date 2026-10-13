@@ -29,6 +29,10 @@ var combat_clock := 0.0
 var weapon_pivot: Node3D
 var weapon_model: Node3D
 var sentries: Array[StaticBody3D] = []
+var health_by_peer: Dictionary = {}
+var ammo_by_peer: Dictionary = {}
+var scores: Dictionary = {}
+var shot_ticks: Dictionary = {}
 var shot_audio: AudioStreamPlayer
 var reload_audio: AudioStreamPlayer
 var impact_audio: AudioStreamPlayer
@@ -39,12 +43,12 @@ func _ready() -> void:
     weapon_pivot = Node3D.new()
     weapon_pivot.name = "CameraMounted_CertifiedKenneyBlasterGLB"
     game.player.camera.add_child(weapon_pivot)
-    weapon_pivot.position = Vector3(.48,-.45,-.78)
-    weapon_pivot.rotation = Vector3(-.055,PI,.05)
+    weapon_pivot.position = Vector3(.27,-.33,-.72)
+    weapon_pivot.rotation = Vector3(-.02,PI/2.0,0)
     if ResourceLoader.exists(Assets.path("vendor/fps_blaster_f.glb")):
-        weapon_model = Assets.fitted("vendor/fps_blaster_f.glb",.28)
+        weapon_model = Assets.fitted("vendor/fps_blaster_f.glb",.34)
         weapon_model.name = "Original_Kenney_BlasterF_CC0_GLB"
-        weapon_model.scale = Vector3(.68,.68,.68)
+        weapon_model.scale = Vector3(.82,.82,.82)
         weapon_pivot.add_child(weapon_model)
         for node in weapon_model.find_children("*","MeshInstance3D",true,false):
             (node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -66,6 +70,30 @@ func _audio(filename: String, volume: float) -> AudioStreamPlayer:
 
 func is_equipped() -> bool:
     return active and equipped
+
+func enter_arena() -> void:
+	leave_level()
+	active = true
+	equipped = true
+	level_id = -2
+	health = 100
+	magazine = MAGAZINE_CAPACITY
+	reserve = 120
+	if is_instance_valid(weapon_pivot): weapon_pivot.visible = true
+	set_process(true)
+	if game.net.authoritative(): register_peer(1)
+
+func register_peer(id: int) -> void:
+	if not game.net.authoritative(): return
+	health_by_peer[id] = 100
+	ammo_by_peer[id] = MAGAZINE_CAPACITY
+	scores[id] = 0
+
+func remove_peer(id: int) -> void:
+	health_by_peer.erase(id)
+	ammo_by_peer.erase(id)
+	scores.erase(id)
+	shot_ticks.erase(id)
 
 func enter_level(number: int) -> void:
     # There is no authoritative replication yet for added-layer combat:
@@ -108,6 +136,10 @@ func leave_level() -> void:
         if is_instance_valid(target): target.queue_free()
     sentries.clear()
     target_remaining = 0
+    health_by_peer.clear()
+    ammo_by_peer.clear()
+    scores.clear()
+    shot_ticks.clear()
 
 func _spawn_sentry(at: Vector3, hitpoints: int, index: int) -> void:
     if not ResourceLoader.exists(Assets.path("vendor/fps_target_large.glb")):
@@ -159,10 +191,10 @@ func advance(delta: float) -> void:
     if is_instance_valid(weapon_pivot):
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
         var walking: float = sin(game.player.motion_clock)
-        var base := Vector3(.48 + walking*.012*motion,
-            -.45 - absf(walking)*.013*motion,
-            -.78 + visual_recoil)
-        if aiming: base = Vector3(.10,-.32,-.73 + visual_recoil)
+        var base := Vector3(.27 + walking*.012*motion,
+            -.33 - absf(walking)*.014*motion,
+            -.72 + visual_recoil)
+        if aiming: base = Vector3(.015,-.27,-.63 + visual_recoil)
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
         weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,-.055+visual_recoil*.37,delta*11.0)
     game.player.camera.fov = lerpf(game.player.camera.fov,59.0 if aiming and equipped else 76.0,minf(1.0,delta*9.0))
@@ -206,6 +238,9 @@ func select_flashlight() -> void:
     if is_instance_valid(game.player.flashlight_rig): game.player.flashlight_rig.visible = true
 
 func reload() -> bool:
+    if active and level_id == -2:
+        game.net.request_fps_reload()
+        return true
     if not active or not equipped or reload_time > 0.0 or magazine >= MAGAZINE_CAPACITY or reserve <= 0: return false
     reload_time = RELOAD_SECONDS
     aiming = false
@@ -216,6 +251,14 @@ func remaining_targets() -> int:
     return target_remaining
 
 func fire() -> String:
+    if active and level_id == -2:
+        if not game.running or game.ui.modal or not equipped: return "LOCKED"
+        if shot_cooldown > 0.0 or magazine <= 0: return "COOLDOWN"
+        shot_cooldown = RATE_SECONDS
+        visual_recoil = .10
+        if shot_audio.stream != null: shot_audio.play()
+        game.net.request_fps_fire(-game.player.camera.global_transform.basis.z)
+        return "REQUESTED"
     if not active or not equipped or not game.running or game.ui.modal: return "LOCKED"
     if reload_time > 0.0: return "RELOADING"
     if shot_cooldown > 0.0: return "COOLDOWN"
@@ -269,3 +312,56 @@ func damage_player(amount: int) -> void:
         game.player.reset_to(Vector3(0,.10,2.2))
         game.ui.show_timed_hint(game.ui.localized(
             "RESPAWNED AT SECURITY ENTRY", "已在警戒区入口重生"),3.0)
+
+# Validated on the host, not by the shooting client.
+func server_fire(shooter: int, direction: Vector3) -> bool:
+	if not active or level_id != -2 or not game.net.authoritative(): return false
+	if not health_by_peer.has(shooter) or int(health_by_peer[shooter]) <= 0: return false
+	if not direction.is_finite() or absf(direction.length()-1.0) > .05: return false
+	if shooter != 1 and not game.net.poses.has(shooter): return false
+	var now: int = Time.get_ticks_msec()
+	if now - int(shot_ticks.get(shooter,-999999)) < 185: return false
+	if int(ammo_by_peer.get(shooter,0)) <= 0: return false
+	shot_ticks[shooter] = now
+	ammo_by_peer[shooter] = int(ammo_by_peer[shooter])-1
+	var origin: Vector3 = game.player.camera.global_position if shooter == 1 else game.net.poses[shooter].p + Vector3(0,1.58,0)
+	var nearest := 1000.0
+	var victim := -1
+	for id in health_by_peer:
+		var candidate: int = int(id)
+		if candidate == shooter or int(health_by_peer[candidate]) <= 0: continue
+		if candidate != 1 and not game.net.poses.has(candidate): continue
+		var pos: Vector3 = game.player.position if candidate == 1 else game.net.poses[candidate].p
+		var offset: Vector3 = pos + Vector3(0,1.0,0)-origin
+		var t: float = offset.dot(direction)
+		if t < .2 or t > 42.0 or t >= nearest: continue
+		if (offset-direction*t).length() > .55: continue
+		var ray := PhysicsRayQueryParameters3D.create(origin,origin+direction*t)
+		ray.collision_mask = 1
+		ray.exclude = [game.player.get_rid()]
+		if not get_world_3d().direct_space_state.intersect_ray(ray).is_empty(): continue
+		nearest = t
+		victim = candidate
+	if victim >= 0:
+		health_by_peer[victim] = maxi(0,int(health_by_peer[victim])-25)
+		if int(health_by_peer[victim]) == 0:
+			scores[shooter] = int(scores.get(shooter,0))+1
+			health_by_peer[victim] = 100
+			game.net.send_fps_respawn(victim,game.fps_arena.spawn_for(victim))
+	game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+	return true
+
+func server_reload(shooter: int) -> bool:
+	if not active or not game.net.authoritative() or not ammo_by_peer.has(shooter): return false
+	if int(ammo_by_peer[shooter]) >= MAGAZINE_CAPACITY: return false
+	ammo_by_peer[shooter] = MAGAZINE_CAPACITY
+	game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+	return true
+
+func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
+	health_by_peer = hp.duplicate()
+	ammo_by_peer = ammo.duplicate()
+	scores = points.duplicate()
+	var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
+	health = int(hp.get(id,100))
+	magazine = int(ammo.get(id,MAGAZINE_CAPACITY))

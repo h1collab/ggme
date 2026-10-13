@@ -10,6 +10,7 @@ const PrologueRoomScript = preload("backrooms_prologue_room.gd")
 const WakeRoomScript = preload("backrooms_wakeup_room.gd")
 const ExtraLevelsScript = preload("backrooms_extra_levels.gd")
 const FpsScript = preload("backrooms_fps.gd")
+const ArenaScript = preload("backrooms_fps_arena.gd")
 const RoomsScript = preload("backrooms_rooms.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
@@ -76,6 +77,7 @@ var prologue_room: Node3D
 var wakeup_room: Node3D
 var extra_levels: Node3D
 var fps: Node3D
+var fps_arena: Node3D
 var last_extra_level := 0
 
 func _ready() -> void:
@@ -130,6 +132,8 @@ func _ready() -> void:
 	fps = FpsScript.new()
 	fps.game = self
 	add_child(fps)
+	fps_arena = ArenaScript.new()
+	add_child(fps_arena)
 	var config := ConfigFile.new()
 	if config.load("user://faceless2.cfg") == OK:
 		quality = int(config.get_value("display", "quality", 1))
@@ -251,7 +255,26 @@ func open_backrooms_level(level_number: int) -> void:
 	ui.facility_hud_mode = true
 	ui.prologue_finished()
 	running = true
-	fps.enter_level(level_number)
+	# Old Backrooms levels remain playable but are not the FPS game.
+
+func start_fps_arena() -> void:
+	if is_instance_valid(fps): fps.leave_level()
+	if is_instance_valid(extra_levels): extra_levels.clear()
+	if is_instance_valid(prologue_room): prologue_room.visible = false
+	if is_instance_valid(prologue): prologue.visible = false
+	if is_instance_valid(wakeup_room):
+		wakeup_room.visible = false
+		wakeup_room.set_physics_active(false)
+	if is_instance_valid(level): level.visible = false
+	set_legacy_collisions(false)
+	fps_arena.activate()
+	running = true
+	player.visible = true
+	player.reset_to(fps_arena.spawn_for(1 if net.mode != "client" else multiplayer.get_unique_id()))
+	player.camera.make_current()
+	player.set_physics_process(true)
+	ui.prologue_finished()
+	fps.enter_arena()
 
 func backrooms_return() -> void:
 	if is_instance_valid(fps): fps.leave_level()
@@ -264,6 +287,7 @@ func backrooms_return() -> void:
 	running = true
 
 func show_title_room() -> void:
+	if is_instance_valid(fps_arena): fps_arena.deactivate()
 	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	# Only the isolated authored-GLB apartment is visible on the title screen.
@@ -344,7 +368,7 @@ func start_shift(index: int) -> void:
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(ui): return
-	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible) and net.authoritative() and not failed and not completed:
+	if running and not fps_arena.visible and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible) and net.authoritative() and not failed and not completed:
 		if not (net.mode == "solo" and ui.modal): _tick(delta)
 	if OS.has_feature("android") and running:
 		# Bound resolution changes and avoid rapid frame-to-frame quality pumping.
@@ -360,7 +384,7 @@ func _process(delta: float) -> void:
 				get_viewport().scaling_3d_scale = minf(target, get_viewport().scaling_3d_scale + 0.025)
 	# The hidden four-floor legacy simulation must not consume CPU while exploring
 	# the new underground facility: especially ripple buffers, objectives, AI and audio.
-	if running and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible):
+	if running and not fps_arena.visible and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible):
 		level.update_state(doors, true, anomaly, repaired, elapsed, player.position, [0, 1, 2][quality])
 		if ambience.stream != null and not ambience.playing: ambience.play()
 		if is_instance_valid(flooded_ambience) and flooded_ambience.stream != null and not flooded_ambience.playing:
@@ -599,7 +623,7 @@ func update_crew(poses: Dictionary) -> void:
 		var step_position: Vector3 = poses[id].p
 		if remote_water_steps.has(id):
 			if step_position.distance_to(remote_water_steps[id]) > 0.95:
-				level.add_water_step(step_position)
+				if not fps_arena.visible: level.add_water_step(step_position)
 				remote_water_steps[id] = step_position
 		else:
 			remote_water_steps[id] = step_position

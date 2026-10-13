@@ -333,7 +333,7 @@ func _physics_process(delta: float) -> void:
 		viewmodel_root.position = viewmodel_root.position.lerp(target, minf(delta*8.0, 1.0))
 		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.018, minf(delta*5.0,1.0))
 		# Do not let the hands reappear during movement or camera pans.
-		viewmodel_root.visible = not flashlight_owned and (not lift_riding or lift_clock < 3.0) and (not is_instance_valid(game.fps) or not game.fps.is_equipped())
+		viewmodel_root.visible = not flashlight_owned and (not lift_riding or lift_clock < 3.0) and (not is_instance_valid(game.fps) or not game.fps.active)
 		if is_instance_valid(walk_animation):
 			walk_animation.speed_scale = 0.0 if flashlight_owned or not moving else (1.35 if sprinting else 0.78)
 	if is_instance_valid(flashlight_rig):
@@ -350,7 +350,7 @@ func _physics_process(delta: float) -> void:
 		# Lighting starts at the same moving camera-space point as the
 		# original handheld Poly Haven GLB, instead of the old centre-light.
 		torch.position = flashlight_rig.position + Vector3(-0.02,0.09,-0.13)
-		flashlight_rig.visible = (not lift_riding or lift_clock < 3.0) and (not is_instance_valid(game.fps) or not game.fps.is_equipped())
+		flashlight_rig.visible = (not lift_riding or lift_clock < 3.0) and (not is_instance_valid(game.fps) or not game.fps.active or not game.fps.is_equipped())
 	if is_instance_valid(leg_root):
 		# Imported skinned GLB boots belong near the collision capsule on the
 		# real floor. Only show them on an intentional deep downward look.

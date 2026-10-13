@@ -332,7 +332,7 @@ func enter(level_number: int) -> Vector3:
 		var steel := Assets.projected_pbr(industrial,.83)
 		for z in [-5.0,-11.0,-17.0,-23.0]:
 			for side in [-1.0,1.0]:
-				var x := side*(w-.52)
+				var x: float = float(side)*(w-.52)
 				var rack := _piece("container_tall",Vector3(x,.03,z),Vector3(.54,1.58,1.15),industrial)
 				if rack != null: fps_chamber_nodes.append(rack)
 				_solid_prop(Vector3(x,0,z),Vector3(.53,1.45,1.08))

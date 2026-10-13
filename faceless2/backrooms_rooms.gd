@@ -9,7 +9,7 @@ signal room_error(message: String)
 const DISCOVERY_PORT := 24717
 const DEFAULT_GAME_PORT := 24711
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-const VERSION := 16
+const VERSION := 17
 var game: Node
 var client: HTTPRequest
 var receiver: PacketPeerUDP

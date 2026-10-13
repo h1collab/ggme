@@ -272,8 +272,8 @@ func menu() -> void:
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
 	_label(panels, localized("THE OTHER SHIFT", "THE OTHER SHIFT  /  错层"), Vector2(73, 323), 640, 27, ACCENT)
 	_label(panels, localized("ONE ROOM. ONE UNANSWERED CALL.\nThe number has no name.", "一个房间，一通没有名字的来电。\n接通之后，事情开始失控。"), Vector2(72, 411), 600, 26, MUTED)
-	_button(panels, localized("PLAY STORY  →", "开始剧情 / THE OTHER SHIFT →"), Rect2(72, 538, 600, 76), func(): game.start_prologue())
-	_button(panels, localized("CO-OP / 2–4", "合作模式 / 2–4 人"), Rect2(72, 631, 600, 74), open_lobby)
+	_button(panels, localized("PLAY FPS / EMPTY ARENA", "开始 FPS / 空白场地"), Rect2(72, 538, 600, 76), func(): game.net.leave(); game.start_fps_arena())
+	_button(panels, localized("FPS MATCH / 2–4 PLAYERS", "FPS 匹配 / 2–4 人"), Rect2(72, 631, 600, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
@@ -629,12 +629,16 @@ func show_timed_hint(message: String, seconds: float = 2.0) -> void:
 		hint_timer = seconds
 
 func _refresh_facility_goal() -> void:
+	if is_instance_valid(game.fps_arena) and game.fps_arena.visible:
+		facility_goal_label.visible = true
+		facility_goal_label.text = localized("FACELESS 2 / EMPTY FPS ARENA","FACELESS 2 / 空白 FPS 场地")
+		return
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
 		facility_goal_label.visible = true
 		var number: int = game.extra_levels.current
 		var display_name := "FUN" if number == 131 else ("!" if number == 132 else ("EX" if number == 133 else str(number)))
-		var title := ("LEVEL 2 / SECURITY BREACH — FPS" if number == 2 else "LEVEL %s / NON-HOSTILE ENTITIES" % display_name)
-		var translated := ("层级 2 / 安全失控——第一人称射击" if number == 2 else "层级 %s / 实体暂不攻击" % display_name)
+		var title := "LEVEL %s / NON-HOSTILE ENTITIES" % display_name
+		var translated := "层级 %s / 实体暂不攻击" % display_name
 		facility_goal_label.text = localized(title, translated)
 		return
 	if not is_instance_valid(game.wakeup_room) or not is_instance_valid(facility_goal_label): return

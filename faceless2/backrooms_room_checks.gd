@@ -35,21 +35,21 @@ func run() -> void:
 	game.ui.intro_timer.stop()
 	game.rooms.configure(directory)
 	game.rooms.game_port = game_port
-	check(game.net.PROTOCOL == 16 and game.rooms.VERSION == 16, "wire protocol 16")
+	check(game.net.PROTOCOL == 17 and game.rooms.VERSION == 17, "wire protocol 17")
 	if role == "host":
 		game.rooms.create_room(true, 2, "Black Corridor")
 		check(await wait_for(func(): return game.rooms.room_code.length() == 8), "HTTP JS registration returns room code")
 		check(game.net.mode == "host" and game.net.max_crew == 2, "host imposes 2-person limit")
 		print("ROOM_READY ", game.rooms.room_code)
 		check(await wait_for(func(): return game.net.members.size() == 2, 12.0), "real ENet peer joined by room code")
-		game.apply_action("pickup", 0, game.level.water_position, false)
-		check(game.water_picked and int(game.inventory["almond_water"]) == 1, "real authoritative shared almond-water pickup")
+		check(game.fps_arena.visible and game.fps.active, "Host created a real dedicated FPS arena")
+		check(game.fps_arena.visible and game.fps.active, "actual host FPS match launched")
 		await create_timer(1.0).timeout
 	elif role == "client":
 		game.rooms.join_code(code)
 		check(await wait_for(func(): return game.net.mode == "client" and game.net.members.has(1), 12.0), "no-IP code resolves JS room into native UDP connection")
 		check(game.net.mode == "client" and game.rooms.room_code == code, "joined exact room")
-		check(await wait_for(func(): return game.water_picked and int(game.inventory["almond_water"]) == 1, 7.0), "authoritative pickup synchronized over ENet")
+		check(await wait_for(func(): return game.fps_arena.visible and game.fps.active, 7.0), "actual FPS arena state synchronized over ENet")
 	else:
 		check(false, "unknown test role")
 	game.net.leave()
