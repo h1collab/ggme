@@ -43,6 +43,13 @@ func record() -> void:
 	game.net.leave()
 	game.prologue.active = false
 	game.prologue.phase = "ended"
+	# Movie capture skips the timed black/wake transition. Without explicitly
+	# hiding its persistent sibling GLBs, the original iPhone and desk-scene
+	# silhouette leaked into the underground facility and appeared to float.
+	game.prologue.hide_opening_props()
+	game.prologue_room.visible = false
+	if game.prologue.phone.visible or game.prologue.witness.visible:
+		problems.append("Cinematic iPhone or figure still drawn in gameplay")
 	game.running = true
 	game.ui.close_panels()
 	game.ui.modal = false

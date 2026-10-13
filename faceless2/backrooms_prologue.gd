@@ -179,6 +179,15 @@ func phone_lowest_world_y() -> float:
 					bottom = minf(bottom,(instance.global_transform * Vector3(x,y,z)).y)
 	return bottom
 
+# The prologue Node3D persists after the independent first-person camera
+# takes over. All authored opening GLB actors MUST stop rendering at this
+# state transition; hiding prologue_room alone cannot hide these children.
+# Desktop captures can also stage gameplay without advancing the cinematic.
+func hide_opening_props() -> void:
+	if is_instance_valid(phone): phone.visible = false
+	if is_instance_valid(witness): witness.visible = false
+	if is_instance_valid(screen_surface): screen_surface.visible = false
+
 func _apply_sound(sound: Node, filename: String) -> void:
 	var path := "res://audio/" + filename
 	if not ResourceLoader.exists(path):
@@ -369,6 +378,7 @@ func finish() -> void:
 	phase = "ended"
 	active = false
 	set_process(false)
+	hide_opening_props()
 	game.wakeup_room.smiler_stage(0.0,"hidden")
 	game.player.reset_to(Vector3(0.0,0.10,3.1))
 	game.player.visible = true
