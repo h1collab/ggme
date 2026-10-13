@@ -166,6 +166,7 @@ func _ready() -> void:
 	_opaque_glb(Vector3(5.30,1.54,-2.14),Vector3(3.02,3.12,.15),vestibule_mat)
 	_opaque_glb(Vector3(6.81,1.54,-.88),Vector3(.18,3.12,2.60),vestibule_mat,true)
 	_module("floor_panel",Vector3(5.30,3.04,-.88),industrial,Vector3(3.08,.17,2.58))
+	_barrier(Vector3(5.30,3.06,-.88),Vector3(3.08,.22,2.58))
 	_barrier(Vector3(5.45,-0.17,-0.9),Vector3(4.15,0.30,2.2))
 	_barrier(Vector3(5.30,1.45,.38),Vector3(3.05,2.95,.19))
 	_barrier(Vector3(5.30,1.45,-2.14),Vector3(3.05,2.95,.19))

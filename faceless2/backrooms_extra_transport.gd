@@ -184,9 +184,11 @@ func _build_elevator(direction: int, destination: int) -> void:
 	# A small warm ceiling marker, no dynamic shadow cascade on Android.
 	var light := SpotLight3D.new()
 	light.position = Vector3(0,2.7,centre_z)
-	light.light_energy = .70
+	# A readable PBR cabin must not become an unlit black shaft, even in
+	# Level 6. Restrict the pooled, non-shadowed ceiling light to the lift.
+	light.light_energy = 1.08
 	light.light_color = Color(.78,.90,.84)
-	light.spot_range = 4.0
+	light.spot_range = 4.35
 	light.spot_angle = 63
 	light.shadow_enabled = false
 	add_child(light)

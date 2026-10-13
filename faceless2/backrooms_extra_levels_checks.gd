@@ -21,6 +21,8 @@ func run() -> void:
 		check(game.extra_levels.visible and game.extra_levels.current == number,"New level loads in authored GLB zone")
 		check(game.extra_levels.scene_root != null,"Actual separate 3D level root exists")
 		check(game.extra_levels.colliders.get_child_count() >= 5,"Walls and floor have physics collision")
+		check(game.extra_levels.scene_root.find_children("LicensedKenney_wall_door","Node3D",true,false).is_empty(),
+			"New elevator/stairs portal has no obsolete intersecting decorative wall_door GLB")
 		var sealing_panels: Array[Node] = game.extra_levels.scene_root.find_children("KenneyCC0_WallHoleInfillGLB","Node3D",true,false)
 		check(sealing_panels.size() >= 16, "GLB corridor wall cutouts and end caps are physically backed by licensed opaque original modules")
 		for panel in sealing_panels:

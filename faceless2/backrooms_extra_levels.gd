@@ -378,15 +378,23 @@ func enter(level_number: int) -> Vector3:
 		# industrial Poly Haven scan, not visible primitive corridor meshes.
 		_scan("bar_chair_round_01",Vector3(w-1.02,.03,-3.5),.86)
 		_piece("pipe",Vector3(-w+.4,2.40,-4.0),Vector3(.35,.35,4.7),industrial)
+		var bulkhead_mat := Assets.projected_pbr(industrial,.77)
 		for chamber_z in [-7.0,-17.0,-26.5]:
-			_piece("door_single_closed",Vector3(w-.13,1.38,chamber_z),Vector3(.20,2.70,1.30),industrial)
+			# Level ! had three more giant cut-out Kenney door graphics
+			# pressed flat into a solid wall. Use the original opaque
+			# CC0 floor-panel GLB vertices turned upright as true bulkheads.
+			_infill_glb(Vector3(w-.13,1.38,chamber_z),
+				Vector3(.20,2.70,1.30),bulkhead_mat,true)
 			_piece("wall_pillar",Vector3(-w+.32,1.55,chamber_z-.8),Vector3(.42,3.10,.38),industrial)
 		_light(Vector3(.5,2.4,-5.4),Color(1,.13,.11),1.38,6.0)
 	elif level_number == 133:
 		_piece("wall_window",Vector3(-w+.10,1.7,-5.8),Vector3(.25,2.5,2.3),hospital)
 		_scan("industrial_wall_lamp",Vector3(w-.2,2.5,-3.5),.45)
 		_scan("modular_airduct_circular_01",Vector3(-w+.45,2.8,-7.0),1.2)
-	_piece("wall_door",Vector3(0,1.45,-29.7),Vector3(2.1,2.7,.2),layout_mat)
+	# DO NOT add a decorative full-width wall_door GLB here: it used to
+	# intersect the actual elevator back wall and the stairs exit, resulting
+	# in a solid, noninteractive black-hole / stuck-player portal. The
+	# physically collidable authored transport builds its OWN GLB doors.
 	exits = [Vector3(0,0.1,2.0),Vector3(0,0.1,-28.2)]
 	# Each sector owns real Kenney GLB cabins, nine distinct destination
 	# switches and/or real GLB walkable stairs. The old exit teleporter is gone.
