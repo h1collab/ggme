@@ -21,7 +21,7 @@ func run() -> void:
 		check(game.extra_levels.visible and game.extra_levels.current == number,"New level loads in authored GLB zone")
 		check(game.extra_levels.scene_root != null,"Actual separate 3D level root exists")
 		check(game.extra_levels.colliders.get_child_count() >= 5,"Walls and floor have physics collision")
-		var sealing_panels := game.extra_levels.scene_root.find_children("KenneyCC0_WallHoleInfillGLB","Node3D",true,false)
+		var sealing_panels: Array[Node] = game.extra_levels.scene_root.find_children("KenneyCC0_WallHoleInfillGLB","Node3D",true,false)
 		check(sealing_panels.size() >= 16, "GLB corridor wall cutouts and end caps are physically backed by licensed opaque original modules")
 		for panel in sealing_panels:
 			check((panel as Node3D).get_meta("original_kenney_glb","") == "wakeup_floor_panel.glb",
@@ -47,10 +47,10 @@ func run() -> void:
 			licensed_steel.roughness_texture != null and licensed_tile.albedo_texture != null and
 			licensed_tile.normal_texture != null and licensed_tile.roughness_texture != null,
 			"Cabin walls, steel doors and anti-slip floor all have actual verified PBR diffuse/normal/roughness maps")
-		var steel_panels := transport.find_children("KenneyCC0_SolidElevatorOrStairGLB","Node3D",true,false)
+		var steel_panels: Array[Node] = transport.find_children("KenneyCC0_SolidElevatorOrStairGLB","Node3D",true,false)
 		for panel in steel_panels:
-			var surfaces := panel.find_children("*","MeshInstance3D",true,false)
-			check(not surfaces.is_empty() and surfaces[0].material_override is StandardMaterial3D,
+			var surfaces: Array[Node] = (panel as Node3D).find_children("*","MeshInstance3D",true,false)
+			check(not surfaces.is_empty() and (surfaces[0] as MeshInstance3D).material_override is StandardMaterial3D,
 				"Each shaft sealing panel renders source GLB triangles with real PBR material")
 		check(transport.station_kind(1) == ("stairs" if number in [2,6,132] else "elevator"), "Next connection uses the sector's authored stair/elevator route")
 		if number != 0: check(transport.station_kind(-1) == ("stairs" if game.extra_levels.previous_level() in [2,6,132] else "elevator"), "Backward route matches incoming transport")
