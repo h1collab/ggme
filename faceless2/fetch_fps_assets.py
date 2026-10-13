@@ -71,6 +71,12 @@ def fetch_wrad_arms(folder: Path) -> None:
         verify_wrad_arms(raw)
         dest.write_bytes(raw)
     print("FPS_WRAD_CC0_SKINNED_ARMS_PASS",ARMS_SHA256)
+    from bake_fps_grip_hands import bake
+    subset = folder / "fps_wrad_grip_hands.glb"
+    triangles, original = bake(dest,subset)
+    if not (650 <= triangles <= 950 and original > triangles):
+        raise ValueError("CC0 hand/wrist GLB subset count invalid")
+    print("FPS_WRAD_CC0_SKINNED_GRIP_PASS",triangles,original)
 
 def main(folder: Path) -> None:
     folder.mkdir(parents=True, exist_ok=True)

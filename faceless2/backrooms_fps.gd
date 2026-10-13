@@ -66,9 +66,9 @@ func _ready() -> void:
     # texture, fingers and wrist joints remain from the original GLB.
     # The gun AND both hands share one pivot: ADS, recoil and gait never
     # make a hand slide away from the rifle.
-    var source_hands := Assets.path("vendor/fps_wrad_arms.glb")
+    var source_hands := Assets.path("vendor/fps_wrad_grip_hands.glb")
     if ResourceLoader.exists(source_hands):
-        grip_hands = Assets.fitted("vendor/fps_wrad_arms.glb",.50)
+        grip_hands = Assets.fitted("vendor/fps_wrad_grip_hands.glb",.50)
         grip_hands.name = "WRAD_CC0_SkinnedFPSGripArms_GLBBoundToGun"
         grip_hands.position = Vector3(-.015,-.22,.18)
         weapon_pivot.add_child(grip_hands)
