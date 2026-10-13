@@ -28,6 +28,13 @@ var hit_feedback_time := 0.0
 var combat_clock := 0.0
 var weapon_pivot: Node3D
 var weapon_model: Node3D
+var grip_hands: Node3D
+var grip_skeleton: Skeleton3D
+var grip_ready := false
+var grip_error := 999.0
+var wall_retract := 0.0
+var wall_probe_seconds := 0.0
+var reload_visual_seconds := 0.0
 var sentries: Array[StaticBody3D] = []
 var health_by_peer: Dictionary = {}
 var ammo_by_peer: Dictionary = {}
@@ -43,8 +50,8 @@ func _ready() -> void:
     weapon_pivot = Node3D.new()
     weapon_pivot.name = "CameraMounted_CertifiedKenneyBlasterGLB"
     game.player.camera.add_child(weapon_pivot)
-    weapon_pivot.position = Vector3(.27,-.33,-.72)
-    weapon_pivot.rotation = Vector3(-.07,PI-.065,.12)
+    weapon_pivot.position = Vector3(.30,-.34,-.72)
+    weapon_pivot.rotation = Vector3(-.055,PI-.065,.065)
     if ResourceLoader.exists(Assets.path("vendor/fps_blaster_f.glb")):
         weapon_model = Assets.fitted("vendor/fps_blaster_f.glb",.34)
         weapon_model.name = "Original_Kenney_BlasterF_CC0_GLB"
@@ -54,10 +61,96 @@ func _ready() -> void:
             (node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     else:
         push_error("Source-verified Kenney Blaster GLB not packaged")
+    # New, genuinely rigged WRAD ARMS CC0 authored GLB replaces the
+    # separated Sketchfab hands ONLY in FPS mode. The mesh, source skin,
+    # texture, fingers and wrist joints remain from the original GLB.
+    # The gun AND both hands share one pivot: ADS, recoil and gait never
+    # make a hand slide away from the rifle.
+    var source_hands := Assets.path("vendor/fps_wrad_arms.glb")
+    if ResourceLoader.exists(source_hands):
+        grip_hands = Assets.fitted("vendor/fps_wrad_arms.glb",.50)
+        grip_hands.name = "WRAD_CC0_SkinnedFPSGripArms_GLBBoundToGun"
+        grip_hands.position = Vector3(-.015,-.22,.18)
+        weapon_pivot.add_child(grip_hands)
+        var candidates: Array[Node] = grip_hands.find_children("*","Skeleton3D",true,false)
+        if not candidates.is_empty():
+            grip_skeleton = candidates[0] as Skeleton3D
+            # Pin individual authored WRAD wrist bones at the weapon's
+            # receiver and fore-end, NOT at the screen edges.
+            _configure_grip_pose()
+        else:
+            push_error("Original WRAD CC0 arm GLB is missing its authored Skeleton3D")
+        for part in grip_hands.find_children("*","MeshInstance3D",true,false):
+            (part as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    else:
+        push_error("Verified original WRAD CC0 skinned arm GLB not packaged")
     weapon_pivot.visible = false
     shot_audio = _audio("fps_shot.wav",-12)
     reload_audio = _audio("fps_reload.wav",-15)
     impact_audio = _audio("fps_impact.wav",-12)
+
+# Solve only once when imported. The actual Skeleton3D skin weights keep
+# original authored WRAD geometry attached to elbows, wrists and fingers.
+# This CCD pose is authored around the REAL blaster GLB's receiver/fore-end,
+# rather than rendering two static, disconnected pointing hands.
+func _configure_grip_pose() -> void:
+    if not is_instance_valid(grip_skeleton): return
+    var original_sides := ["r","l"]
+    for side in original_sides:
+        for finger in ["pinky","ring","middle","index","thumb"]:
+            for segment in [1,2,3]:
+                var bone_name := "finger_%s%d.%s" % [finger,segment,side]
+                var index: int = grip_skeleton.find_bone(bone_name)
+                if index < 0: continue
+                # Separate subtle trigger finger from closed supporting grip.
+                var angle := .70 if segment == 1 else (.63 if segment == 2 else .30)
+                if finger == "index" and side == "r": angle *= .55
+                if finger == "thumb": angle *= .63
+                var axis := Vector3.FORWARD if finger != "thumb" else Vector3.RIGHT
+                var direction := 1.0 if side == "r" else -1.0
+                grip_skeleton.set_bone_pose_rotation(index,
+                    Quaternion(axis,angle*direction) * grip_skeleton.get_bone_pose_rotation(index))
+    # Both wrists align to points on the same physical weapon, scaled in
+    # camera space, and do not animate independently of the gun thereafter.
+    _solve_grip("wrist.r",["forearm.r","bicep.r","shoulder.r"],Vector3(.14,-.09,.16))
+    _solve_grip("wrist.l",["forearm.l","bicep.l","shoulder.l"],Vector3(-.15,-.07,-.20))
+    var wrist_r: int = grip_skeleton.find_bone("wrist.r")
+    var wrist_l: int = grip_skeleton.find_bone("wrist.l")
+    grip_ready = wrist_r >= 0 and wrist_l >= 0
+    if grip_ready:
+        var target_r := grip_skeleton.to_local(weapon_pivot.to_global(Vector3(.14,-.09,.16)))
+        var target_l := grip_skeleton.to_local(weapon_pivot.to_global(Vector3(-.15,-.07,-.20)))
+        var r_error := (grip_skeleton.get_bone_global_pose(wrist_r).origin-target_r).length()
+        var l_error := (grip_skeleton.get_bone_global_pose(wrist_l).origin-target_l).length()
+        var imported_scale := grip_skeleton.global_transform.basis.get_scale().length()/sqrt(3.0)
+        grip_error = maxf(r_error,l_error) * imported_scale
+        print("FPS_ORIGINAL_CC0_SKINNED_GRIP error_metres=",snappedf(grip_error,.001))
+    else:
+        push_error("WRAD original GLB wrist joints not available")
+
+func _solve_grip(wrist_name: String, joints: Array[String], target_in_pivot: Vector3) -> void:
+    var wrist: int = grip_skeleton.find_bone(wrist_name)
+    if wrist < 0: return
+    var target := grip_skeleton.to_local(weapon_pivot.to_global(target_in_pivot))
+    for iteration in range(16):
+        for bone_name in joints:
+            var bone: int = grip_skeleton.find_bone(bone_name)
+            if bone < 0: continue
+            var pivot: Vector3 = grip_skeleton.get_bone_global_pose(bone).origin
+            var tip: Vector3 = grip_skeleton.get_bone_global_pose(wrist).origin
+            var from_tip: Vector3 = tip-pivot
+            var to_goal: Vector3 = target-pivot
+            if from_tip.length_squared() < .00001 or to_goal.length_squared() < .00001: continue
+            var q := Quaternion(from_tip.normalized(),to_goal.normalized())
+            var parent: int = grip_skeleton.get_bone_parent(bone)
+            var parent_q := Quaternion.IDENTITY
+            if parent >= 0:
+                parent_q = grip_skeleton.get_bone_global_pose(parent).basis.get_rotation_quaternion()
+            var adjustment := parent_q.inverse()*q*parent_q
+            grip_skeleton.set_bone_pose_rotation(bone,
+                (adjustment*grip_skeleton.get_bone_pose_rotation(bone)).normalized())
+            grip_skeleton.force_update_all_bone_transforms()
+        if (grip_skeleton.get_bone_global_pose(wrist).origin-target).length() < .12: break
 
 func _audio(filename: String, volume: float) -> AudioStreamPlayer:
     var sound := AudioStreamPlayer.new()
@@ -80,6 +173,11 @@ func enter_arena() -> void:
     magazine = MAGAZINE_CAPACITY
     reserve = 120
     if is_instance_valid(weapon_pivot): weapon_pivot.visible = true
+    # This also fixes visual QA scripts which intentionally disable
+    # player physics: the old distant Sketchfab hands may NOT reappear.
+    if is_instance_valid(game.player.viewmodel_root): game.player.viewmodel_root.visible = false
+    if is_instance_valid(game.player.flashlight_rig): game.player.flashlight_rig.visible = false
+    if is_instance_valid(game.player.torch): game.player.torch.visible = false
     set_process(true)
     if game.net.authoritative(): register_peer(1)
 
@@ -130,6 +228,8 @@ func leave_level() -> void:
     level_id = -1
     set_process(false)
     if is_instance_valid(weapon_pivot): weapon_pivot.visible = false
+    if is_instance_valid(game) and is_instance_valid(game.player) and is_instance_valid(game.player.viewmodel_root):
+        game.player.viewmodel_root.visible = not game.player.flashlight_owned
     if is_instance_valid(game) and is_instance_valid(game.player) and is_instance_valid(game.player.camera):
         game.player.camera.fov = 76.0
     for target in sentries:
@@ -188,15 +288,34 @@ func advance(delta: float) -> void:
             reserve -= transfer
             reload_time = 0.0
     visual_recoil = move_toward(visual_recoil,0.0,delta*4.2)
+    reload_visual_seconds = maxf(0.0,reload_visual_seconds-delta)
+    # A conservative camera-to-wall ray keeps the entire rig (not just
+    # the rifle) inside the capsule envelope at close surfaces.
+    wall_probe_seconds -= delta
+    if wall_probe_seconds <= 0.0:
+        wall_probe_seconds = .10
+        var eye: Vector3 = game.player.camera.global_position
+        var fwd: Vector3 = -game.player.camera.global_transform.basis.z
+        var probe := PhysicsRayQueryParameters3D.create(eye,eye+fwd*1.12)
+        probe.collision_mask = 1
+        probe.exclude = [game.player.get_rid()]
+        var hit_wall: Dictionary = get_world_3d().direct_space_state.intersect_ray(probe)
+        wall_retract = 0.0 if hit_wall.is_empty() else clampf((1.12-eye.distance_to(hit_wall.position))/1.12,0.0,1.0)
     if is_instance_valid(weapon_pivot):
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
         var walking: float = sin(game.player.motion_clock)
-        var base := Vector3(.27 + walking*.012*motion,
-            -.33 - absf(walking)*.014*motion,
+        var base := Vector3(.30 + walking*.014*motion,
+            -.34 - absf(walking)*.012*motion,
             -.72 + visual_recoil)
-        if aiming: base = Vector3(.015,-.27,-.63 + visual_recoil)
+        if aiming: base = Vector3(.02,-.27,-.63 + visual_recoil)
+        var reload_phase := sin((1.0-clampf(reload_visual_seconds/.85,0.0,1.0))*PI)
+        base.y -= reload_phase*.14 + wall_retract*.16
+        base.z += wall_retract*.40
+        base.x -= wall_retract*.035
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
-        weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,-.055+visual_recoil*.37,delta*11.0)
+        var pitch := -.055+visual_recoil*.37+reload_phase*.40+wall_retract*.56
+        weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,delta*11.0)
+        weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,.065+wall_retract*.13,delta*9.0)
     game.player.camera.fov = lerpf(game.player.camera.fov,59.0 if aiming and equipped else 76.0,minf(1.0,delta*9.0))
     if level_id != 2 or target_remaining <= 0 or game.ui.modal: return
     enemy_timer -= delta
@@ -239,6 +358,7 @@ func select_flashlight() -> void:
 
 func reload() -> bool:
     if active and level_id == -2:
+        reload_visual_seconds = .85
         game.net.request_fps_reload()
         return true
     if not active or not equipped or reload_time > 0.0 or magazine >= MAGAZINE_CAPACITY or reserve <= 0: return false

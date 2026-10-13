@@ -17,6 +17,10 @@ func run() -> void:
 	var fps: Node3D = game.fps
 	check(game.fps_arena.visible and game.fps_arena.floor_modules.size() == 16, "One open arena of sixteen real imported CC0 GLB tiles")
 	check(fps.active and fps.level_id == -2, "FPS has no level ID or elevator")
+	check(is_instance_valid(fps.grip_hands) and is_instance_valid(fps.grip_skeleton), "Original WRAD CC0 skinned GLB hands imported")
+	check(fps.grip_ready and fps.grip_error < .16, "Both authored wrist bones solve at the rifle grip without detached hands")
+	check(not game.player.viewmodel_root.visible, "Original floating Sketchfab hands hidden while holding FPS weapon")
+	check(fps.grip_hands.get_parent() == fps.weapon_pivot, "Rifle and rigged hands share one animated parent")
 	check(fps.weapon_model != null and fps.weapon_model.find_children("*","MeshInstance3D",true,false).size() >= 2, "Licensed original multi-mesh firearm")
 	check(fps.sentries.is_empty(), "Arena has no scripted Level 2 enemies or Backrooms narrative targets")
 	check(fps.health_by_peer.has(1) and fps.ammo_by_peer.has(1), "Authoritative host initializes HP and ammo")

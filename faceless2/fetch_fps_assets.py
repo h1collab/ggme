@@ -37,6 +37,41 @@ def verify(data: bytes, name: str) -> None:
     if hashlib.sha256(data).hexdigest() != sha256:
         raise ValueError("Kenney original GLB SHA-256 changed: " + name)
 
+# WRAD ARMS by wriks, original fully skinned/rigged FPS GLB, CC0 1.0.
+# https://github.com/wwwriks/wrad-arms/blob/f3987244176c33d2c20d4f9e139980af12684d87/arms.glb
+# License: https://github.com/wwwriks/wrad-arms/blob/f3987244176c33d2c20d4f9e139980af12684d87/LICENSE
+# Commercial redistribution and authored skeleton reposing are permitted.
+ARMS_REV = "f3987244176c33d2c20d4f9e139980af12684d87"
+ARMS_URL = "https://raw.githubusercontent.com/wwwriks/wrad-arms/" + ARMS_REV + "/arms.glb"
+ARMS_LENGTH = 456328
+ARMS_GIT_BLOB = "be023c46705bf8571e9ab97dbd3e71d2f18f8473"
+ARMS_SHA256 = "580efbb0852bf0b41f82dd3e17eafec86b3d2a48f4a7acaa7e64d60e850f565d"
+
+def verify_wrad_arms(data: bytes) -> None:
+    if len(data) != ARMS_LENGTH or data[:4] != b"glTF" or int.from_bytes(data[8:12], "little") != len(data):
+        raise ValueError("WRAD original arm GLB size/format differs from the licensed source")
+    obj = b"blob " + str(len(data)).encode() + b"\0" + data
+    if hashlib.sha1(obj).hexdigest() != ARMS_GIT_BLOB or hashlib.sha256(data).hexdigest() != ARMS_SHA256:
+        raise ValueError("WRAD original author GLB does not match fixed Git and SHA-256 hashes")
+    # GLB source is a real authored skinned model; not a stand-in cube.
+    import json
+    json_len = int.from_bytes(data[12:16], "little")
+    src = json.loads(data[20:20+json_len])
+    if not src.get("skins") or not any(n.get("name") == "arms_mesh" for n in src.get("nodes", [])):
+        raise ValueError("WRAD original source no longer contains authored skeleton/skin")
+
+def fetch_wrad_arms(folder: Path) -> None:
+    dest = folder / "fps_wrad_arms.glb"
+    if dest.exists():
+        verify_wrad_arms(dest.read_bytes())
+    else:
+        request = urllib.request.Request(ARMS_URL,headers={"User-Agent":"Faceless2-CC0-WRAD-Arms"})
+        with urllib.request.urlopen(request,timeout=75) as handle:
+            raw = handle.read(600000)
+        verify_wrad_arms(raw)
+        dest.write_bytes(raw)
+    print("FPS_WRAD_CC0_SKINNED_ARMS_PASS",ARMS_SHA256)
+
 def main(folder: Path) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     for output, (model, _, _, sha256) in MODELS.items():
@@ -55,6 +90,7 @@ def main(folder: Path) -> None:
         verify(raw, output)
         dest.write_bytes(raw)
         print("FPS_ORIGINAL_GLB_PASS", output, sha256)
+    fetch_wrad_arms(folder)
 
 if __name__ == "__main__":
     main(Path(sys.argv[1] if len(sys.argv) > 1 else "app/assets/vendor"))
