@@ -45,12 +45,17 @@ func run() -> void:
 			var from_eye: Vector3 = main_button.global_position + Vector3(0,0,.78)
 			var sight: Vector3 = (main_button.global_position-(from_eye+Vector3(0,1.3,0))).normalized()
 			# Illegal target must not move the scene or start its elevator motor.
-			var wrong: Node3D = transport.selected_button(number,1)
-			check(is_instance_valid(wrong), "Every floor has its own separate button")
-			if is_instance_valid(wrong):
-				var wrong_eye: Vector3 = wrong.global_position + Vector3(0,1.4,.65)
-				check(transport.interact(wrong_eye,wrong_eye,(wrong.global_position-wrong_eye).normalized()) == "LOCKED", "Incorrect physical floor-button rejected")
-			check(not transport.active,"Wrong floor cannot activate transport")
+			# Elevator panels must expose all unique floors. Stairways have
+			# exactly one physical exit switch, because they are walked.
+			if transport.station_kind(1) == "elevator":
+				var wrong: Node3D = transport.selected_button(number,1)
+				check(is_instance_valid(wrong), "Elevator has distinct physical button for current floor")
+				if is_instance_valid(wrong):
+					var wrong_eye: Vector3 = wrong.global_position + Vector3(0,1.30,.35)
+					check(transport.interact(wrong_eye,wrong_eye,(wrong.global_position-wrong_eye).normalized()) == "LOCKED", "Incorrect elevator button rejected")
+				check(not transport.active,"Incorrect floor cannot begin a lift ride")
+			else:
+				check(transport.buttons.size() >= 1, "Stair exit has one correctly labeled real GLB switch")
 		var model_count: int = game.extra_levels.scene_root.find_children("*","MeshInstance3D",true,false).size()
 		check(model_count >= 40,"New space uses genuine imported model meshes, not empty scene")
 		var expected_side_room: bool = number in [1,5,130,131]

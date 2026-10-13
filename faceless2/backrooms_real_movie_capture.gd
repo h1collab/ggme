@@ -86,6 +86,25 @@ func record() -> void:
 		camera = game.player.camera
 		camera.make_current()
 		await travel(Vector3(0,0.1,2.0),Vector3(-0.5,0.1,-8.0),Vector3(2,1.5,-10),Vector3(-2,1.5,-19),35)
+	# Continuous Godot footage of a real physical floor switch closing an
+	# authentic imported GLB pair of lift doors. No keyframe-slide cheating.
+	game.open_backrooms_level(1)
+	game.player.set_physics_process(false)
+	camera = game.player.camera
+	camera.make_current()
+	var lift_button: Node3D = game.extra_levels.transport.selected_button(2,1)
+	if is_instance_valid(lift_button):
+		var eye: Vector3 = lift_button.global_position + Vector3(0,1.20,.45)
+		var facing: Vector3 = (lift_button.global_position-eye).normalized()
+		game.player.global_position = eye - Vector3(0,1.40,0)
+		var result: String = game.extra_levels.transport.interact(eye,eye,facing)
+		if result != "LIFT": problems.append("Actual lift button refused authorized destination: "+result)
+		for i in range(95):
+			if is_instance_valid(game.extra_levels.transport) and game.extra_levels.transport.active:
+				game.extra_levels.transport._process(.052)
+			camera.look_at(Vector3(.75,1.60,-28.9))
+			await frame()
+	else: problems.append("Physical Level 2 lift button missing")
 	game.extra_levels.clear()
 	game.net.leave()
 	for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:

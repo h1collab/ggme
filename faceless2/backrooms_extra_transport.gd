@@ -141,7 +141,9 @@ func _build_elevator(direction: int, destination: int) -> void:
 	station["closed_collision"] = barrier
 	# Distinct physical authored switches for every floor. Only the next
 	# adjacency is energized; wrong buttons are rejected, never teleport.
-	_sign("SELECT LEVEL",Vector3(-.10,2.18,centre_z),true,0.0018)
+	# Real CC0 GLB panel mounting, rather than switches floating in the air.
+	_glb("wall",Vector3(1.40,1.55,centre_z),Vector3(.10,2.14,2.18),metal_plate)
+	_sign("SELECT LEVEL",Vector3(1.07,2.33,centre_z),true,0.0016)
 	for idx in range(FLOOR_IDS.size()):
 		var floor_id: int = FLOOR_IDS[idx]
 		var col: int = idx%3
@@ -215,6 +217,18 @@ func _build_stairs(direction: int, destination: int) -> void:
 	var button_where := Vector3(.93,1.39,landing_z+advance*.10)
 	_button(button_where,destination,destination,direction,"stairs")
 	station["door_audio"] = _sound("elevator_door.wav",landing_z)
+	# Low-cost stairwell lamp makes individual imported steps readable without
+	# illuminating the entire oppressive corridor or rendering GPU shadows.
+	var stair_lamp := SpotLight3D.new()
+	stair_lamp.name = "StairTreadSafetyPool"
+	stair_lamp.position = Vector3(0,2.75,landing_z-advance*3.1)
+	stair_lamp.light_energy = 1.28
+	stair_lamp.light_color = Color(.75,.80,.73)
+	stair_lamp.spot_range = 6.2
+	stair_lamp.spot_angle = 52
+	stair_lamp.shadow_enabled = false
+	add_child(stair_lamp)
+	stair_lamp.look_at(Vector3(0,.5,landing_z-advance*3.1))
 	stations.append(station)
 
 func selected_button(destination: int, direction: int) -> Node3D:
@@ -231,7 +245,7 @@ func station_kind(direction: int) -> String:
 func interact(player_at: Vector3, eye: Vector3, sight: Vector3) -> String:
 	if active: return "BUSY"
 	var candidate: Dictionary = {}
-	var best_alignment := .87
+	var best_alignment := .93
 	for button in buttons:
 		var node := button["node"] as Node3D
 		if not is_instance_valid(node): continue
