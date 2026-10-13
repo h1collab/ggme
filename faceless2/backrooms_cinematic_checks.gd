@@ -40,6 +40,8 @@ func run() -> void:
 	game.player.take_flashlight()
 	check(game.player.flashlight_owned and game.player.flashlight_model.visible, "Flashlight pickup reveals genuine Poly Haven GLB")
 	check(not game.player.viewmodel_root.visible, "No hands are rendered when holding the flashlight")
+	check(game.player.flashlight_rig.position.x > 0.52 and game.player.flashlight_rig.position.y < -0.50, "Real GLB torch is carried at the screen edge, not floating in the screen centre")
+	check(game.player.torch.position.distance_to(game.player.flashlight_rig.position) < 0.22, "Moving flashlight light source aligns with the handheld GLB")
 	game.player.reset_flashlight()
 	check(not game.player.flashlight_owned and not game.player.flashlight_model.visible and game.player.viewmodel_root.visible, "Dropping/resetting torch restores the original rig and hides the handheld GLB")
 	check(game.story.voice_audio != null, "Generated neural narration player exists")

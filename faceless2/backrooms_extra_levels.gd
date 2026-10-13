@@ -117,7 +117,10 @@ func _side_room(side: float, z: float, width: float, wall_mat: Material, floor_m
 	var room_length := 7.30
 	var half_length := room_length * 0.5
 	var floor := _piece("floor_panel",Vector3(room_center,-.07,z),Vector3(4.15,.16,room_length),floor_mat)
-	if floor != null: side_room_floor_nodes.append(floor)
+	if floor != null:
+		# This is a genuine extra room floor, not an eleventh corridor tile.
+		side_room_floor_nodes.append(floor)
+		floor_section_nodes.erase(floor)
 	_piece("structure_panel",Vector3(room_center,3.22,z),Vector3(4.2,.23,room_length),ceiling_mat)
 	_piece("wall",Vector3(side*(width*.5+4.10),1.56,z),Vector3(.22,3.15,room_length),wall_mat)
 	_piece("wall",Vector3(room_center,1.56,z-half_length),Vector3(4.2,3.15,.22),wall_mat)
@@ -367,6 +370,13 @@ func _scan(name: String, at: Vector3, height: float) -> void:
 	scene_root.add_child(node)
 	for mesh in node.find_children("*","MeshInstance3D",true,false):
 		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Match selected solid scanned furnishings with inexpensive invisible
+	# physical proxies. No visible primitive geometry is introduced.
+	if name.to_lower() in ["wheelchair_01","barrel_02"]:
+		var dimensions: Vector3 = node.get_meta("dimensions",Vector3.ONE)
+		_solid_prop(at,Vector3(clampf(dimensions.x*0.84,0.45,1.35),
+			clampf(dimensions.y*0.86,0.50,1.5),
+			clampf(dimensions.z*0.84,0.45,1.35)))
 
 func interact(at: Vector3) -> String:
 	if not visible or not is_instance_valid(scene_root): return "NONE"

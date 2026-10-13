@@ -51,7 +51,7 @@ func run() -> void:
 			check(not game.extra_levels.get_world_3d().direct_space_state.intersect_ray(wall_ray).is_empty(), "Licensed side-room exterior wall has matching physical collision")
 		check(game.extra_levels.solid_prop_count >= 1, "Every corridor has physical prop collision, not just visual GLB crates")
 		var floor_sections: Array[Node3D] = game.extra_levels.floor_section_nodes
-		check(floor_sections.size() == 10, "Exactly ten real external GLB floor modules instantiated per sector")
+		check(floor_sections.size() == 10, "Exactly ten licensed GLB corridor floors, excluding optional side-room floor")
 		for floor_node in floor_sections:
 			check(is_instance_valid(floor_node) and floor_node.is_inside_tree(), "Recorded licensed GLB floor instance remains in 3D scene")
 			if is_instance_valid(floor_node):

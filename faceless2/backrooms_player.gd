@@ -55,7 +55,7 @@ func _ready() -> void:
 	camera.current = true
 	add_child(camera)
 	torch = SpotLight3D.new()
-	torch.position = Vector3(0.27, -0.48, -0.82)
+	torch.position = Vector3(0.56, -0.50, -0.91)
 	torch.light_color = Color(0.93, 0.96, 1.0)
 	torch.light_energy = 1.9
 	torch.spot_range = 11.5
@@ -128,15 +128,15 @@ func _ready() -> void:
 	if ResourceLoader.exists(flashlight_path):
 		flashlight_rig = Node3D.new()
 		flashlight_rig.name = "PolyHavenFlashlight_IndependentWalkingPivot"
-		flashlight_rig.position = Vector3(0.26, -0.48, -0.98)
-		flashlight_rig.rotation.y = PI
+		flashlight_rig.position = Vector3(0.57, -0.57, -0.84)
+		flashlight_rig.rotation.y = PI - 0.08
 		camera.add_child(flashlight_rig)
 		flashlight_model = Assets.fitted("vendor/flashlight_cc0.glb",1.0)
 		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLB"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
-		flashlight_model.scale *= 0.43 / maxf(bbox.x,maxf(bbox.y,bbox.z))
+		flashlight_model.scale *= 0.31 / maxf(bbox.x,maxf(bbox.y,bbox.z))
 		flashlight_model.position = Vector3.ZERO
-		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
+		flashlight_model.rotation = Vector3(-0.05,0.04,-PI*0.43)
 		flashlight_rig.add_child(flashlight_model)
 		for mesh in flashlight_model.find_children("*","MeshInstance3D",true,false):
 			(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -157,7 +157,10 @@ func take_flashlight() -> void:
 	if is_instance_valid(viewmodel_root): viewmodel_root.visible = false
 	if game.prologue.phase == "ended" and game.wakeup_room.visible: game.wakeup_room.reveal_torch_smiler()
 	flashlight_model.visible = true
-	flashlight_model.position.y = 0.16
+	# A body-side carry: the real GLB is visible only at the bottom-right
+	# edge. No unsupported floating hands, no torch in screen centre.
+	torch.position = flashlight_rig.position + Vector3(-0.02,0.09,-0.13)
+	flashlight_model.position.y = 0.10
 	flashlight_pickup_tween = create_tween()
 	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.0,0.33).set_trans(Tween.TRANS_SINE)
 	# Pickup and turning the light on are separate intentional actions.
@@ -179,8 +182,8 @@ func reset_flashlight() -> void:
 		flashlight_model.position.y = 0.0
 	if is_instance_valid(viewmodel_root): viewmodel_root.visible = true
 	if is_instance_valid(flashlight_rig):
-		flashlight_rig.position = Vector3(0.26,-0.48,-0.98)
-		flashlight_rig.rotation = Vector3(0,PI,0)
+		flashlight_rig.position = Vector3(0.57,-0.57,-0.84)
+		flashlight_rig.rotation = Vector3(0,PI-0.08,0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -328,12 +331,15 @@ func _physics_process(delta: float) -> void:
 		# by static PNG/AI frames. Damped lateral stride and landing feedback.
 		var sway_weight := clampf(Vector2(velocity.x,velocity.z).length()/4.3,0.0,1.0) if is_on_floor() else 0.0
 		var stride := sin(motion_clock)
-		var torch_target := Vector3(0.26 + stride*0.026*sway_weight - input.x*0.012,
-			-0.48 - absf(stride)*0.018*sway_weight - landing_dip*0.55,
-			-0.98 + 0.012*sway_weight)
+		var torch_target := Vector3(0.57 + stride*0.018*sway_weight - input.x*0.010,
+			-0.57 - absf(stride)*0.014*sway_weight - landing_dip*0.42,
+			-0.84 + 0.012*sway_weight)
 		flashlight_rig.position = flashlight_rig.position.lerp(torch_target,minf(delta*9.0,1.0))
-		flashlight_rig.rotation.x = lerp_angle(flashlight_rig.rotation.x,0.024*cos(motion_clock)*sway_weight,minf(delta*8.0,1.0))
-		flashlight_rig.rotation.z = lerp_angle(flashlight_rig.rotation.z,0.035*stride*sway_weight,minf(delta*8.0,1.0))
+		flashlight_rig.rotation.x = lerp_angle(flashlight_rig.rotation.x,0.018*cos(motion_clock)*sway_weight,minf(delta*8.0,1.0))
+		flashlight_rig.rotation.z = lerp_angle(flashlight_rig.rotation.z,0.026*stride*sway_weight,minf(delta*8.0,1.0))
+		# Lighting starts at the same moving camera-space point as the
+		# original handheld Poly Haven GLB, instead of the old centre-light.
+		torch.position = flashlight_rig.position + Vector3(-0.02,0.09,-0.13)
 		flashlight_rig.visible = not lift_riding or lift_clock < 3.0
 	if is_instance_valid(leg_root):
 		# Imported skinned GLB boots belong near the collision capsule on the

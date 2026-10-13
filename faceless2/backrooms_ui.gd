@@ -2,9 +2,10 @@ extends Control
 
 const Joystick = preload("virtual_joystick.gd")
 const TouchAction = preload("touch_action.gd")
-const PAPER := Color(0.88, 0.90, 0.84)
-const MUTED := Color(0.56, 0.64, 0.61)
-const ACCENT := Color(0.67, 0.88, 0.73)
+# Legible, low-glare typography against dark real-GLB interiors.
+const PAPER := Color(0.93, 0.94, 0.92)
+const MUTED := Color(0.72, 0.79, 0.78)
+const ACCENT := Color(0.79, 0.94, 0.84)
 var game: Node
 var canvas: Control
 var hud: Control
@@ -52,7 +53,14 @@ func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
 	if ResourceLoader.exists(font_path):
 		theme = Theme.new()
-		theme.default_font = load(font_path)
+		# Retain the existing commercially redistributable Noto Sans SC
+		# (OFL 1.1) with complete CJK glyph coverage; the boldened variation
+		# remains legible even at mobile's reduced viewport resolution.
+		var ui_type := FontVariation.new()
+		ui_type.base_font = load(font_path)
+		ui_type.variation_embolden = 0.30
+		theme.default_font = ui_type
+		theme.default_font_size = 22
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas = Control.new()
@@ -98,11 +106,18 @@ func _card(parent: Node, rect: Rect2, color: Color = Color(0.025, 0.042, 0.04, 0
 func _label(parent: Node, text: String, pos: Vector2, width: float, font_size: int = 22, color: Color = PAPER) -> Label:
 	var label := Label.new()
 	label.position = pos
-	label.add_theme_font_size_override("font_size", font_size)
+	var readable_size: int = maxi(font_size, 20) if parent == hud else font_size
+	label.add_theme_font_size_override("font_size", readable_size)
 	label.add_theme_color_override("font_color", color)
+	# Independent outline + shadow makes English and simplified Chinese
+	# readable over metal textures without opaque, fake geometry panels.
+	label.add_theme_color_override("font_outline_color", Color(0.006,0.010,0.015,0.92))
+	label.add_theme_constant_override("outline_size", 3 if readable_size <= 30 else 2)
+	label.add_theme_color_override("font_shadow_color", Color(0,0,0,0.65))
+	label.add_theme_constant_override("shadow_offset_y", 2)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.size = Vector2(width, font_size * 3.0)
+	label.size = Vector2(width, readable_size * 3.0)
 	parent.add_child(label)
 	label.text = text
 	return label
