@@ -16,6 +16,8 @@ var camera: Camera3D
 var torch: SpotLight3D
 var flashlight_owned := false
 var flashlight_model: Node3D
+var flashlight_rig: Node3D
+var leg_gait_was_moving := false
 var flashlight_click: AudioStreamPlayer3D
 var flashlight_pickup_tween: Tween
 var yaw := 0.0
@@ -92,8 +94,10 @@ func _ready() -> void:
 	if ResourceLoader.exists(feet_path):
 		leg_root = Node3D.new()
 		leg_root.name = "CesiumFirstPersonFeet"
-		leg_root.position = Vector3(0.0, 0.012, -0.94)
-		leg_root.scale = Vector3(1.12, 1.0, 1.12)
+		# The skinned Cesium GLB is placed at the actual feet, not almost
+		# a metre ahead of the collision capsule (which looked like floating poles).
+		leg_root.position = Vector3(0.0, 0.018, -0.34)
+		leg_root.scale = Vector3(0.96, 0.96, 0.96)
 		leg_root.rotation.y = PI
 		add_child(leg_root)
 		var feet: Node3D = load(feet_path).instantiate()
@@ -117,18 +121,23 @@ func _ready() -> void:
 				break
 			if is_instance_valid(leg_animation): break
 
-	# The authored GLB is attached to the original skinned arms, not a primitive.
+	# The real Poly Haven GLB uses its OWN camera-attached walking pivot.
+	# Do not parent it under the hands: hiding the oversized Sketchfab hands
+	# when collected must never make the physical flashlight disappear.
 	var flashlight_path := Assets.path("vendor/flashlight_cc0.glb")
 	if ResourceLoader.exists(flashlight_path):
+		flashlight_rig = Node3D.new()
+		flashlight_rig.name = "PolyHavenFlashlight_IndependentWalkingPivot"
+		flashlight_rig.position = Vector3(0.26, -0.48, -0.98)
+		flashlight_rig.rotation.y = PI
+		camera.add_child(flashlight_rig)
 		flashlight_model = Assets.fitted("vendor/flashlight_cc0.glb",1.0)
-		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLBSkinnedHands"
+		flashlight_model.name = "Held_PolyHaven_SmallPlasticTorch_GLB"
 		var bbox: Vector3 = flashlight_model.get_meta("dimensions",Vector3.ONE)
 		flashlight_model.scale *= 0.43 / maxf(bbox.x,maxf(bbox.y,bbox.z))
-		flashlight_model.position = Vector3(-0.26,0.34,0.40)
-		# Viewmodel parent faces 180 degrees: positive local Z is in front of POV.
+		flashlight_model.position = Vector3.ZERO
 		flashlight_model.rotation = Vector3(0.15,-0.18,-PI*0.46)
-		if is_instance_valid(viewmodel_root): viewmodel_root.add_child(flashlight_model)
-		else: camera.add_child(flashlight_model)
+		flashlight_rig.add_child(flashlight_model)
 		for mesh in flashlight_model.find_children("*","MeshInstance3D",true,false):
 			(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		flashlight_model.visible = false
@@ -143,11 +152,14 @@ func _ready() -> void:
 func take_flashlight() -> void:
 	if flashlight_owned or not is_instance_valid(flashlight_model): return
 	flashlight_owned = true
+	# Holding a torch means no visible first-person arms: the original
+	# Sketchfab skeleton is retained in the scene but completely hidden.
+	if is_instance_valid(viewmodel_root): viewmodel_root.visible = false
 	if game.prologue.phase == "ended" and game.wakeup_room.visible: game.wakeup_room.reveal_torch_smiler()
 	flashlight_model.visible = true
-	flashlight_model.position.y += 0.16
+	flashlight_model.position.y = 0.16
 	flashlight_pickup_tween = create_tween()
-	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.34,0.33).set_trans(Tween.TRANS_SINE)
+	flashlight_pickup_tween.tween_property(flashlight_model,"position:y",0.0,0.33).set_trans(Tween.TRANS_SINE)
 	# Pickup and turning the light on are separate intentional actions.
 	torch.visible = false
 
@@ -164,7 +176,11 @@ func reset_flashlight() -> void:
 	if flashlight_pickup_tween != null and flashlight_pickup_tween.is_running(): flashlight_pickup_tween.kill()
 	if is_instance_valid(flashlight_model):
 		flashlight_model.visible = false
-		flashlight_model.position.y = 0.34
+		flashlight_model.position.y = 0.0
+	if is_instance_valid(viewmodel_root): viewmodel_root.visible = true
+	if is_instance_valid(flashlight_rig):
+		flashlight_rig.position = Vector3(0.26,-0.48,-0.98)
+		flashlight_rig.rotation = Vector3(0,PI,0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
@@ -303,16 +319,32 @@ func _physics_process(delta: float) -> void:
 			-0.59 - 0.026*moving_strength)
 		viewmodel_root.position = viewmodel_root.position.lerp(target, minf(delta*8.0, 1.0))
 		viewmodel_root.rotation.z = lerp_angle(viewmodel_root.rotation.z, input.x*0.018, minf(delta*5.0,1.0))
-		viewmodel_root.visible = not lift_riding or lift_clock < 3.0
-		if is_instance_valid(walk_animation): walk_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
+		# Do not let the hands reappear during movement or camera pans.
+		viewmodel_root.visible = not flashlight_owned and (not lift_riding or lift_clock < 3.0)
+		if is_instance_valid(walk_animation):
+			walk_animation.speed_scale = 0.0 if flashlight_owned or not moving else (1.35 if sprinting else 0.78)
+	if is_instance_valid(flashlight_rig):
+		# Physical GLB torch motion driven by actual player velocity, never
+		# by static PNG/AI frames. Damped lateral stride and landing feedback.
+		var sway_weight := clampf(Vector2(velocity.x,velocity.z).length()/4.3,0.0,1.0) if is_on_floor() else 0.0
+		var stride := sin(motion_clock)
+		var torch_target := Vector3(0.26 + stride*0.026*sway_weight - input.x*0.012,
+			-0.48 - absf(stride)*0.018*sway_weight - landing_dip*0.55,
+			-0.98 + 0.012*sway_weight)
+		flashlight_rig.position = flashlight_rig.position.lerp(torch_target,minf(delta*9.0,1.0))
+		flashlight_rig.rotation.x = lerp_angle(flashlight_rig.rotation.x,0.024*cos(motion_clock)*sway_weight,minf(delta*8.0,1.0))
+		flashlight_rig.rotation.z = lerp_angle(flashlight_rig.rotation.z,0.035*stride*sway_weight,minf(delta*8.0,1.0))
+		flashlight_rig.visible = not lift_riding or lift_clock < 3.0
 	if is_instance_valid(leg_root):
-		# Low-angle downward looks show actual skinned knees, boots and steps;
-		# arms remain in the lower field of view. Keep the body unobtrusive when
-		# the player looks forward to avoid visual clipping.
-		leg_root.visible = not lift_riding and pitch < -0.34
-		leg_root.position.y = lerpf(leg_root.position.y, 0.045 + bob*0.18, minf(delta*6.0, 1.0))
+		# Imported skinned GLB boots belong near the collision capsule on the
+		# real floor. Only show them on an intentional deep downward look.
+		leg_root.visible = not lift_riding and pitch < -0.72
+		leg_root.position.y = lerpf(leg_root.position.y,0.018,minf(delta*8.0,1.0))
 		if is_instance_valid(leg_animation):
-			leg_animation.speed_scale = 0.0 if not moving else (1.35 if sprinting else 0.78)
+			var stepping := moving and is_on_floor()
+			leg_animation.speed_scale = (1.40 if sprinting else 0.92) if stepping else 0.0
+			if leg_gait_was_moving and not stepping: leg_animation.seek(0.0,true)
+			leg_gait_was_moving = stepping
 	step_clock -= delta
 	if moving and is_on_floor() and step_clock <= 0:
 		step_clock = 0.34 if sprinting else 0.52
@@ -390,6 +422,7 @@ func reset_to(pos: Vector3) -> void:
 	frowner_camera_seconds = 0.0
 	player_look_override = false
 	flash_smiler_exposure = 0.0
+	leg_gait_was_moving = false
 
 func begin_focus(target: Vector3, duration: float = 1.2) -> void:
 	focus_target = target

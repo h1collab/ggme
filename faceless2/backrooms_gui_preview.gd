@@ -108,6 +108,8 @@ func run() -> void:
 		game.player.interact_or_locked_door()
 		game.player.camera.rotation.x = -0.12
 		await _capture("14a_glb_flashlight_held")
+		if game.player.viewmodel_root.visible: failures.append("Hands must disappear entirely with the carried GLB flashlight")
+		if not game.player.flashlight_model.visible: failures.append("Independent Poly Haven GLB flashlight is missing from view")
 		game.player.toggle_torch()
 		game.player.camera.look_at(game.wakeup_room.smiler.global_position)
 		await _capture("14b_smiler_lit_before_banish")
@@ -117,8 +119,8 @@ func run() -> void:
 			failures.append("Light cone aiming did not make visible Smiler disappear")
 		await create_timer(0.40).timeout
 		await _capture("14c_smiler_banished")
-		game.player.pitch = -1.03
-		game.player.camera.rotation.x = -1.03
+		game.player.pitch = -1.15
+		game.player.camera.rotation.x = -1.15
 		game.player.leg_root.visible = true
 		await _capture("14d_actual_glb_feet_downlook")
 		game.player.pitch = 0.0

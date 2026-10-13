@@ -28,13 +28,20 @@ func run() -> void:
 	check(is_instance_valid(game.player.leg_root) and is_instance_valid(game.player.leg_animation), "Skinned Cesium feet GLB and original leg gait imported")
 	var feet_meshes: Array = game.player.leg_root.find_children("*", "MeshInstance3D", true, false)
 	check(feet_meshes.size() > 0 and feet_meshes[0].mesh != null, "Actual authored foot and leg triangles are visible on downward look")
-	game.player.pitch = -0.6
+	game.player.pitch = -0.96
 	game.player.set_physics_process(true)
 	await physics_frame
 	game.player.set_physics_process(false)
 	check(game.player.leg_root.visible, "Looking down exposes local feet without rendering a procedural humanoid")
 	var arm_meshes: Array = game.player.viewmodel_root.find_children("*", "MeshInstance3D", true, false)
 	check(arm_meshes.size() > 0 and arm_meshes[0].mesh != null, "First-person arms render original authored geometry")
+	check(is_instance_valid(game.player.flashlight_rig) and game.player.flashlight_model.get_parent() == game.player.flashlight_rig, "Licensed handheld GLB has its own camera pivot, not attached to arms")
+	check(not game.player.flashlight_model.visible and game.player.viewmodel_root.visible, "Before flashlight pickup the independent GLB is hidden")
+	game.player.take_flashlight()
+	check(game.player.flashlight_owned and game.player.flashlight_model.visible, "Flashlight pickup reveals genuine Poly Haven GLB")
+	check(not game.player.viewmodel_root.visible, "No hands are rendered when holding the flashlight")
+	game.player.reset_flashlight()
+	check(not game.player.flashlight_owned and not game.player.flashlight_model.visible and game.player.viewmodel_root.visible, "Dropping/resetting torch restores the original rig and hides the handheld GLB")
 	check(game.story.voice_audio != null, "Generated neural narration player exists")
 	check(ResourceLoader.exists("res://audio/voice/brief_0.ogg"), "Kokoro Mandarin first briefing is packaged")
 	check(ResourceLoader.exists("res://audio/voice/tape_3_2.ogg"), "Fourth-floor generated voice is packaged")
@@ -109,7 +116,7 @@ func run() -> void:
 	for i in range(10): await process_frame
 	await create_timer(0.8).timeout
 	if failures.is_empty():
-		print("Faceless 2 cinematic checks: PASS / GLB arms and feet, multi-floor water, Mandarin, elevator, bounded input")
+		print("Faceless 2 cinematic checks: PASS / independent GLB flashlight hides arms, skinned feet, Mandarin, elevator, bounded input")
 		quit(0)
 	else:
 		quit(1)
