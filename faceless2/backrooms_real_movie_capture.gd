@@ -86,6 +86,13 @@ func record() -> void:
 		camera = game.player.camera
 		camera.make_current()
 		await travel(Vector3(0,0.1,2.0),Vector3(-0.5,0.1,-8.0),Vector3(2,1.5,-10),Vector3(-2,1.5,-19),35)
+	# A native FPS view: actual camera motion with the original Kenney
+	# CC0 blaster mesh and Level 2 industrial security targets.
+	game.open_backrooms_level(2)
+	game.player.set_physics_process(false)
+	camera = game.player.camera
+	camera.make_current()
+	await travel(Vector3(0,.1,1.5),Vector3(.1,.1,-8.5),Vector3(-.45,1.6,-8),Vector3(-.45,1.55,-13.0),52)
 	# Continuous Godot footage of a real physical floor switch closing an
 	# authentic imported GLB pair of lift doors. No keyframe-slide cheating.
 	game.open_backrooms_level(1)

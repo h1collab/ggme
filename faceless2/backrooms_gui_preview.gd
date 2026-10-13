@@ -177,6 +177,15 @@ func run() -> void:
 			game.player.global_position = Vector3(side*(width*0.5+2.0),0.10,-12.9)
 			game.player.camera.look_at(Vector3(side*(width*0.5+2.8),1.6,-15.1))
 			await _capture("33_level_%d_authored_glb_side_room" % number)
+	# Godot live view of the actual original Kenney Blaster GLB,
+	# security sentry models and Level 2 revised industrial geometry.
+	game.open_backrooms_level(2)
+	game.player.global_position = Vector3(0,.10,-3.0)
+	game.player.camera.look_at(Vector3(-.45,1.55,-8.0))
+	await _capture("39a_level_2_real_kenney_cc0_fps_blaster_and_security_target")
+	game.player.global_position = Vector3(-.15,.10,-11.0)
+	game.player.camera.look_at(Vector3(-4.30,1.45,-12.85))
+	await _capture("39b_level_2_security_wing_glb_geometry_and_target")
 	# Authored real Godot angles cover both moving Kenney doors and the
 	# stepped GLB access route; review screenshots, not boolean-only tests.
 	game.open_backrooms_level(1)
