@@ -27,6 +27,11 @@ func run() -> void:
 		check(game.extra_levels.interact(game.extra_levels.exits[0]) == "BACK","Return path is interactive")
 		var model_count: int = game.extra_levels.scene_root.find_children("*","MeshInstance3D",true,false).size()
 		check(model_count >= 40,"New space uses genuine imported model meshes, not empty scene")
+		var expected_side_room := number in [1,5,130,131]
+		check(game.extra_levels.side_room_floor_nodes.size() == (1 if expected_side_room else 0), "A traversable GLB lateral room exists only in the four architecturally distinct sectors")
+		for room_floor in game.extra_levels.side_room_floor_nodes:
+			check(is_instance_valid(room_floor) and room_floor.is_inside_tree(), "Side-room floor uses real licensed imported GLB")
+		check(game.extra_levels.solid_prop_count >= 1, "Every corridor has physical prop collision, not just visual GLB crates")
 		var floor_sections: Array[Node3D] = game.extra_levels.floor_section_nodes
 		check(floor_sections.size() == 10, "Exactly ten real external GLB floor modules instantiated per sector")
 		for floor_node in floor_sections:

@@ -11,6 +11,7 @@ on:
       - "faceless2/backrooms_prologue_room.gd"
       - "faceless2/backrooms_wakeup_room.gd"
       - "faceless2/backrooms_player.gd"
+      - "faceless2/backrooms_extra_levels_checks.gd"
       - "faceless2/backrooms_extra_levels.gd"
       - "faceless2/fetch_real_backrooms_assets.py"
       - "faceless2/fetch_flashlight.py"

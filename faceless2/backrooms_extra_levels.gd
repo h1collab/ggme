@@ -24,6 +24,8 @@ var mat_cache: Dictionary = {}
 var visit_clock := 0.0
 var event_tweens: Array[Tween] = []
 var floor_section_nodes: Array[Node3D] = []
+var side_room_floor_nodes: Array[Node3D] = []
+var solid_prop_count := 0
 
 func _ready() -> void:
 	name = "GLB_NineLevel_Exploration"
@@ -92,6 +94,31 @@ func _solid(pos: Vector3, size: Vector3) -> void:
 	collider.shape = shape
 	collider.position = pos
 	colliders.add_child(collider)
+
+# A real GLB prop is still rendered by its licensed mesh; the inexpensive
+# invisible collision proxy keeps players out of its center. No visible boxes.
+func _solid_prop(at: Vector3, size: Vector3) -> void:
+	_solid(Vector3(at.x, size.y * 0.5, at.z), size)
+	solid_prop_count += 1
+
+# Distinct lateral alcove made exclusively from imported Kenney architecture.
+# Its centre opens onto the corridor: stop main wall geometry BEFORE the
+# side-room mouth, so this is a traversable room rather than a false facade.
+func _side_room(side: float, z: float, width: float, wall_mat: Material, floor_mat: Material, ceiling_mat: Material) -> void:
+	var corridor_edge := side * width * 0.5
+	var room_center := side * (width * 0.5 + 2.05)
+	var floor := _piece("floor_panel",Vector3(room_center,-.07,z),Vector3(4.15,.16,5.2),floor_mat)
+	if floor != null: side_room_floor_nodes.append(floor)
+	_piece("structure_panel",Vector3(room_center,3.22,z),Vector3(4.2,.23,5.2),ceiling_mat)
+	_piece("wall",Vector3(side*(width*.5+4.10),1.56,z),Vector3(.22,3.15,5.2),wall_mat)
+	_piece("wall",Vector3(room_center,1.56,z-2.6),Vector3(4.2,3.15,.22),wall_mat)
+	_piece("wall",Vector3(room_center,1.56,z+2.6),Vector3(4.2,3.15,.22),wall_mat)
+	# Left/right room ends and floor are solid; the opening itself is NOT.
+	_solid(Vector3(room_center,-.18,z),Vector3(4.2,.33,5.25))
+	_solid(Vector3(side*(width*.5+4.16),1.46,z),Vector3(.32,3.0,5.3))
+	_solid(Vector3(room_center,1.46,z-2.68),Vector3(4.3,3.0,.32))
+	_solid(Vector3(room_center,1.46,z+2.68),Vector3(4.3,3.0,.32))
+	_light(Vector3(room_center,2.65,z),Color(.67,.76,.72),0.64,4.5)
 
 func _light(at: Vector3, color: Color, energy: float, distance: float) -> void:
 	var lamp := OmniLight3D.new()
@@ -164,14 +191,25 @@ func enter(level_number: int) -> Vector3:
 	for z in range(0,10):
 		var point := Vector3(0.0,-.07,3.3-float(z)*3.6)
 		_piece("floor_panel",point,Vector3(width+.06,.16,3.62),floor_render)
+	# GLB side-room mouth is at z ~= -11.1. Avoid both visual walls and
+	# invisible corridor colliders across this opening. Floor continues through.
+	var has_side_room := level_number in [1,5,130,131]
+	var side_sign := -1.0 if level_number in [1,130] else 1.0
 	for z in range(0,10):
 		var zpos := 3.3-float(z)*3.6
-		_piece("wall",Vector3(-w,1.56,zpos),Vector3(.22,3.15,3.68),layout_mat)
-		_piece("wall",Vector3(w,1.56,zpos),Vector3(.22,3.15,3.68),layout_mat)
+		for side in [-1.0,1.0]:
+			if has_side_room and side == side_sign and z in [4,5]: continue
+			_piece("wall",Vector3(side*w,1.56,zpos),Vector3(.22,3.15,3.68),layout_mat)
 		_piece("structure_panel",Vector3(0,3.22,zpos),Vector3(width,.23,3.68),layout_mat)
 	_solid(Vector3(0,-.18,-13.0),Vector3(width,.33,37.8))
-	_solid(Vector3(-w,1.46,-13.0),Vector3(.32,3.0,37.8))
-	_solid(Vector3(w,1.46,-13.0),Vector3(.32,3.0,37.8))
+	for side in [-1.0,1.0]:
+		if has_side_room and side == side_sign:
+			# Sections border the genuine 7.2 m opening but leave its middle clear.
+			_solid(Vector3(side*w,1.46,-1.2),Vector3(.32,3.0,12.6))
+			_solid(Vector3(side*w,1.46,-23.8),Vector3(.32,3.0,14.4))
+		else:
+			_solid(Vector3(side*w,1.46,-13.0),Vector3(.32,3.0,37.8))
+	if has_side_room: _side_room(side_sign,-11.1,width,layout_mat,floor_render,layout_mat)
 	_solid(Vector3(0,1.46,-31.3),Vector3(width,3.0,.3))
 	_solid(Vector3(0,1.46,4.6),Vector3(width,3.0,.3))
 	var max_range := 5 if level_number == 2 else 7
@@ -179,13 +217,17 @@ func enter(level_number: int) -> Vector3:
 		var z := 1.0 - float(i)*5.15
 		if level_number in [0,1,5,131]:
 			_piece("container_tall",Vector3(-w+0.84,.02,z),Vector3(.9,2.05,1.0),industrial)
+			_solid_prop(Vector3(-w+0.84,0,z),Vector3(.88,1.9,.94))
 			_piece("container_tall",Vector3(w-1.1,.04,z-1.2),Vector3(1.45,.65,1.1),carpet)
+			_solid_prop(Vector3(w-1.1,0,z-1.2),Vector3(1.35,.60,1.04))
 			if i%2==0: _piece("pipe",Vector3(-w+.18,2.95,z),Vector3(.24,.26,2.8),industrial)
 		elif level_number in [2,6,132,133]:
 			for side in [-1,1]:
 				_piece("pipe",Vector3(float(side)*(w-.24),2.6,z),Vector3(.22,.30,4.3),industrial)
 				_piece("pipe",Vector3(float(side)*(w-.32),1.7,z-1.8),Vector3(.38,.42,.4),industrial)
-			if i%2 == 0: _piece("container_tall",Vector3(w-1.0,.03,z),Vector3(.65,1.7,.75),industrial)
+			if i%2 == 0:
+				_piece("container_tall",Vector3(w-1.0,.03,z),Vector3(.65,1.7,.75),industrial)
+				_solid_prop(Vector3(w-1.0,0,z),Vector3(.60,1.55,.71))
 		else:
 			_piece("wall_window",Vector3(w-.22,1.65,z),Vector3(.35,2.5,2.3),hospital)
 			_piece("computer_screen",Vector3(-w+.7,1.1,z),Vector3(.65,.9,.30),hospital)
@@ -336,6 +378,8 @@ func clear() -> void:
 	colliders = null
 	passive_entities.clear()
 	floor_section_nodes.clear()
+	side_room_floor_nodes.clear()
+	solid_prop_count = 0
 	area_lights.clear()
 	exits.clear()
 	event_flags.clear()

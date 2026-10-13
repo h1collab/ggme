@@ -156,6 +156,12 @@ func run() -> void:
 		game.player.global_position = Vector3(0,0.10,-21.5)
 		game.player.camera.look_at(Vector3(0,1.6,-27.0))
 		await _capture("32_level_%d_real_depth" % number)
+		if number in [1,5,130,131]:
+			var side: float = -1.0 if number in [1,130] else 1.0
+			var width: float = 8.8 if number in [1,5,131] else 7.3
+			game.player.global_position = Vector3(side*(width*0.5+2.0),0.10,-11.1)
+			game.player.camera.look_at(Vector3(side*(width*0.5+2.8),1.6,-13.0))
+			await _capture("33_level_%d_authored_glb_side_room" % number)
 	game.extra_levels.clear()
 	game.net.leave()
 	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:
