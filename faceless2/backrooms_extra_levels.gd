@@ -76,6 +76,13 @@ func _piece(file: String, pos: Vector3, dimensions: Vector3, material: Material 
 	var node := Assets.fitted("vendor/wakeup_"+file+".glb",dimensions.y)
 	node.name = "LicensedKenney_"+file
 	node.position = pos
+	# Assets.fitted() sets the imported GLB's mesh BOTTOM at local y=0.
+	# Wall placements previously supplied their vertical CENTER as y, making
+	# every solid wall hover ~1.5m above the invisible collision wall.
+	# Only correct upright wall/door modules; floors, pipes, props and roofs
+	# are already placed by their base elevation.
+	if file in ["wall","wall_window","wall_door","wall_pillar","door_single_closed"]:
+		node.position.y -= dimensions.y * 0.5
 	node.rotation.y = yaw
 	var original_size: Vector3 = node.get_meta("dimensions",Vector3.ONE)
 	node.scale = Vector3(dimensions.x/maxf(original_size.x,.02),dimensions.y/maxf(original_size.y,.02),dimensions.z/maxf(original_size.z,.02))
@@ -101,24 +108,29 @@ func _solid_prop(at: Vector3, size: Vector3) -> void:
 	_solid(Vector3(at.x, size.y * 0.5, at.z), size)
 	solid_prop_count += 1
 
-# Distinct lateral alcove made exclusively from imported Kenney architecture.
-# Its centre opens onto the corridor: stop main wall geometry BEFORE the
-# side-room mouth, so this is a traversable room rather than a false facade.
+# These side rooms are a continuous extension of the two removed corridor
+# wall GLBs (z = -11.1 / -14.7, module depth 3.68). The OPENING is therefore
+# [-16.54,-9.26]. Match actual room walls AND invisible collision to it:
+# the old 5.2m room left 2m of invisible void and camera-wall intersections.
 func _side_room(side: float, z: float, width: float, wall_mat: Material, floor_mat: Material, ceiling_mat: Material) -> void:
-	var corridor_edge := side * width * 0.5
 	var room_center := side * (width * 0.5 + 2.05)
-	var floor := _piece("floor_panel",Vector3(room_center,-.07,z),Vector3(4.15,.16,5.2),floor_mat)
+	var room_length := 7.30
+	var half_length := room_length * 0.5
+	var floor := _piece("floor_panel",Vector3(room_center,-.07,z),Vector3(4.15,.16,room_length),floor_mat)
 	if floor != null: side_room_floor_nodes.append(floor)
-	_piece("structure_panel",Vector3(room_center,3.22,z),Vector3(4.2,.23,5.2),ceiling_mat)
-	_piece("wall",Vector3(side*(width*.5+4.10),1.56,z),Vector3(.22,3.15,5.2),wall_mat)
-	_piece("wall",Vector3(room_center,1.56,z-2.6),Vector3(4.2,3.15,.22),wall_mat)
-	_piece("wall",Vector3(room_center,1.56,z+2.6),Vector3(4.2,3.15,.22),wall_mat)
-	# Left/right room ends and floor are solid; the opening itself is NOT.
-	_solid(Vector3(room_center,-.18,z),Vector3(4.2,.33,5.25))
-	_solid(Vector3(side*(width*.5+4.16),1.46,z),Vector3(.32,3.0,5.3))
-	_solid(Vector3(room_center,1.46,z-2.68),Vector3(4.3,3.0,.32))
-	_solid(Vector3(room_center,1.46,z+2.68),Vector3(4.3,3.0,.32))
-	_light(Vector3(room_center,2.65,z),Color(.67,.76,.72),0.64,4.5)
+	_piece("structure_panel",Vector3(room_center,3.22,z),Vector3(4.2,.23,room_length),ceiling_mat)
+	_piece("wall",Vector3(side*(width*.5+4.10),1.56,z),Vector3(.22,3.15,room_length),wall_mat)
+	_piece("wall",Vector3(room_center,1.56,z-half_length),Vector3(4.2,3.15,.22),wall_mat)
+	_piece("wall",Vector3(room_center,1.56,z+half_length),Vector3(4.2,3.15,.22),wall_mat)
+	# Real GLB jambs make the doorway legible; only their centre is collidable.
+	for end in [-1.0,1.0]:
+		_piece("wall_pillar",Vector3(side*(width*.5+.15),1.56,z+end*half_length),Vector3(.27,3.12,.32),wall_mat)
+	# Left/right room ends and floor are solid; the entrance is unobstructed.
+	_solid(Vector3(room_center,-.18,z),Vector3(4.2,.33,room_length+.05))
+	_solid(Vector3(side*(width*.5+4.16),1.46,z),Vector3(.32,3.0,room_length+.05))
+	_solid(Vector3(room_center,1.46,z-half_length),Vector3(4.3,3.0,.30))
+	_solid(Vector3(room_center,1.46,z+half_length),Vector3(4.3,3.0,.30))
+	_light(Vector3(room_center,2.65,z),Color(.67,.76,.72),0.90,4.8)
 
 func _light(at: Vector3, color: Color, energy: float, distance: float) -> void:
 	var lamp := OmniLight3D.new()
@@ -138,16 +150,25 @@ func _passive(kind: String, where: Vector3, facing: float) -> void:
 		if not ResourceLoader.exists(Assets.path(image)): return
 		var sprite := Sprite3D.new()
 		sprite.texture = load(Assets.path(image))
-		sprite.pixel_size = 0.0016
+		sprite.pixel_size = 0.00125
 		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		sprite.no_depth_test = false
 		sprite.shaded = false
+		# Sketchfab-baked transparent face participates in depth testing.
+		# It is revealed only after approach; it is NEVER embedded in a wall.
+		sprite.visible = kind != "smiler"
 		avatar = sprite
 	else:
-		if not ResourceLoader.exists(Assets.path("vendor/crew.glb")): return
-		avatar = Assets.fitted("vendor/crew.glb",1.75)
+		# The white astronaut was the Cesium SAMPLE HUMAN ("crew.glb").
+		# Use the already-licensed CC0 horror-creature skeleton/meshes instead;
+		# no generated or primitive body mesh, and no active attack AI.
+		if not ResourceLoader.exists(Assets.path("entity.glb")):
+			push_error("Missing verified HorrorGameMaker CC0 entity.glb")
+			return
+		avatar = Assets.fitted("entity.glb",1.75)
 		for anim in avatar.find_children("*","AnimationPlayer",true,false):
-			(anim as AnimationPlayer).speed_scale = 0.0
+			(anim as AnimationPlayer).stop()
+		avatar.visible = false
 	avatar.name = "NonAttackingEntity_"+kind
 	avatar.position = where
 	avatar.rotation.y = facing
@@ -205,11 +226,11 @@ func enter(level_number: int) -> Vector3:
 	for side in [-1.0,1.0]:
 		if has_side_room and side == side_sign:
 			# Sections border the genuine 7.2 m opening but leave its middle clear.
-			_solid(Vector3(side*w,1.46,-1.2),Vector3(.32,3.0,12.6))
-			_solid(Vector3(side*w,1.46,-23.8),Vector3(.32,3.0,14.4))
+			_solid(Vector3(side*w,1.46,-2.63),Vector3(.32,3.0,13.25))
+			_solid(Vector3(side*w,1.46,-24.17),Vector3(.32,3.0,15.26))
 		else:
 			_solid(Vector3(side*w,1.46,-13.0),Vector3(.32,3.0,37.8))
-	if has_side_room: _side_room(side_sign,-11.1,width,layout_mat,floor_render,layout_mat)
+	if has_side_room: _side_room(side_sign,-12.9,width,layout_mat,floor_render,layout_mat)
 	_solid(Vector3(0,1.46,-31.3),Vector3(width,3.0,.3))
 	_solid(Vector3(0,1.46,4.6),Vector3(width,3.0,.3))
 	var max_range := 5 if level_number == 2 else 7
@@ -253,8 +274,15 @@ func enter(level_number: int) -> Vector3:
 	# None of the new entities can injure, collide with or chase the player.
 	if level_number in [0,1,5,131]:
 		_passive("faceless_witness",Vector3(-1.5,.03,-17.5),PI)
-		_passive("smiler",Vector3(w-.20,1.6,-24.0),PI)
-	elif level_number in [2,6,132,133]:
+		# The corridor endpoint has a Kenney GLB door behind the face.
+		# Place the face in open AIR, not x=w-.20 inside a side wall.
+		_passive("smiler",Vector3(0.0,1.64,-27.2),PI)
+	elif level_number == 132:
+		# LEVEL !: only original CC0 horror-creature GLB meshes, not a
+		# smile/frown emoji or a white Cesium astronaut.
+		_passive("faceless_witness",Vector3(-.75,.03,-20.5),PI)
+		_passive("faceless_witness",Vector3(.85,.03,-27.0),PI)
+	elif level_number in [2,6,133]:
 		_passive("frowner",Vector3(0,1.7,-23.0),PI)
 		_passive("faceless_witness",Vector3(-1.05,.03,-26.5),PI)
 	else:
@@ -312,8 +340,13 @@ func enter(level_number: int) -> Vector3:
 		_scan("rubber_duck_toy",Vector3(-w+.85,.25,-3.5),.65)
 		_light(Vector3(-1.2,2.5,-4.5),Color(.92,.25,.59),1.65,6.4)
 	elif level_number == 132:
+		# Level ! uses authored Kenney CC0 door/bulkhead GLBs, and an
+		# industrial Poly Haven scan, not visible primitive corridor meshes.
 		_scan("bar_chair_round_01",Vector3(w-1.02,.03,-3.5),.86)
 		_piece("pipe",Vector3(-w+.4,2.40,-4.0),Vector3(.35,.35,4.7),industrial)
+		for chamber_z in [-7.0,-17.0,-26.5]:
+			_piece("door_single_closed",Vector3(w-.13,1.38,chamber_z),Vector3(.20,2.70,1.30),industrial)
+			_piece("wall_pillar",Vector3(-w+.32,1.55,chamber_z-.8),Vector3(.42,3.10,.38),industrial)
 		_light(Vector3(.5,2.4,-5.4),Color(1,.13,.11),1.38,6.0)
 	elif level_number == 133:
 		_piece("wall_window",Vector3(-w+.10,1.7,-5.8),Vector3(.25,2.5,2.3),hospital)
@@ -353,14 +386,21 @@ func update_player(at: Vector3, delta: float) -> String:
 			spatial_sound.play()
 		if not passive_entities.is_empty():
 			var witness := passive_entities[0]
+			witness.visible = true
 			var turn := create_tween()
 			event_tweens.append(turn)
 			turn.tween_property(witness,"rotation:y",witness.rotation.y+PI,1.7)
 		return "WITNESS"
+	# Only after approach should a distant Smiler appear. Keeping the
+	# depth-tested Sprite3D hidden at entrance prevents a floating wall sticker.
+	if at.z < -18.0 and not event_flags.has("smiler_revealed") and current in [0,1,5,131]:
+		event_flags["smiler_revealed"] = true
+		if passive_entities.size() > 1: passive_entities[1].visible = true
 	if at.z < -22.4 and not event_flags.has("vanishing"):
 		event_flags["vanishing"] = true
 		if passive_entities.size()>1:
 			var last := passive_entities[1]
+			last.visible = true
 			var fade := create_tween()
 			event_tweens.append(fade)
 			fade.tween_property(last,"scale",Vector3(.02,.02,.02),2.1)

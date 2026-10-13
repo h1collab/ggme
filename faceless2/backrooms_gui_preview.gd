@@ -159,8 +159,10 @@ func run() -> void:
 		if number in [1,5,130,131]:
 			var side: float = -1.0 if number in [1,130] else 1.0
 			var width: float = 8.8 if number in [1,5,131] else 7.3
-			game.player.global_position = Vector3(side*(width*0.5+2.0),0.10,-11.1)
-			game.player.camera.look_at(Vector3(side*(width*0.5+2.8),1.6,-13.0))
+			# Inspect from the ACTUAL open room centre after aligning geometry
+			# and collision bounds, rather than teleporting inside a wall GLB.
+			game.player.global_position = Vector3(side*(width*0.5+2.0),0.10,-12.9)
+			game.player.camera.look_at(Vector3(side*(width*0.5+2.8),1.6,-15.1))
 			await _capture("33_level_%d_authored_glb_side_room" % number)
 	game.extra_levels.clear()
 	game.net.leave()
