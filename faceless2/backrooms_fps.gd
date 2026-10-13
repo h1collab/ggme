@@ -68,7 +68,11 @@ func _ready() -> void:
     # make a hand slide away from the rifle.
     var source_hands := Assets.path("vendor/fps_wrad_grip_hands.glb")
     if ResourceLoader.exists(source_hands):
-        grip_hands = Assets.fitted("vendor/fps_wrad_grip_hands.glb",.50)
+        # The source FULL rig has 4.93 units of height. Cropping to real
+        # wrist-only triangles leaves 1.362 units. Keep the ORIGINAL arm
+        # scale (~0.101), not the previous 0.50m fitted height, which would
+        # triple-size the hands and push the wrists out of frame.
+        grip_hands = Assets.fitted("vendor/fps_wrad_grip_hands.glb",.138)
         grip_hands.name = "WRAD_CC0_SkinnedFPSGripArms_GLBBoundToGun"
         grip_hands.position = Vector3(-.015,-.22,.18)
         weapon_pivot.add_child(grip_hands)
