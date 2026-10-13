@@ -15,7 +15,7 @@ def bake(source: Path, output: Path) -> tuple[int, int]:
     g = json.loads(data[20:20+jl])
     base = 20 + jl
     bl, typ = struct.unpack_from("<I4s",data,base)
-    assert typ == b"BIN\\0"
+    assert typ == b"BIN\0"
     raw = bytearray(data[base+8:base+8+bl])
     prim = g["meshes"][0]["primitives"][0]
     acc = g["accessors"]
@@ -62,7 +62,7 @@ def bake(source: Path, output: Path) -> tuple[int, int]:
     js += b" "*(-len(js)%4)
     target = (b"glTF" + struct.pack("<II",2,12+8+len(js)+8+len(raw))
               + struct.pack("<I4s",len(js),b"JSON") + js
-              + struct.pack("<I4s",len(raw),b"BIN\\x00") + raw)
+              + struct.pack("<I4s",len(raw),b"BIN\x00") + raw)
     output.write_bytes(target)
     return len(kept)//3,len(all_indices)//3
 
