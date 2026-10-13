@@ -675,6 +675,9 @@ func refresh() -> void:
 	if facility_hud_mode:
 		_refresh_facility_goal()
 		var fps_active: bool = is_instance_valid(game.fps) and game.fps.active
+		var mobile_fps: bool = fps_active and (OS.has_feature("android") or OS.has_feature("ios"))
+		if is_instance_valid(shoot_button): shoot_button.visible = mobile_fps
+		if is_instance_valid(reload_button): reload_button.visible = mobile_fps
 		if is_instance_valid(fps_status_label):
 			fps_status_label.visible = fps_active
 			if fps_active:
