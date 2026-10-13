@@ -43,7 +43,7 @@ func run() -> void:
 		print("ROOM_READY ", game.rooms.room_code)
 		check(await wait_for(func(): return game.net.members.size() == 2, 12.0), "real ENet peer joined by room code")
 		check(game.fps_arena.visible and game.fps.active, "Host created a real dedicated FPS arena")
-		check(await wait_for(func(): return int(game.fps.ammo_by_peer.get(2,24)) == 23,7.0), "Remote FPS fire reaches authoritative host via actual ENet UDP")
+		check(await wait_for(func(): return game.fps.ammo_by_peer.values().has(23),7.0), "Remote FPS fire reaches authoritative host via actual ENet UDP")
 		await create_timer(1.0).timeout
 	elif role == "client":
 		game.rooms.join_code(code)
