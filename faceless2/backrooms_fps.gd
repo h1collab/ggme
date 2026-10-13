@@ -72,28 +72,28 @@ func is_equipped() -> bool:
     return active and equipped
 
 func enter_arena() -> void:
-	leave_level()
-	active = true
-	equipped = true
-	level_id = -2
-	health = 100
-	magazine = MAGAZINE_CAPACITY
-	reserve = 120
-	if is_instance_valid(weapon_pivot): weapon_pivot.visible = true
-	set_process(true)
-	if game.net.authoritative(): register_peer(1)
+    leave_level()
+    active = true
+    equipped = true
+    level_id = -2
+    health = 100
+    magazine = MAGAZINE_CAPACITY
+    reserve = 120
+    if is_instance_valid(weapon_pivot): weapon_pivot.visible = true
+    set_process(true)
+    if game.net.authoritative(): register_peer(1)
 
 func register_peer(id: int) -> void:
-	if not game.net.authoritative(): return
-	health_by_peer[id] = 100
-	ammo_by_peer[id] = MAGAZINE_CAPACITY
-	scores[id] = 0
+    if not game.net.authoritative(): return
+    health_by_peer[id] = 100
+    ammo_by_peer[id] = MAGAZINE_CAPACITY
+    scores[id] = 0
 
 func remove_peer(id: int) -> void:
-	health_by_peer.erase(id)
-	ammo_by_peer.erase(id)
-	scores.erase(id)
-	shot_ticks.erase(id)
+    health_by_peer.erase(id)
+    ammo_by_peer.erase(id)
+    scores.erase(id)
+    shot_ticks.erase(id)
 
 func enter_level(number: int) -> void:
     # There is no authoritative replication yet for added-layer combat:
@@ -315,59 +315,59 @@ func damage_player(amount: int) -> void:
 
 # Validated on the host, not by the shooting client.
 func server_fire(shooter: int, direction: Vector3) -> bool:
-	if not active or level_id != -2 or not game.net.authoritative(): return false
-	if not health_by_peer.has(shooter) or int(health_by_peer[shooter]) <= 0: return false
-	if not direction.is_finite() or absf(direction.length()-1.0) > .05: return false
-	# The server has the last validated body yaw. Arbitrary client-provided
-	# 180-degree backshots are rejected, independently of claimed hits.
-	var facing_yaw: float = game.player.yaw if shooter == 1 else float(game.net.poses[shooter].y)
-	var facing: Vector3 = Vector3(-sin(facing_yaw),0,-cos(facing_yaw))
-	var aim_flat: Vector3 = Vector3(direction.x,0,direction.z).normalized()
-	if aim_flat.dot(facing) < .72: return false
-	if shooter != 1 and not game.net.poses.has(shooter): return false
-	var now: int = Time.get_ticks_msec()
-	if now - int(shot_ticks.get(shooter,-999999)) < 185: return false
-	if int(ammo_by_peer.get(shooter,0)) <= 0: return false
-	shot_ticks[shooter] = now
-	ammo_by_peer[shooter] = int(ammo_by_peer[shooter])-1
-	var origin: Vector3 = game.player.camera.global_position if shooter == 1 else game.net.poses[shooter].p + Vector3(0,1.58,0)
-	var nearest := 1000.0
-	var victim := -1
-	for id in health_by_peer:
-		var candidate: int = int(id)
-		if candidate == shooter or int(health_by_peer[candidate]) <= 0: continue
-		if candidate != 1 and not game.net.poses.has(candidate): continue
-		var pos: Vector3 = game.player.position if candidate == 1 else game.net.poses[candidate].p
-		var offset: Vector3 = pos + Vector3(0,1.0,0)-origin
-		var t: float = offset.dot(direction)
-		if t < .2 or t > 42.0 or t >= nearest: continue
-		if (offset-direction*t).length() > .55: continue
-		var ray := PhysicsRayQueryParameters3D.create(origin,origin+direction*t)
-		ray.collision_mask = 1
-		ray.exclude = [game.player.get_rid()]
-		if not get_world_3d().direct_space_state.intersect_ray(ray).is_empty(): continue
-		nearest = t
-		victim = candidate
-	if victim >= 0:
-		health_by_peer[victim] = maxi(0,int(health_by_peer[victim])-25)
-		if int(health_by_peer[victim]) == 0:
-			scores[shooter] = int(scores.get(shooter,0))+1
-			health_by_peer[victim] = 100
-			game.net.send_fps_respawn(victim,game.fps_arena.spawn_for(victim))
-	game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
-	return true
+    if not active or level_id != -2 or not game.net.authoritative(): return false
+    if not health_by_peer.has(shooter) or int(health_by_peer[shooter]) <= 0: return false
+    if not direction.is_finite() or absf(direction.length()-1.0) > .05: return false
+    if shooter != 1 and not game.net.poses.has(shooter): return false
+    # The server has the last validated body yaw. Arbitrary client-provided
+    # 180-degree backshots are rejected, independently of claimed hits.
+    var facing_yaw: float = game.player.yaw if shooter == 1 else float(game.net.poses[shooter].y)
+    var facing: Vector3 = Vector3(-sin(facing_yaw),0,-cos(facing_yaw))
+    var aim_flat: Vector3 = Vector3(direction.x,0,direction.z).normalized()
+    if aim_flat.dot(facing) < .72: return false
+    var now: int = Time.get_ticks_msec()
+    if now - int(shot_ticks.get(shooter,-999999)) < 185: return false
+    if int(ammo_by_peer.get(shooter,0)) <= 0: return false
+    shot_ticks[shooter] = now
+    ammo_by_peer[shooter] = int(ammo_by_peer[shooter])-1
+    var origin: Vector3 = game.player.camera.global_position if shooter == 1 else game.net.poses[shooter].p + Vector3(0,1.58,0)
+    var nearest := 1000.0
+    var victim := -1
+    for id in health_by_peer:
+        var candidate: int = int(id)
+        if candidate == shooter or int(health_by_peer[candidate]) <= 0: continue
+        if candidate != 1 and not game.net.poses.has(candidate): continue
+        var pos: Vector3 = game.player.position if candidate == 1 else game.net.poses[candidate].p
+        var offset: Vector3 = pos + Vector3(0,1.0,0)-origin
+        var t: float = offset.dot(direction)
+        if t < .2 or t > 42.0 or t >= nearest: continue
+        if (offset-direction*t).length() > .55: continue
+        var ray := PhysicsRayQueryParameters3D.create(origin,origin+direction*t)
+        ray.collision_mask = 1
+        ray.exclude = [game.player.get_rid()]
+        if not get_world_3d().direct_space_state.intersect_ray(ray).is_empty(): continue
+        nearest = t
+        victim = candidate
+    if victim >= 0:
+        health_by_peer[victim] = maxi(0,int(health_by_peer[victim])-25)
+        if int(health_by_peer[victim]) == 0:
+            scores[shooter] = int(scores.get(shooter,0))+1
+            health_by_peer[victim] = 100
+            game.net.send_fps_respawn(victim,game.fps_arena.spawn_for(victim))
+    game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+    return true
 
 func server_reload(shooter: int) -> bool:
-	if not active or not game.net.authoritative() or not ammo_by_peer.has(shooter): return false
-	if int(ammo_by_peer[shooter]) >= MAGAZINE_CAPACITY: return false
-	ammo_by_peer[shooter] = MAGAZINE_CAPACITY
-	game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
-	return true
+    if not active or not game.net.authoritative() or not ammo_by_peer.has(shooter): return false
+    if int(ammo_by_peer[shooter]) >= MAGAZINE_CAPACITY: return false
+    ammo_by_peer[shooter] = MAGAZINE_CAPACITY
+    game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+    return true
 
 func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
-	health_by_peer = hp.duplicate()
-	ammo_by_peer = ammo.duplicate()
-	scores = points.duplicate()
-	var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
-	health = int(hp.get(id,100))
-	magazine = int(ammo.get(id,MAGAZINE_CAPACITY))
+    health_by_peer = hp.duplicate()
+    ammo_by_peer = ammo.duplicate()
+    scores = points.duplicate()
+    var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
+    health = int(hp.get(id,100))
+    magazine = int(ammo.get(id,MAGAZINE_CAPACITY))
