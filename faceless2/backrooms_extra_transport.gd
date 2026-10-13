@@ -22,6 +22,9 @@ var motor_started := false
 var finish_emitted := false
 var metal: Material
 var floor_finish: Material
+var solid_steel: Material
+var solid_tile: Material
+var enclosed_panel_count := 0
 
 func _ready() -> void:
 	name = "KenneyCC0_InteractiveTransport"
@@ -32,6 +35,11 @@ func configure(level_id: int, route: Array, wall_material: Material, floor_mater
 	passenger = player_node
 	metal = wall_material
 	floor_finish = floor_material
+	# Actual 1K Poly Haven CC0 PBR diffuse/normal/roughness is shared by
+	# the cabin, door leafs and floor; only the broad GLB steel sealing
+	# surfaces use metric world projection to avoid stretched native UVs.
+	solid_steel = Assets.projected_pbr(wall_material,.74)
+	solid_tile = Assets.projected_pbr(floor_material,.82)
 	var idx: int = route.find(source_level)
 	if idx < 0: return
 	_build_station(1, int(route[(idx+1)%route.size()]), source_level in STAIR_EDGES)
@@ -60,6 +68,16 @@ func _glb(file: String, at: Vector3, size: Vector3, material: Material = null) -
 		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(node)
 	return node
+
+func _panel(at: Vector3, size: Vector3, material: Material, side_wall: bool = false) -> Node3D:
+	# The imported Kenney CC0 floor_panel.glb has an opaque face.
+	# Rotate ORIGINAL GLB triangles for elevator doors and bulkheads;
+	# unlike the cut-out door_single_closed prefab, this seals the shaft.
+	var panel := Assets.licensed_panel(at,size,material,side_wall)
+	panel.name = "KenneyCC0_SolidElevatorOrStairGLB"
+	add_child(panel)
+	enclosed_panel_count += 1
+	return panel
 
 func _collision(at: Vector3, size: Vector3, parent: Node3D = null) -> StaticBody3D:
 	var body := StaticBody3D.new()
@@ -124,19 +142,24 @@ func _build_elevator(direction: int, destination: int) -> void:
 		"centre":Vector3(0,0,centre_z),"entrance_z":entrance_z}
 	var metal_plate := metal
 	# All these panels and moving doors retain Kenney's imported GLB triangles.
-	_glb("floor_panel",Vector3(0,-.049,centre_z),Vector3(3.0,.18,2.74),floor_finish)
-	_glb("structure_panel",Vector3(0,2.93,centre_z),Vector3(3.12,.18,2.70),metal_plate)
+	_glb("floor_panel",Vector3(0,-.080,centre_z),Vector3(3.0,.18,2.74),solid_tile)
+	_collision(Vector3(0,-.08,centre_z),Vector3(3.02,.36,2.75))
+	# Physical roof cannot float 0.2m above the cabin walls.
+	_glb("structure_panel",Vector3(0,2.82,centre_z),Vector3(3.12,.18,2.70),solid_steel)
+	_collision(Vector3(0,2.87,centre_z),Vector3(3.08,.15,2.72))
 	for side in [-1.0,1.0]:
 		_glb("wall",Vector3(side*1.55,1.42,centre_z),Vector3(.18,2.85,2.65),metal_plate)
+		_panel(Vector3(side*1.66,1.42,centre_z),Vector3(.12,2.88,2.67),solid_steel,true)
 		_collision(Vector3(side*1.57,1.38,centre_z),Vector3(.23,2.75,2.65))
-		_glb("wall_pillar",Vector3(side*1.58,1.43,entrance_z),Vector3(.20,2.86,.26),metal_plate)
+		_glb("wall_pillar",Vector3(side*1.58,1.43,entrance_z),Vector3(.20,2.86,.26),solid_steel)
 	var far_z := centre_z - (1.33 if direction == 1 else -1.33)
 	_glb("wall",Vector3(0,1.42,far_z),Vector3(3.12,2.85,.18),metal_plate)
+	_panel(Vector3(0,1.42,far_z-.14*float(direction)),Vector3(3.13,2.88,.14),solid_steel)
 	_collision(Vector3(0,1.38,far_z),Vector3(3.12,2.75,.20))
 	# Two imported GLB halves slide together, and collision follows their
 	# closed state. Initially OPEN so the player can walk inside the cabin.
-	var left := _glb("door_single_closed",Vector3(-1.10,1.34,entrance_z),Vector3(1.0,2.68,.13),metal_plate)
-	var right := _glb("door_single_closed",Vector3(1.10,1.34,entrance_z),Vector3(1.0,2.68,.13),metal_plate)
+	var left := _panel(Vector3(-1.10,1.34,entrance_z),Vector3(1.00,2.68,.15),solid_steel)
+	var right := _panel(Vector3(1.10,1.34,entrance_z),Vector3(1.00,2.68,.15),solid_steel)
 	var barrier := _collision(Vector3(0,1.36,entrance_z),Vector3(2.05,2.69,.18))
 	barrier.collision_layer = 0
 	barrier.collision_mask = 0
@@ -146,7 +169,7 @@ func _build_elevator(direction: int, destination: int) -> void:
 	# Distinct physical authored switches for every floor. Only the next
 	# adjacency is energized; wrong buttons are rejected, never teleport.
 	# Real CC0 GLB panel mounting, rather than switches floating in the air.
-	_glb("wall",Vector3(1.40,1.55,centre_z),Vector3(.10,2.14,2.18),metal_plate)
+	_panel(Vector3(1.43,1.55,centre_z),Vector3(.10,2.14,2.18),solid_steel,true)
 	_sign("SELECT LEVEL",Vector3(1.07,2.33,centre_z),true,0.00078,true)
 	for idx in range(FLOOR_IDS.size()):
 		var floor_id: int = FLOOR_IDS[idx]
@@ -212,13 +235,26 @@ func _build_stairs(direction: int, destination: int) -> void:
 	ramp.add_child(collider)
 	add_child(ramp)
 	station["ramp"] = ramp
-	# Solid side barrier is OFF the stair treads, keeping >= 2.3 m to walk.
-	_glb("wall_door",Vector3(0,1.62,landing_z+advance*.95),Vector3(2.60,2.6,.20),metal)
-	var exit_gate := _glb("door_single_closed",Vector3(0,1.35,landing_z+advance*.72),Vector3(1.18,2.7,.17),metal)
+	# Solid rail colliders remain outside the 2.3m walkable lane; the
+	# originals remain Kenney pipe GLBs, not procedural rail render meshes.
+	for side in [-1.0,1.0]:
+		_collision(Vector3(side*1.29,.96,(floor0+floor1)*.5),
+			Vector3(.18,1.92,absf(floor1-floor0)+.9))
+	var exit_z := landing_z+advance*.72
+	# Stair portal has proper opaque CC0 GLB flanks and a short backed
+	# end recess: no black void behind a window-shaped fake doorway.
+	for side in [-1.0,1.0]:
+		_panel(Vector3(side*.94,1.34,exit_z),Vector3(.70,2.68,.19),solid_steel)
+	_panel(Vector3(0,1.34,exit_z+advance*.98),Vector3(2.59,2.68,.15),solid_steel)
+	var exit_gate := _panel(Vector3(0,1.35,exit_z),Vector3(1.18,2.70,.16),solid_steel)
+	var stair_barrier := _collision(Vector3(0,1.35,exit_z),Vector3(1.18,2.70,.18))
+	station["closed_collision"] = stair_barrier
 	station["door_left"] = exit_gate
 	station["door_right"] = null
 	_sign("STAIRS -> "+floor_name(destination),Vector3(0,2.45,landing_z+advance*.9),true)
 	var button_where := Vector3(.93,1.39,landing_z+advance*.10)
+	_panel(Vector3(1.16,1.39,landing_z+advance*.12),
+		Vector3(.12,1.35,.74),solid_steel,true)
 	_button(button_where,destination,destination,direction,"stairs")
 	station["door_audio"] = _sound("elevator_door.wav",landing_z)
 	# Low-cost stairwell lamp makes individual imported steps readable without
@@ -321,6 +357,11 @@ func _process(delta: float) -> void:
 		var stair_door := selected["door_left"] as Node3D
 		if is_instance_valid(stair_door):
 			stair_door.position.x = clampf(elapsed/1.0,0.0,1.0)*1.45
+		var stair_barrier := selected.get("closed_collision") as StaticBody3D
+		if is_instance_valid(stair_barrier) and is_instance_valid(stair_door):
+			# Physical wall follows the actual sliding GLB gate rather than
+			# leaving an invisible obstruction across the visible opening.
+			stair_barrier.position.x = stair_door.position.x
 		if elapsed < STAIR_DOOR_SECONDS: return
 	active = false
 	set_process(false)

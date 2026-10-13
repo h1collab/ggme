@@ -21,6 +21,11 @@ func run() -> void:
 		check(game.extra_levels.visible and game.extra_levels.current == number,"New level loads in authored GLB zone")
 		check(game.extra_levels.scene_root != null,"Actual separate 3D level root exists")
 		check(game.extra_levels.colliders.get_child_count() >= 5,"Walls and floor have physics collision")
+		var sealing_panels := game.extra_levels.scene_root.find_children("KenneyCC0_WallHoleInfillGLB","Node3D",true,false)
+		check(sealing_panels.size() >= 16, "GLB corridor wall cutouts and end caps are physically backed by licensed opaque original modules")
+		for panel in sealing_panels:
+			check((panel as Node3D).get_meta("original_kenney_glb","") == "wakeup_floor_panel.glb",
+				"Every sealing panel is a reused Kenney GLB, not a generated visible primitive")
 		check(game.extra_levels.passive_entities.size() >= 2,"At least two non-attacking licensed monster/face entities exist")
 		if number in [0,1,5,130,131,132]:
 			var creature: Node3D = game.extra_levels.passive_entities[0]
@@ -34,6 +39,19 @@ func run() -> void:
 		check(is_instance_valid(game.extra_levels.transport), "Original Kenney GLB transport scene is present")
 		var transport: Node3D = game.extra_levels.transport
 		check(transport.buttons.size() >= 1, "Each sector has at least one physical Kenney GLB floor selector")
+		check(transport.enclosed_panel_count >= 3, "Lift and stairwell use genuine opaque imported CC0 GLB cabin/shaft panels")
+		var licensed_steel: StandardMaterial3D = transport.metal as StandardMaterial3D
+		var licensed_tile: StandardMaterial3D = transport.floor_finish as StandardMaterial3D
+		check(licensed_steel != null and licensed_tile != null and
+			licensed_steel.albedo_texture != null and licensed_steel.normal_texture != null and
+			licensed_steel.roughness_texture != null and licensed_tile.albedo_texture != null and
+			licensed_tile.normal_texture != null and licensed_tile.roughness_texture != null,
+			"Cabin walls, steel doors and anti-slip floor all have actual verified PBR diffuse/normal/roughness maps")
+		var steel_panels := transport.find_children("KenneyCC0_SolidElevatorOrStairGLB","Node3D",true,false)
+		for panel in steel_panels:
+			var surfaces := panel.find_children("*","MeshInstance3D",true,false)
+			check(not surfaces.is_empty() and surfaces[0].material_override is StandardMaterial3D,
+				"Each shaft sealing panel renders source GLB triangles with real PBR material")
 		check(transport.station_kind(1) == ("stairs" if number in [2,6,132] else "elevator"), "Next connection uses the sector's authored stair/elevator route")
 		if number != 0: check(transport.station_kind(-1) == ("stairs" if game.extra_levels.previous_level() in [2,6,132] else "elevator"), "Backward route matches incoming transport")
 		for button in transport.buttons:

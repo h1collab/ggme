@@ -70,6 +70,22 @@ func run() -> void:
 	for member in game.wakeup_room.find_children("Kenney_CC0_wall_pillar","Node3D",true,false):
 		check(absf((member as Node3D).global_position.y) < 0.10, "Visible GLB structural column is grounded at the physical floor")
 	check(game.wakeup_room.authored_modules >= 80, "Underground facility assembled entirely from real authored CC0 GLBs")
+	# The old decorative Kenney door left a cut-out showing infinite black
+	# outside the world; real GLB backing and a fully enclosed vestibule
+	# must be present even when the camera approaches from either side.
+	var opaque_backers := game.wakeup_room.find_children("KenneyCC0_SolidBackedGLB","Node3D",true,false)
+	check(opaque_backers.size() >= 20, "Original Kenney CC0 GLB panels close the wall apertures, far door and physical exit vestibule")
+	for panel in opaque_backers:
+		check((panel as Node3D).get_meta("original_kenney_glb","") == "wakeup_floor_panel.glb",
+			"Backing surfaces remain original licensed GLB triangles, not a BoxMesh")
+	for entrance in game.wakeup_room.side_doors:
+		var hinge: Node3D = entrance.get_meta("hinge") as Node3D
+		check(is_instance_valid(hinge) and hinge.get_node_or_null("KenneyCC0_OpaqueWorkingDoorGLB") != null,
+			"Each interactive door uses a solid licensed metal GLB instead of the giant 2-shaped cutout")
+		check(is_instance_valid(hinge) and hinge.get_node_or_null("KenneyCC0_PhysicalDoorLatchGLB") != null,
+			"Physical door handles retain the authored Kenney CC0 switch GLB")
+	check(game.wakeup_room.find_children("Kenney_CC0_door_single_closed","Node3D",true,false).is_empty(),
+		"No collidable corridor is covered by an unrelated floating cutout door GLB")
 	check(prologue.wake_camera.current and prologue.wake_camera.position.y < 0.5, "First-person camera begins near the floor")
 	check(game.wakeup_room.side_doors.size() >= 4, "Genuine authorized GLB side doors around the waking player")
 	check(game.wakeup_room.smiler != null, "Authorized Sketchfab Smiler GLB loads")

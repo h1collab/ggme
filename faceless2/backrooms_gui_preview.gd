@@ -139,6 +139,15 @@ func run() -> void:
 		game.player.look(Vector2(90,0))
 		await _capture("15_player_looks_around")
 		if prologue.phone.visible: failures.append("Licensed iPhone must never return in gameplay")
+		# Native Godot flashlight photographs of the EXACT user-reported
+		# door slot and formerly missing right-side 3D vestibule. This camera
+		# moves into the real scene; it is not an AI illustration or mask.
+		game.player.global_position = Vector3(2.12,.10,-.90)
+		game.player.camera.look_at(Vector3(6.80,1.52,-.90))
+		await _capture("15a_real_opaque_cc0_door_airlock")
+		game.player.global_position = Vector3(-1.80,.10,-6.00)
+		game.player.camera.look_at(Vector3(-3.90,1.50,-6.00))
+		await _capture("15b_wall_glb_original_apertures_backed")
 		var door: Node3D = game.wakeup_room.openable_door
 		if is_instance_valid(door):
 			game.player.global_position = door.global_position + Vector3(0,0.10,0.65)
@@ -174,10 +183,19 @@ func run() -> void:
 	game.player.global_position = Vector3(0,0.10,-27.7)
 	game.player.camera.look_at(Vector3(1.22,1.55,-28.5))
 	await _capture("40_elevator_unique_floor_buttons_real_glb")
+	game.player.global_position = Vector3(.12,.10,-27.08)
+	game.player.camera.look_at(Vector3(0,1.53,-28.9))
+	await _capture("40a_real_opaque_elevator_doorway")
+	game.player.global_position = Vector3(0,.10,-28.87)
+	game.player.camera.look_at(Vector3(0,1.56,-30.16))
+	await _capture("40b_real_textured_elevator_interior_bulkhead")
 	game.open_backrooms_level(2)
 	game.player.global_position = Vector3(0,0.10,-24.7)
 	game.player.camera.look_at(Vector3(0,1.0,-29.3))
 	await _capture("41_service_stairs_glb_walking_surface")
+	game.player.global_position = Vector3(0,.72,-28.4)
+	game.player.camera.look_at(Vector3(0,1.40,-30.1))
+	await _capture("41a_glb_stairs_sealed_exit_and_button")
 	game.extra_levels.clear()
 	game.net.leave()
 	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:

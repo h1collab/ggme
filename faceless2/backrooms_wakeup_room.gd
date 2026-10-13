@@ -96,17 +96,30 @@ func _ready() -> void:
 				mesh.material_override = rock
 			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		authored_modules += 75
+		# The original Kenney wall has decorative narrow openings. Back
+		# every NON-DOOR slot with real, opaque Kenney floor-panel GLB
+		# vertices rotated vertically, so flashlight rays do not reveal the
+		# empty world through the authored wall cutouts.
+		var infill_mat := Assets.projected_pbr(concrete,0.72)
+		for z in [3.0,1.5,0.0,-1.5,-3.0,-4.5,-6.0,-7.5,-9.0]:
+			_opaque_glb(Vector3(-4.00,1.54,z),Vector3(.12,3.12,1.55),infill_mat,true)
+			# The only unlocked physical exit is x>0, z~-0.9.
+			if z not in [0.0,-1.5]:
+				_opaque_glb(Vector3(4.00,1.54,z),Vector3(.12,3.12,1.55),infill_mat,true)
 	for z in [3.0,-2.0,-7.0]:
 		for x in [-3.6,3.6]:
 			_module("wall_pillar",Vector3(x,1.5,z),industrial,Vector3(0.4,3.0,0.4))
-	_module("door_single_closed",Vector3(-2.8,1.5,-6.5),industrial,Vector3(1.4,2.9,0.25))
+	# The earlier oversized floating Kenney door mesh at x=-2.8 had no
+	# matching collision or walkable doorway. Remove that orphan render node.
 	# Remove floating eye-level surplus GLB display/monitor blocks intersecting
 	# the real corridor. The original batched Kenney GLB walls remain fully PBR.
 	for i in range(5):
 		_module("pipe",Vector3(-3.45,2.65,1.6-i*2.0),industrial,Vector3(0.24,0.24,1.8))
 	_module("container_tall",Vector3(2.9,0.95,1.6),industrial,Vector3(0.85,1.9,0.85))
 	# Authored corridor end wall is already included in the offline combined GLB.
-	_module("wall_door",Vector3(0,1.55,-9.75),industrial,Vector3(4.1,3.10,0.30))
+	# Seal the real far end of the corridor with licensed opaque GLB geometry,
+	# rather than another window-shaped fake door over a dark void.
+	_opaque_glb(Vector3(0,1.53,-9.75),Vector3(4.14,3.12,.21),Assets.projected_pbr(industrial,0.72))
 	# Restore visible depth at the far door with genuine Kenney GLB pipes
 	# and pillars. No new primitive render geometry, no dynamic shadows.
 	_module("pipe",Vector3(-1.8,2.62,-8.6),industrial,Vector3(.20,.24,2.15))
@@ -145,7 +158,18 @@ func _ready() -> void:
 	_barrier(Vector3(3.8,1.45,-6.1),Vector3(0.35,3.0,8.0))
 	_barrier(Vector3(3.8,1.45,2.45),Vector3(0.35,3.0,3.3))
 	for x in [4.55,6.05]: _module("floor_panel",Vector3(x,-0.06,-0.9),floor_finish,Vector3(1.5,0.18,2.1))
+	# The right-hand interactive exit formerly opened into an UNBUILT
+	# black void. Build a shallow, fully enclosed Kenney GLB airlock,
+	# with solid PBR side walls, a real roof and an opaque far bulkhead.
+	var vestibule_mat := Assets.projected_pbr(industrial,0.72)
+	_opaque_glb(Vector3(5.30,1.54,.38),Vector3(3.02,3.12,.15),vestibule_mat)
+	_opaque_glb(Vector3(5.30,1.54,-2.14),Vector3(3.02,3.12,.15),vestibule_mat)
+	_opaque_glb(Vector3(6.81,1.54,-.88),Vector3(.18,3.12,2.60),vestibule_mat,true)
+	_module("floor_panel",Vector3(5.30,3.04,-.88),industrial,Vector3(3.08,.17,2.58))
 	_barrier(Vector3(5.45,-0.17,-0.9),Vector3(4.15,0.30,2.2))
+	_barrier(Vector3(5.30,1.45,.38),Vector3(3.05,2.95,.19))
+	_barrier(Vector3(5.30,1.45,-2.14),Vector3(3.05,2.95,.19))
+	_barrier(Vector3(6.81,1.45,-.88),Vector3(.22,2.95,2.60))
 	_barrier(Vector3(0,1.45,-10.1),Vector3(7.6,3.0,0.35))
 	_barrier(Vector3(0,1.45,4.1),Vector3(7.6,3.0,0.35))
 	# Small Plastic Torch: licensed Poly Haven original imported GLB.
@@ -512,7 +536,7 @@ func reset_facility() -> void:
 	set_physics_active(visible)
 
 func _authored_door(at: Vector3) -> Node3D:
-	var source := Assets.path("vendor/wakeup_door_single_closed.glb")
+	var source := Assets.path("vendor/wakeup_floor_panel.glb")
 	if not ResourceLoader.exists(source): return null
 	var node := Node3D.new()
 	node.name = "KenneyAuthoredInteractiveDoor"
@@ -523,21 +547,24 @@ func _authored_door(at: Vector3) -> Node3D:
 	hinge.name = "ActualDoorHinge"
 	hinge.position.x = -0.77
 	node.add_child(hinge)
-	var mesh := Assets.fitted("vendor/wakeup_door_single_closed.glb",2.35)
-	mesh.position.x = 0.77
-	# The original Kenney GLB has bright blue/orange placeholder-looking
-	# material. Preserve every licensed triangle and opening hinge, but
-	# cover its visible surfaces with verified Poly Haven CC0 PBR steel.
-	var door_finish := _photographic_pbr("rusty_metal_sheet",Color(0.76,0.81,0.82),0.95)
-	door_finish.metallic = 0.25
-	door_finish.roughness = 0.64
-	for triangle_mesh in mesh.find_children("*","MeshInstance3D",true,false):
-		(triangle_mesh as MeshInstance3D).material_override = door_finish
-		(triangle_mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# The source door_single_closed.glb has a large stylised cut-out that
+	# looked like a giant "2" and exposed unbuilt space. Use an actual
+	# Kenney CC0 opaque GLB plate with scan-based PBR, plus a real Kenney
+	# switch GLB as latch; the existing door hinge and collision still move.
+	var door_finish := _photographic_pbr("rusty_metal_sheet",Color(.76,.81,.82),.95)
+	door_finish.metallic = .25
+	door_finish.roughness = .64
+	var mesh := Assets.licensed_panel(Vector3(.77,1.175,0),Vector3(1.50,2.35,.16),
+		Assets.projected_pbr(door_finish,.83))
+	mesh.name = "KenneyCC0_OpaqueWorkingDoorGLB"
 	hinge.add_child(mesh)
+	var latch := Assets.fitted("vendor/wakeup_wall_switch.glb",.19)
+	latch.name = "KenneyCC0_PhysicalDoorLatchGLB"
+	latch.position = Vector3(1.34,1.12,.13)
+	hinge.add_child(latch)
 	var body := StaticBody3D.new()
 	body.name = "SolidDoorPanel"
-	body.position = mesh.position + Vector3(0,1.15,0) # collider centre, not GLB bottom
+	body.position = Vector3(.77,1.175,0) # exactly the opaque GLB panel centre
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(1.5,2.3,0.18)
 	var collider := CollisionShape3D.new()
@@ -570,6 +597,15 @@ func set_physics_active(enabled: bool) -> void:
 			if is_instance_valid(body):
 				body.collision_layer = 1 if enabled and not bool(door.get_meta("opened",false)) else 0
 				body.collision_mask = body.collision_layer
+
+# Adds only original publisher-authored GLB geometry (NOT BoxMesh). All
+# enlarged holes have a true textured rear surface and safe physical walls.
+func _opaque_glb(at: Vector3, extent: Vector3, material: Material, side_wall: bool = false) -> Node3D:
+	var plate := Assets.licensed_panel(at,extent,material,side_wall)
+	plate.name = "KenneyCC0_SolidBackedGLB"
+	add_child(plate)
+	authored_modules += 1
+	return plate
 
 func _barrier(at: Vector3, size: Vector3, parent_body: StaticBody3D = null) -> void:
 	var shape := BoxShape3D.new()

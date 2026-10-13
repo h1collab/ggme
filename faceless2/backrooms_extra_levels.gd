@@ -96,6 +96,15 @@ func _piece(file: String, pos: Vector3, dimensions: Vector3, material: Material 
 	if file == "floor_panel": floor_section_nodes.append(node)
 	return node
 
+# Source-authored floor-panel GLB geometry reoriented as opaque structural
+# backfill. One cached scene-local PBR material is shared by all these panels;
+# collision continues to use independent invisible inexpensive BoxShape3D.
+func _infill_glb(at: Vector3, dimensions: Vector3, material: Material, side_wall: bool = false) -> Node3D:
+	var panel := Assets.licensed_panel(at,dimensions,material,side_wall)
+	panel.name = "KenneyCC0_WallHoleInfillGLB"
+	scene_root.add_child(panel)
+	return panel
+
 func _solid(pos: Vector3, size: Vector3) -> void:
 	var shape := BoxShape3D.new()
 	shape.size = size
@@ -135,6 +144,14 @@ func _side_room(side: float, z: float, width: float, wall_mat: Material, floor_m
 	_solid(Vector3(side*(width*.5+4.16),1.46,z),Vector3(.32,3.0,room_length+.05))
 	_solid(Vector3(room_center,1.46,z-half_length),Vector3(4.3,3.0,.30))
 	_solid(Vector3(room_center,1.46,z+half_length),Vector3(4.3,3.0,.30))
+	# Enclose the side room as well: imported Kenney wall apertures must
+	# not expose the black world when the player looks through them.
+	var sealed := Assets.projected_pbr(wall_mat,.72)
+	_infill_glb(Vector3(side*(width*.5+4.30),1.54,z),
+		Vector3(.12,3.12,room_length),sealed,true)
+	for end in [-1.0,1.0]:
+		_infill_glb(Vector3(room_center,1.54,z+end*(half_length+.14)),
+			Vector3(4.2,3.12,.12),sealed)
 	_light(Vector3(room_center,2.65,z),Color(.67,.76,.72),0.90,4.8)
 
 func _light(at: Vector3, color: Color, energy: float, distance: float) -> void:
@@ -217,6 +234,9 @@ func enter(level_number: int) -> Vector3:
 	for z in range(0,10):
 		var point := Vector3(0.0,-.07,3.3-float(z)*3.6)
 		_piece("floor_panel",point,Vector3(width+.06,.16,3.62),floor_render)
+	# World-scale scanned PBR (diffuse/normal/roughness) on 0.12m thick
+	# licensed GLB backing panels prevents both black voids and stretched UVs.
+	var sealed_wall: Material = Assets.projected_pbr(layout_mat,.72)
 	# GLB side-room mouth is at z ~= -11.1. Avoid both visual walls and
 	# invisible corridor colliders across this opening. Floor continues through.
 	var has_side_room := level_number in [1,5,130,131]
@@ -226,7 +246,12 @@ func enter(level_number: int) -> Vector3:
 		for side in [-1.0,1.0]:
 			if has_side_room and side == side_sign and z in [4,5]: continue
 			_piece("wall",Vector3(side*w,1.56,zpos),Vector3(.22,3.15,3.68),layout_mat)
-		_piece("structure_panel",Vector3(0,3.22,zpos),Vector3(width,.23,3.68),layout_mat)
+			# Inset behind original wall's decorative slots, real GLB metal
+			# backing visible under flashlight, never a painted black void.
+			_infill_glb(Vector3(side*(w+.21),1.54,zpos),
+				Vector3(.12,3.12,3.66),sealed_wall,true)
+		# Recess the genuine authored ceiling enough to overlap wall tops.
+		_piece("structure_panel",Vector3(0,3.08,zpos),Vector3(width,.23,3.68),layout_mat)
 	_solid(Vector3(0,-.18,-13.0),Vector3(width,.33,37.8))
 	for side in [-1.0,1.0]:
 		if has_side_room and side == side_sign:
@@ -236,8 +261,12 @@ func enter(level_number: int) -> Vector3:
 		else:
 			_solid(Vector3(side*w,1.46,-13.0),Vector3(.32,3.0,37.8))
 	if has_side_room: _side_room(side_sign,-12.9,width,layout_mat,floor_render,layout_mat)
-	_solid(Vector3(0,1.46,-31.3),Vector3(width,3.0,.3))
-	_solid(Vector3(0,1.46,4.6),Vector3(width,3.0,.3))
+	# Floor/side collision previously extended past any VISIBLE end cap.
+	# Grounded GLB bulkheads and their collision agree at both ends.
+	_infill_glb(Vector3(0,1.54,-30.83),Vector3(width,3.12,.18),sealed_wall)
+	_infill_glb(Vector3(0,1.54,4.66),Vector3(width,3.12,.18),sealed_wall)
+	_solid(Vector3(0,1.46,-30.83),Vector3(width,3.0,.28))
+	_solid(Vector3(0,1.46,4.66),Vector3(width,3.0,.28))
 	var max_range := 5 if level_number == 2 else 7
 	for i in range(max_range):
 		var z := 1.0 - float(i)*5.15
@@ -363,7 +392,11 @@ func enter(level_number: int) -> Vector3:
 	# switches and/or real GLB walkable stairs. The old exit teleporter is gone.
 	transport = Transport.new()
 	scene_root.add_child(transport)
-	transport.configure(level_number,ROUTE,industrial,floor_render,get_parent().player)
+	# Cabins should always be photogrammetric CC0 metal and non-slip tile,
+	# never inherit a level's carpet/pink party-floor material by accident.
+	transport.configure(level_number,ROUTE,
+		_surface("rust",Color(.72,.74,.73)),
+		_surface("tile",Color(.68,.71,.73)),get_parent().player)
 	transport.arrived.connect(_transport_arrived)
 	return Vector3(0,0.1,2.2)
 
