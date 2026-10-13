@@ -65,6 +65,16 @@ def check_metadata(info: dict, name: str) -> None:
     if info.get("isDownloadable") is False:
         raise RuntimeError(name + ": the author disabled authorized downloads")
 
+def check_creator(info: dict, item: dict) -> None:
+    # UID and license do not establish attribution if ownership changed.
+    user = info.get("user") or {}
+    names = {str(user.get(key) or "").strip().casefold()
+             for key in ("username", "displayName")}
+    names.discard("")
+    if names and item["creator"].casefold() not in names:
+        raise RuntimeError(item["title"] + ": original Sketchfab creator identity changed")
+
+
 def download_authorized(uid: str, token: str) -> dict:
     # OAuth access tokens require Bearer; a legacy user API token can be Token.
     errors = []
@@ -109,10 +119,12 @@ def convert_asset(item: dict, folder: Path, token: str) -> None:
     if metadata.get("uid") and str(metadata["uid"]) != uid:
         raise RuntimeError("Unrecognized Sketchfab model returned for " + item["title"])
     check_metadata(metadata, item["title"])
+    check_creator(metadata, item)
     manifest = folder / (item["filename"] + ".source.json")
     target = folder / item["filename"]
     info = download_authorized(uid, token)
     data = download_zip(str(info["gltf"]["url"]))
+    source_archive_sha256 = hashlib.sha256(data).hexdigest()
     with tempfile.TemporaryDirectory(prefix="faceless_sketchfab_") as tmp:
         scene = read_gltf_archive(data, Path(tmp))
         subprocess.run(
@@ -132,7 +144,9 @@ def convert_asset(item: dict, folder: Path, token: str) -> None:
         "source": item["source"],
         "license": "CC BY 4.0",
         "sha256": digest,
-        "size": len(binary)
+        "size": len(binary),
+        "authorized_source_archive_sha256": source_archive_sha256,
+        "authorized_source_archive_size": len(data)
     }, indent=2, ensure_ascii=False) + "\n")
     print("SKETCHFAB_AUTHORIZED_GLB_PASS", item["filename"], len(binary), digest)
 

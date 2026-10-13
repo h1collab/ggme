@@ -29,6 +29,8 @@ jobs:
     timeout-minutes: 19
     steps:
       - uses: actions/checkout@v4
+      - name: Verify Sketchfab licensing importer without network or secrets
+        run: python -m unittest discover -s faceless2 -p 'test_fetch_sketchfab_cast.py' -v
       - name: Restore exact authored GLB assets and Godot project
         shell: bash
         run: |
@@ -75,7 +77,7 @@ jobs:
       - name: Fetch and validate licensed GLB scenery, iPhone and foley
         shell: bash
         env:
-          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN || secrets.SKETCHFAB_OAUTH_TOKEN || secrets.SKETCHFAB_ACCESS_TOKEN || vars.SKETCHFAB_TOKEN }}
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN }}
         run: |
           set -euo pipefail
           python faceless2/backrooms_audio.py app/audio

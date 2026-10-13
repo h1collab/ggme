@@ -12,6 +12,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  source-license-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Sketchfab licensing importer without network or secrets
+        run: python -m unittest discover -s faceless2 -p 'test_fetch_sketchfab_cast.py' -v
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 50
@@ -40,7 +48,7 @@ jobs:
       - name: Prepare Faceless 2 exploration and CC BY architecture
         shell: bash
         env:
-          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN || secrets.SKETCHFAB_API_TOKEN || secrets.SKETCHFAB_ACCESS_TOKEN || vars.SKETCHFAB_TOKEN || vars.SKETCHFAB_API_TOKEN }}
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN }}
         run: |
           python -m pip install --disable-pip-version-check Pillow==11.3.0 fonttools==4.61.1 trimesh==4.7.4 numpy==2.2.6 cairosvg==2.8.2
           python - <<'PYCODE'
