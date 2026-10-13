@@ -55,6 +55,8 @@ func run() -> void:
 	await _capture("02_camera_push")
 	await _advance_frames(8)
 	await _capture("03_phone_ringing")
+	if absf(prologue.phone_lowest_world_y() - (prologue.PHONE_DESK_TOP + 0.004)) > 0.015:
+		failures.append("Imported iPhone bottom does not touch the licensed GLB desk")
 	prologue.answer()
 	await _advance_frames(4)
 	await _advance_frames(6)
@@ -63,6 +65,7 @@ func run() -> void:
 	await _advance_frames(9)
 	await _capture("05_blackout")
 	await _advance_frames(8)
+	if prologue.phone.visible: failures.append("Opening iPhone is floating inside the underground level")
 	await _capture("06_wake_floor_blur")
 	await _advance_frames(19)
 	await _capture("07_wake_mid")

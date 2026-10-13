@@ -68,9 +68,10 @@ func _ready() -> void:
 	name = "WakeupFacility_Area51Inspired"
 	# Facility is a plausible black-site research space, not an official Area 51 layout.
 	var concrete := _photographic_pbr("worn_plaster_wall", Color(0.95,0.94,0.92), 1.2)
-	var industrial := _finish(Color(0.18,0.23,0.24))
+	# Real verified Poly Haven CC0 diffuse/normal/roughness replace the
+	# untextured metal-colored slabs on our supplemental imported GLBs.
+	var industrial := _photographic_pbr("rusty_metal_sheet", Color(0.58,0.64,0.65), 0.82)
 	var floor_finish := _photographic_pbr("concrete_floor", Color(0.91,0.91,0.91), 1.0)
-	var panel := _finish(Color(0.26,0.30,0.30))
 	# CPU-baked original Kenney Space Station GLB corridor: 75 original modules
 	# in a few draw batches instead of 75 repeated Godot PackedScene hierarchies.
 	var corridor_path := Assets.path("vendor/facility_corridor_cc0.glb")
@@ -81,7 +82,7 @@ func _ready() -> void:
 		corridor.name = "KenneyCC0_Corridor75ModulesBatched"
 		add_child(corridor)
 		var rock := _photographic_pbr("worn_plaster_wall", Color(0.93,0.93,0.94), 1.0)
-		var ceiling_finish := _photographic_pbr("rusty_metal_sheet", Color(0.30,0.34,0.37), 0.82)
+		var ceiling_finish := _photographic_pbr("rusty_metal_sheet", Color(0.55,0.57,0.58), 0.82)
 		for node in corridor.find_children("*","MeshInstance3D",true,false):
 			var mesh := node as MeshInstance3D
 			var semantic := String(mesh.name).to_lower()
@@ -99,8 +100,8 @@ func _ready() -> void:
 		for x in [-3.6,3.6]:
 			_module("wall_pillar",Vector3(x,1.5,z),industrial,Vector3(0.4,3.0,0.4))
 	_module("door_single_closed",Vector3(-2.8,1.5,-6.5),industrial,Vector3(1.4,2.9,0.25))
-	_module("computer_screen",Vector3(2.8,1.25,-2.25),panel,Vector3(0.8,1.05,0.3))
-	_module("display_wall",Vector3(-3.6,1.8,-3.2),panel,Vector3(0.25,1.4,1.8))
+	# Remove floating eye-level surplus GLB display/monitor blocks intersecting
+	# the real corridor. The original batched Kenney GLB walls remain fully PBR.
 	for i in range(5):
 		_module("pipe",Vector3(-3.45,2.65,1.6-i*2.0),industrial,Vector3(0.24,0.24,1.8))
 	_module("container_tall",Vector3(2.9,0.95,1.6),industrial,Vector3(0.85,1.9,0.85))
@@ -515,7 +516,8 @@ func _authored_door(at: Vector3) -> Node3D:
 	if not ResourceLoader.exists(source): return null
 	var node := Node3D.new()
 	node.name = "KenneyAuthoredInteractiveDoor"
-	node.position = at
+	# Assets.fitted() places the authored GLB base at Y=0, not at its centre.
+	node.position = Vector3(at.x,0.015,at.z)
 	node.rotation.y = PI * 0.5 if at.x < 0 else -PI * 0.5
 	var hinge := Node3D.new()
 	hinge.name = "ActualDoorHinge"
@@ -526,7 +528,7 @@ func _authored_door(at: Vector3) -> Node3D:
 	hinge.add_child(mesh)
 	var body := StaticBody3D.new()
 	body.name = "SolidDoorPanel"
-	body.position = mesh.position
+	body.position = mesh.position + Vector3(0,1.15,0) # collider centre, not GLB bottom
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(1.5,2.3,0.18)
 	var collider := CollisionShape3D.new()
@@ -767,6 +769,10 @@ func _module(source: String, at: Vector3, material: StandardMaterial3D, dimensio
 	var model := Assets.fitted(name,dimensions.y)
 	model.name = "Kenney_CC0_"+source
 	model.position = at
+	# Ground the source GLB against the physically collidable floor. These
+	# coordinates historically supplied geometric CENTERS to base-aligned GLBs.
+	if source in ["wall","wall_pillar","wall_door","door_single_closed","container_tall"]:
+		model.position.y -= dimensions.y * 0.5
 	var source_dims: Vector3 = model.get_meta("dimensions",Vector3.ONE)
 	model.scale = Vector3(
 		dimensions.x / maxf(source_dims.x,0.01),
