@@ -159,7 +159,7 @@ func _hello(version: int, key: String) -> void:
 	if game.fps_arena.visible: game.fps.register_peer(id)
 	pose_times[id] = Time.get_ticks_msec()
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
-	if game.fps_arena.visible: _fps_join.rpc_id(id, game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
+	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
 	status = "Room / %d of %d" % [members.size(), max_crew]
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -295,9 +295,11 @@ func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
 	if game.fps_arena.visible: game.fps.receive_fps_state(hp,ammo,points)
 
 @rpc("authority","call_remote","reliable",0)
-func _fps_join(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
+func _fps_join(spawn: Vector3, hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
 	if mode != "client": return
 	game.start_fps_arena()
+	# Actual authoritative peer spawn (ENet peer IDs are not seat numbers).
+	game.player.reset_to(spawn)
 	game.fps.receive_fps_state(hp,ammo,points)
 
 func send_fps_respawn(id: int, pos: Vector3) -> void:
