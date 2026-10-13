@@ -159,7 +159,7 @@ func _build_elevator(direction: int, destination: int) -> void:
 	light.spot_angle = 63
 	light.shadow_enabled = false
 	add_child(light)
-	light.look_at(Vector3(0,1.0,centre_z))
+	light.look_at(Vector3(.18,1.0,centre_z-.12),Vector3.FORWARD)
 	station["motor"] = _sound("elevator_move.wav",centre_z)
 	station["door_audio"] = _sound("elevator_door.wav",centre_z)
 	stations.append(station)
@@ -228,7 +228,7 @@ func _build_stairs(direction: int, destination: int) -> void:
 	stair_lamp.spot_angle = 52
 	stair_lamp.shadow_enabled = false
 	add_child(stair_lamp)
-	stair_lamp.look_at(Vector3(0,.5,landing_z-advance*3.1))
+	stair_lamp.look_at(Vector3(.18,.5,landing_z-advance*3.1),Vector3.FORWARD)
 	stations.append(station)
 
 func selected_button(destination: int, direction: int) -> Node3D:
@@ -244,17 +244,22 @@ func station_kind(direction: int) -> String:
 
 func interact(player_at: Vector3, eye: Vector3, sight: Vector3) -> String:
 	if active: return "BUSY"
+	# Dot-product-only aiming could select a neighboring illuminated floor
+	# switch even when the player pointed straight at a forbidden switch.
+	# Use perpendicular distance to the actual view ray, AND proximity.
 	var candidate: Dictionary = {}
-	var best_alignment := .93
+	var smallest_offset := .18
+	var eye_ray := sight.normalized()
 	for button in buttons:
 		var node := button["node"] as Node3D
 		if not is_instance_valid(node): continue
 		if player_at.distance_to(node.global_position) > 2.05: continue
-		var target: Vector3 = node.global_position-eye
-		if target.length() < .1: continue
-		var aim: float = sight.normalized().dot(target.normalized())
-		if aim > best_alignment:
-			best_alignment = aim
+		var target: Vector3 = node.global_position - eye
+		var ahead := target.dot(eye_ray)
+		if ahead < .15 or ahead > 2.25: continue
+		var miss := (target - eye_ray*ahead).length()
+		if miss < smallest_offset:
+			smallest_offset = miss
 			candidate = button
 	if candidate.is_empty(): return "LOOK_AT_BUTTON"
 	if int(candidate["target"]) != int(candidate["allowed"]): return "LOCKED"
