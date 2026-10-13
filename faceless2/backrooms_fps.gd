@@ -81,8 +81,8 @@ func _ready() -> void:
             continue
         var hand: Node3D = Assets.fitted("vendor/fps_wrad_grip_%s.glb" % side,.18)
         hand.name = "WRAD_CC0_Skinned_%s_ActualGLBGrip" % side
-        hand.position = Vector3(.135,-.14,.10) if side == "r" else Vector3(-.10,-.13,-.25)
-        hand.rotation = Vector3(-.20,-1.10,-.12) if side == "r" else Vector3(-.16,1.05,.10)
+        hand.position = Vector3(.07,.075,-.04) if side == "r" else Vector3(.12,-.055,-.30)
+        hand.rotation = Vector3(.48,-1.10,.36) if side == "r" else Vector3(.66,1.05,-.53)
         grip_hands.add_child(hand)
         var skeletons: Array[Node] = hand.find_children("*","Skeleton3D",true,false)
         if skeletons.is_empty():
@@ -109,11 +109,11 @@ func _curl_hand_fingers(skel: Skeleton3D, side: String) -> void:
         for segment in [1,2,3]:
             var bone: int = skel.find_bone("finger_%s%d.%s" % [finger,segment,side])
             if bone < 0: continue
-            var curl := .54 if segment == 1 else (.70 if segment == 2 else .32)
+            var curl := .95 if segment == 1 else (1.02 if segment == 2 else .45)
             if finger == "thumb": curl *= .58
             if finger == "index" and side == "r": curl *= .60
             var direction := 1.0 if side == "r" else -1.0
-            var axis := Vector3.FORWARD if finger != "thumb" else Vector3.RIGHT
+            var axis := Vector3.RIGHT if finger != "thumb" else Vector3.FORWARD
             skel.set_bone_pose_rotation(bone,
                 Quaternion(axis,curl*direction)*skel.get_bone_pose_rotation(bone))
     skel.force_update_all_bone_transforms()
