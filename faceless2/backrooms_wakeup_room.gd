@@ -525,6 +525,15 @@ func _authored_door(at: Vector3) -> Node3D:
 	node.add_child(hinge)
 	var mesh := Assets.fitted("vendor/wakeup_door_single_closed.glb",2.35)
 	mesh.position.x = 0.77
+	# The original Kenney GLB has bright blue/orange placeholder-looking
+	# material. Preserve every licensed triangle and opening hinge, but
+	# cover its visible surfaces with verified Poly Haven CC0 PBR steel.
+	var door_finish := _photographic_pbr("rusty_metal_sheet",Color(0.76,0.81,0.82),0.95)
+	door_finish.metallic = 0.25
+	door_finish.roughness = 0.64
+	for triangle_mesh in mesh.find_children("*","MeshInstance3D",true,false):
+		(triangle_mesh as MeshInstance3D).material_override = door_finish
+		(triangle_mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	hinge.add_child(mesh)
 	var body := StaticBody3D.new()
 	body.name = "SolidDoorPanel"

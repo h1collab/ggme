@@ -258,6 +258,11 @@ func _transition(next_phase: String) -> void:
 	elif next_phase == "static":
 		pass
 	elif next_phase == "black":
+		# Blackout is the cutoff for ALL opening props. The prologue root
+		# remains visible to host the wakeup camera, so hiding the room
+		# root alone does not hide this child iPhone mesh.
+		if is_instance_valid(phone): phone.visible = false
+		if is_instance_valid(witness): witness.visible = false
 		screen_surface.visible = false
 		game.ui.prologue_fade(1.0)
 	elif next_phase == "wake":

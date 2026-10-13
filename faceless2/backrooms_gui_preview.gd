@@ -138,6 +138,7 @@ func run() -> void:
 		await _capture("14f_frowner_fades")
 		game.player.look(Vector2(90,0))
 		await _capture("15_player_looks_around")
+		if prologue.phone.visible: failures.append("Licensed iPhone must never return in gameplay")
 		var door: Node3D = game.wakeup_room.openable_door
 		if is_instance_valid(door):
 			game.player.global_position = door.global_position + Vector3(0,0.10,0.65)

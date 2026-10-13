@@ -61,6 +61,7 @@ func run() -> void:
 	check(prologue.phase == "fall", "Call switches to physical fall")
 	for i in range(15): prologue.advance(0.15)
 	check(prologue.phase == "black", "Falling enters blackout rather than old final ending")
+	check(not prologue.phone.visible and not prologue.witness.visible and not prologue.screen_surface.visible, "Opening iPhone and GLB silhouette are fully hidden at blackout")
 	for i in range(9): prologue.advance(0.15)
 	check(prologue.phase == "wake" and game.wakeup_room.visible and not game.level.visible, "Camera wakes in separate underground facility")
 	check(not prologue.phone.visible and not prologue.witness.visible and not prologue.screen_surface.visible, "iPhone, figure and phone-screen mesh cannot float in wakeup facility")
