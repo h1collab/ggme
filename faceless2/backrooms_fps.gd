@@ -44,7 +44,7 @@ func _ready() -> void:
     weapon_pivot.name = "CameraMounted_CertifiedKenneyBlasterGLB"
     game.player.camera.add_child(weapon_pivot)
     weapon_pivot.position = Vector3(.27,-.33,-.72)
-    weapon_pivot.rotation = Vector3(-.02,PI/2.0,0)
+    weapon_pivot.rotation = Vector3(-.07,PI-.065,.12)
     if ResourceLoader.exists(Assets.path("vendor/fps_blaster_f.glb")):
         weapon_model = Assets.fitted("vendor/fps_blaster_f.glb",.34)
         weapon_model.name = "Original_Kenney_BlasterF_CC0_GLB"
@@ -318,6 +318,12 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
 	if not active or level_id != -2 or not game.net.authoritative(): return false
 	if not health_by_peer.has(shooter) or int(health_by_peer[shooter]) <= 0: return false
 	if not direction.is_finite() or absf(direction.length()-1.0) > .05: return false
+	# The server has the last validated body yaw. Arbitrary client-provided
+	# 180-degree backshots are rejected, independently of claimed hits.
+	var facing_yaw: float = game.player.yaw if shooter == 1 else float(game.net.poses[shooter].y)
+	var facing: Vector3 = Vector3(-sin(facing_yaw),0,-cos(facing_yaw))
+	var aim_flat: Vector3 = Vector3(direction.x,0,direction.z).normalized()
+	if aim_flat.dot(facing) < .72: return false
 	if shooter != 1 and not game.net.poses.has(shooter): return false
 	var now: int = Time.get_ticks_msec()
 	if now - int(shot_ticks.get(shooter,-999999)) < 185: return false

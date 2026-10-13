@@ -270,14 +270,14 @@ func menu() -> void:
 	_image(panels, _brand_file("game_icon.png"), Rect2(70, 50, 90, 90))
 	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
-	_label(panels, localized("THE OTHER SHIFT", "THE OTHER SHIFT  /  错层"), Vector2(73, 323), 640, 27, ACCENT)
+	_label(panels, localized("FPS ARENA", "独立 FPS 竞技场"), Vector2(73, 323), 640, 27, ACCENT)
 	_label(panels, localized("ONE ROOM. ONE UNANSWERED CALL.\nThe number has no name.", "一个房间，一通没有名字的来电。\n接通之后，事情开始失控。"), Vector2(72, 411), 600, 26, MUTED)
 	_button(panels, localized("PLAY FPS / EMPTY ARENA", "开始 FPS / 空白场地"), Rect2(72, 538, 600, 76), func(): game.net.leave(); game.start_fps_arena())
 	_button(panels, localized("FPS MATCH / 2–4 PLAYERS", "FPS 匹配 / 2–4 人"), Rect2(72, 631, 600, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
-	_label(panels, localized("SURVIVE THE CALL / EXPLORE THE UNKNOWN", "现场调查  /  动态积水  /  非线性真相  /  偶发黑暗目击"), Vector2(73, 843), 640, 18, MUTED)
+	_label(panels, localized("FIRST-PERSON SHOOTER / ENET ROOMS / KENNEY CC0 GLB", "第一人称射击 / ENet 房间 / 原版授权 GLB"), Vector2(73, 843), 640, 18, MUTED)
 	# No legacy chapter, tape objective, or building narrative on the title.
 
 func _page(title: String, kind: String) -> void:
