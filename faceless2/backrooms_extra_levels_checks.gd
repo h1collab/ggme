@@ -30,8 +30,27 @@ func run() -> void:
 			for monster in game.extra_levels.passive_entities:
 				check(monster.find_children("*","MeshInstance3D",true,false).size()>0, "Every passive Level ! monster is a CC0 skinned GLB")
 		check(game.extra_levels.exits.size()==2,"Non-locking entry and exit exist")
-		check(game.extra_levels.interact(game.extra_levels.exits[1]) == "NEXT","Exit is interactive")
-		check(game.extra_levels.interact(game.extra_levels.exits[0]) == "BACK","Return path is interactive")
+		check(game.extra_levels.interact(game.extra_levels.exits[1]) != "NEXT","Level change is forbidden until the actual floor button is pressed")
+		check(is_instance_valid(game.extra_levels.transport), "Original Kenney GLB transport scene is present")
+		var transport: Node3D = game.extra_levels.transport
+		check(transport.buttons.size() >= 1, "Each sector has at least one physical Kenney GLB floor selector")
+		check(transport.station_kind(1) == ("stairs" if number in [2,6,132] else "elevator"), "Next connection uses the sector's authored stair/elevator route")
+		if number != 0: check(transport.station_kind(-1) == ("stairs" if game.extra_levels.previous_level() in [2,6,132] else "elevator"), "Backward route matches incoming transport")
+		for button in transport.buttons:
+			check(is_instance_valid(button["model"]) and button["model"].find_children("*","MeshInstance3D",true,false).size()>0, "Every floor selector uses an actual Kenney GLB")
+		var expected_destination: int = game.extra_levels.next_level()
+		var main_button: Node3D = transport.selected_button(expected_destination,1)
+		check(is_instance_valid(main_button),"Exactly keyed next-floor button exists")
+		if is_instance_valid(main_button):
+			var from_eye: Vector3 = main_button.global_position + Vector3(0,0,.78)
+			var sight: Vector3 = (main_button.global_position-(from_eye+Vector3(0,1.3,0))).normalized()
+			# Illegal target must not move the scene or start its elevator motor.
+			var wrong: Node3D = transport.selected_button(number,1)
+			check(is_instance_valid(wrong), "Every floor has its own separate button")
+			if is_instance_valid(wrong):
+				var wrong_eye: Vector3 = wrong.global_position + Vector3(0,1.4,.65)
+				check(transport.interact(wrong_eye,wrong_eye,(wrong.global_position-wrong_eye).normalized()) == "LOCKED", "Incorrect physical floor-button rejected")
+			check(not transport.active,"Wrong floor cannot activate transport")
 		var model_count: int = game.extra_levels.scene_root.find_children("*","MeshInstance3D",true,false).size()
 		check(model_count >= 40,"New space uses genuine imported model meshes, not empty scene")
 		var expected_side_room: bool = number in [1,5,130,131]
@@ -73,15 +92,17 @@ func run() -> void:
 		game.extra_levels.clear()
 		check(not game.extra_levels.visible and game.extra_levels.scene_root == null,"Leaving sector removes environment and physics")
 	game.open_backrooms_level(1)
-	game.player.global_position = game.extra_levels.exits[1]
-	game.player.interact_or_locked_door()
-	check(game.extra_levels.current == 2,"Interactive transition Level 1 to Level 2")
-	game.player.global_position = game.extra_levels.exits[1]
-	game.player.interact_or_locked_door()
-	check(game.extra_levels.current == 130,"Interactive transition Level 2 to Level 130")
-	game.player.global_position = game.extra_levels.exits[0]
-	game.player.interact_or_locked_door()
-	check(game.extra_levels.current == 2,"Interactive return Level 130 to Level 2")
+	var cabin := game.extra_levels.transport
+	var target: Node3D = cabin.selected_button(2,1)
+	check(is_instance_valid(target), "Level 1 has unique Level 2 switch")
+	if is_instance_valid(target):
+		var eye := target.global_position + Vector3(0,1.3,.65)
+		check(cabin.interact(eye,eye,(target.global_position-eye).normalized()) == "LIFT","Correct switch starts cabin closing animation")
+		check(cabin.active, "Elevator remains busy and prevents duplicate rides")
+		for tick in range(26): cabin._process(0.20)
+		check(game.extra_levels.current == 2,"Elevator reaches Level 2 after real sequence, no immediate teleport")
+	check(game.extra_levels.transport.station_kind(1) == "stairs", "Level 2 to 130 is physical stairs")
+	game.show_title_room()
 	game.show_title_room()
 	check(not game.extra_levels.visible,"Main menu releases new zone")
 	# Release original imported GLB resources and streams before engine teardown.

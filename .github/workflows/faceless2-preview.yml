@@ -13,6 +13,7 @@ on:
       - "faceless2/backrooms_player.gd"
       - "faceless2/backrooms_extra_levels_checks.gd"
       - "faceless2/backrooms_extra_levels.gd"
+      - "faceless2/backrooms_extra_transport.gd"
       - "faceless2/fetch_real_backrooms_assets.py"
       - "faceless2/fetch_flashlight.py"
       - "faceless2/bake_frowner_sprite.py"

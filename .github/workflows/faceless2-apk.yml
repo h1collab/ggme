@@ -61,7 +61,7 @@ jobs:
               for item in root.iterdir():
                   if item.is_file(): item.unlink()
           source=Path('faceless2')
-          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_wakeup_room.gd','backrooms_extra_levels.gd','backrooms_extra_levels_checks.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','virtual_joystick.gd','touch_action.gd']:
+          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_wakeup_room.gd','backrooms_extra_levels.gd','backrooms_extra_transport.gd','backrooms_extra_levels_checks.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','virtual_joystick.gd','touch_action.gd']:
               shutil.copy2(source/name, Path('app/scripts')/name)
           shutil.copy2(source/'assets/entity.glb', 'app/assets/entity.glb')
           (Path('app/assets/vendor')).mkdir(parents=True, exist_ok=True)
@@ -220,7 +220,7 @@ jobs:
           assert not missing, f'Chinese story font missing glyphs: {missing}'
           print('Build-time source asset inventory, all-GLB geometry and Chinese font: PASS')
           PYCODE
-          for script in backrooms_extra_levels backrooms_extra_levels_checks backrooms_rooms backrooms_level backrooms_story backrooms_prologue backrooms_prologue_room backrooms_wakeup_room backrooms_prologue_checks backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks backrooms_room_checks virtual_joystick touch_action; do
+          for script in backrooms_extra_levels backrooms_extra_transport backrooms_extra_levels_checks backrooms_rooms backrooms_level backrooms_story backrooms_prologue backrooms_prologue_room backrooms_wakeup_room backrooms_prologue_checks backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks backrooms_room_checks virtual_joystick touch_action; do
             godot --headless --path app --script "scripts/$script.gd" --check-only
           done
           timeout 180 godot --headless --path app --script scripts/backrooms_checks.gd 2>&1 | tee qa/runtime-checks.log

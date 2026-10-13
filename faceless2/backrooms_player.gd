@@ -368,14 +368,13 @@ func request_jump() -> void:
 func interact_or_locked_door() -> void:
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
 		var transition: String = game.extra_levels.interact(global_position)
-		if transition == "NEXT":
-			var number: int = game.extra_levels.current
-			game.open_backrooms_level(game.extra_levels.next_level())
-			game.ui.show_timed_hint(game.ui.localized("THE HALLWAY HAS CHANGED", "走廊已经改变"),2.5)
-		elif transition == "BACK":
-			if game.extra_levels.current == 0: game.backrooms_return()
-			else: game.open_backrooms_level(game.extra_levels.previous_level())
-		else: game.ui.show_timed_hint(game.ui.localized("KEEP EXPLORING", "继续探索"),1.1)
+		match transition:
+			"LIFT": game.ui.show_timed_hint(game.ui.localized("DOORS CLOSING — DESCENDING", "轿厢门关闭——正在下降"),4.0)
+			"STAIRS": game.ui.show_timed_hint(game.ui.localized("SERVICE STAIR DOOR OPENING", "消防楼梯门开启"),2.0)
+			"LOCKED": game.ui.show_timed_hint(game.ui.localized("WRONG FLOOR — SELECT THE LIT BUTTON", "楼层错误——请按亮起的按钮"),1.7)
+			"CLIMB_STAIRS": game.ui.show_timed_hint(game.ui.localized("CLIMB THE STAIRS TO REACH THE SWITCH", "请先爬到楼梯顶端按下按钮"),2.0)
+			"BUSY": pass
+			_: game.ui.show_timed_hint(game.ui.localized("FACE THE FLOOR SELECTOR AND PRESS E", "面向楼层按钮按 E"),1.6)
 	elif game.prologue.phase == "ended" and game.wakeup_room.visible:
 		if game.wakeup_room.signal_traced and global_position.distance_to(Vector3(11.0,0.1,-11.75)) < 2.15:
 			game.open_backrooms_level(1)

@@ -168,6 +168,16 @@ func run() -> void:
 			game.player.global_position = Vector3(side*(width*0.5+2.0),0.10,-12.9)
 			game.player.camera.look_at(Vector3(side*(width*0.5+2.8),1.6,-15.1))
 			await _capture("33_level_%d_authored_glb_side_room" % number)
+	# Authored real Godot angles cover both moving Kenney doors and the
+	# stepped GLB access route; review screenshots, not boolean-only tests.
+	game.open_backrooms_level(1)
+	game.player.global_position = Vector3(0,0.10,-27.7)
+	game.player.camera.look_at(Vector3(1.22,1.55,-28.5))
+	await _capture("40_elevator_unique_floor_buttons_real_glb")
+	game.open_backrooms_level(2)
+	game.player.global_position = Vector3(0,0.10,-24.7)
+	game.player.camera.look_at(Vector3(0,1.0,-29.3))
+	await _capture("41_service_stairs_glb_walking_surface")
 	game.extra_levels.clear()
 	game.net.leave()
 	for kind in ["AudioStreamPlayer", "AudioStreamPlayer3D"]:

@@ -1,6 +1,7 @@
 extends Node3D
 # Additional standalone, collidable Backrooms levels: original imported GLB meshes only.
 const Assets = preload("backrooms_assets.gd")
+const Transport = preload("backrooms_extra_transport.gd")
 const LEVELS := [0,1,2,5,6,130,131,132,133]
 # Level Fun, Level ! and Level EX use distinct numeric routing IDs.
 const LEVEL_FUN := 131
@@ -26,6 +27,7 @@ var event_tweens: Array[Tween] = []
 var floor_section_nodes: Array[Node3D] = []
 var side_room_floor_nodes: Array[Node3D] = []
 var solid_prop_count := 0
+var transport: Node3D
 
 func _ready() -> void:
 	name = "GLB_NineLevel_Exploration"
@@ -357,6 +359,12 @@ func enter(level_number: int) -> Vector3:
 		_scan("modular_airduct_circular_01",Vector3(-w+.45,2.8,-7.0),1.2)
 	_piece("wall_door",Vector3(0,1.45,-29.7),Vector3(2.1,2.7,.2),layout_mat)
 	exits = [Vector3(0,0.1,2.0),Vector3(0,0.1,-28.2)]
+	# Each sector owns real Kenney GLB cabins, nine distinct destination
+	# switches and/or real GLB walkable stairs. The old exit teleporter is gone.
+	transport = Transport.new()
+	scene_root.add_child(transport)
+	transport.configure(level_number,ROUTE,industrial,floor_render,get_parent().player)
+	transport.arrived.connect(_transport_arrived)
 	return Vector3(0,0.1,2.2)
 
 func _scan(name: String, at: Vector3, height: float) -> void:
@@ -379,12 +387,16 @@ func _scan(name: String, at: Vector3, height: float) -> void:
 			clampf(dimensions.z*0.84,0.45,1.35)))
 
 func interact(at: Vector3) -> String:
-	if not visible or not is_instance_valid(scene_root): return "NONE"
-	if at.distance_to(exits[1]) < 2.5:
-		return "NEXT"
-	if at.distance_to(exits[0]) < 1.4:
-		return "BACK"
-	return "NONE"
+	if not visible or not is_instance_valid(transport): return "NONE"
+	# No magical transfer on approaching a marker. The protagonist must look
+	# directly at the correctly labeled GLB switch; stairs require climbing.
+	var player := get_parent().player as CharacterBody3D
+	return transport.interact(at,player.camera.global_position,-player.camera.global_transform.basis.z)
+
+func _transport_arrived(from_id: int, to_id: int) -> void:
+	if not visible or from_id != current: return
+	# Only a locally operated authored transport can complete the trip.
+	get_parent().open_backrooms_level(to_id)
 
 func update_player(at: Vector3, delta: float) -> String:
 	if not visible: return ""
@@ -423,6 +435,8 @@ func clear() -> void:
 		if tween != null and tween.is_running(): tween.kill()
 	event_tweens.clear()
 	if is_instance_valid(spatial_sound): spatial_sound.stop()
+	if is_instance_valid(transport): transport.deactivate()
+	transport = null
 	if is_instance_valid(scene_root): scene_root.queue_free()
 	scene_root = null
 	colliders = null
