@@ -1,54 +1,143 @@
 extends Node3D
-# A SINGLE standalone, empty FPS playfield. No Backrooms levels, lifts,
-# scripted doors, passive entities or generated visible mesh primitives.
-# The ground is a grid of ORIGINAL Kenney CC0 floor-panel GLB triangles.
+# Two independent authored-GLB FPS maps, selected once by the authoritative host.
 const Assets = preload("backrooms_assets.gd")
 const WIDTH := 48.0
 const TILE := 12.0
+const MAP_NAMES := ["CARGO COURTYARD", "MAINTENANCE HANGAR"]
+const MAP_NAMES_ZH := ["货运庭院", "维修仓库"]
+var map_id := 0
 var ground: StaticBody3D
 var light: DirectionalLight3D
 var floor_modules: Array[Node3D] = []
+var map_roots: Array[Node3D] = []
+var horizon: Node3D
 var built := false
 var local_shadow: Node3D
 var shadow_animations: Array[Node] = []
+var layout_digest := ""
 
 func _ready() -> void:
-	name = "SingleEmpty_FPS_Arena_NoLevels"
+	name = "TwoStandalone_FPS_Maps_NoNarrativeLevels"
 	visible = false
 	set_process(false)
 
-func _floor_material() -> Material:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(.80,.83,.86)
-	material.roughness = .88
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	var prefix := "vendor/pbr_large_grey_tiles_"
-	for suffix in [".jpg",".png",".jpeg"]:
-		var diffuse := Assets.path(prefix + "diffuse" + suffix)
-		if ResourceLoader.exists(diffuse):
-			material.albedo_texture = load(diffuse)
-			break
-	for suffix in [".jpg",".png",".jpeg"]:
-		var normal := Assets.path(prefix + "normal" + suffix)
-		if ResourceLoader.exists(normal):
-			material.normal_enabled = true
-			material.normal_texture = load(normal)
-			material.normal_scale = .70
-			break
-	for suffix in [".jpg",".png",".jpeg"]:
-		var rough := Assets.path(prefix + "rough" + suffix)
-		if ResourceLoader.exists(rough):
-			material.roughness_texture = load(rough)
-			break
-	return Assets.projected_pbr(material,.32)
+func random_map() -> int:
+	# Exactly two outcomes: no modulo bias, never seeded by a joining client.
+	return int(Crypto.new().generate_random_bytes(1)[0]) % 2
 
-func _collider(at: Vector3, size: Vector3) -> void:
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	box.size = size
-	shape.shape = box
-	shape.position = at
-	ground.add_child(shape)
+func map_title(chinese: bool = false) -> String:
+	return MAP_NAMES_ZH[map_id] if chinese else MAP_NAMES[map_id]
+
+func _pbr(surface: String, tint: Color, density: float, metallic: float = 0.0) -> Material:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = tint
+	material.roughness = .80
+	material.metallic = metallic
+	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	for channel in ["diffuse","normal","rough"]:
+		for suffix in [".jpg",".png",".jpeg"]:
+			var path := Assets.path("vendor/pbr_%s_%s%s" % [surface,channel,suffix])
+			if not ResourceLoader.exists(path): continue
+			if channel == "diffuse": material.albedo_texture = load(path)
+			elif channel == "normal":
+				material.normal_enabled = true
+				material.normal_texture = load(path)
+				material.normal_scale = .45
+			else: material.roughness_texture = load(path)
+			break
+	return Assets.projected_pbr(material,density)
+
+func _collider(body: StaticBody3D, at: Vector3, size: Vector3) -> void:
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	collision.shape = shape
+	collision.position = at
+	body.add_child(collision)
+
+func _panel(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish: Material, side: bool = false) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = label
+	parent.add_child(body)
+	var model := Assets.licensed_panel(at,extent,finish,side)
+	for mesh in model.find_children("*","MeshInstance3D",true,false):
+		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	body.add_child(model)
+	_collider(body,at,extent)
+	return body
+
+func _prop(parent: Node3D, label: String, file: String, at: Vector3, height: float, yaw: float = 0.0, finish: Material = null) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.name = label
+	body.position = at
+	body.rotation.y = yaw
+	parent.add_child(body)
+	var model := Assets.fitted("vendor/"+file,height)
+	var dimensions: Vector3 = model.get_meta("dimensions",Vector3.ONE)
+	body.add_child(model)
+	for mesh in model.find_children("*","MeshInstance3D",true,false):
+		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		if finish != null: (mesh as MeshInstance3D).material_override = finish
+	_collider(body,Vector3(0,dimensions.y*.5,0),dimensions)
+	return body
+
+func _roof(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish: Material) -> void:
+	var body := StaticBody3D.new()
+	body.name = label
+	body.position = at
+	parent.add_child(body)
+	var model := Assets.fitted("vendor/wakeup_floor_panel.glb",.20)
+	var dimensions: Vector3 = model.get_meta("dimensions",Vector3.ONE)
+	model.scale = Vector3(extent.x/dimensions.x,extent.y/dimensions.y,extent.z/dimensions.z)
+	body.add_child(model)
+	for mesh in model.find_children("*","MeshInstance3D",true,false):
+		(mesh as MeshInstance3D).material_override = finish
+		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_collider(body,Vector3(0,extent.y*.5,0),extent)
+
+func _build_map(index: int) -> void:
+	var layout := Node3D.new()
+	layout.name = "CargoCourtyard" if index == 0 else "MaintenanceHangar"
+	add_child(layout)
+	map_roots.append(layout)
+	var plaster := _pbr("worn_plaster_wall",Color(.62,.65,.67),.55)
+	var metal := _pbr("rusty_metal_sheet",Color(.54,.58,.61),1.0,.45)
+	var wall_height := 3.4 if index == 0 else 6.0
+	for side in [-1.0,1.0]:
+		_panel(layout,"Perimeter_X_%s" % side,Vector3(side*23.9,wall_height*.5,0),Vector3(.28,wall_height,48.2),plaster,true)
+		_panel(layout,"Perimeter_Z_%s" % side,Vector3(0,wall_height*.5,side*23.9),Vector3(48.2,wall_height,.28),plaster)
+	# Deliberately keep both spawn diagonals and the central movement lanes clear.
+	# Each side has cover pockets, with 3m+ passageways around actual proxies.
+	for side in [-1.0,1.0]:
+		for depth in [-1.0,1.0]:
+			var at := Vector3(side*14,0,depth*5)
+			_prop(layout,"Crate_%s_%s" % [side,depth],"wakeup_container_tall.glb",at,2.25,0,metal)
+			_prop(layout,"ScannedBarrel_%s_%s" % [side,depth],"scan_barrel_02.glb",at+Vector3(side*2.4,0,1.5),1.1)
+			_prop(layout,"ScannedBox_%s_%s" % [side,depth],"scan_cardboard_box_01.glb",at+Vector3(0,0,2.3),.75,.18*side)
+	if index == 0:
+		for depth in [-1.0,1.0]:
+			_panel(layout,"LoadingBay_%s" % depth,Vector3(0,1.6,depth*18),Vector3(10,3.2,.30),metal)
+			_prop(layout,"UtilityPipe_%s" % depth,"wakeup_pipe.glb",Vector3(-19,0,depth*13),2.4,PI*.5,metal)
+			_prop(layout,"BayPillar_%s" % depth,"wakeup_wall_pillar.glb",Vector3(6,0,depth*18),3.5,0,plaster)
+	else:
+		# Real floor GLBs form roof wings with a 6m open skylight between them.
+		_roof(layout,"Roof_West",Vector3(-13.5,6,0),Vector3(21,.20,48.2),metal)
+		_roof(layout,"Roof_East",Vector3(13.5,6,0),Vector3(21,.20,48.2),metal)
+		for depth in [-1.0,1.0]:
+			_panel(layout,"ServiceBay_%s" % depth,Vector3(0,1.25,depth*17),Vector3(12,2.5,.28),metal)
+			_prop(layout,"ServiceConsole_%s" % depth,"wakeup_computer_screen.glb",Vector3(-4,0,depth*18.8),1.3,PI if depth<0 else 0)
+		for side in [-1.0,1.0]:
+			for depth in [-1.0,1.0]:
+				var at := Vector3(side*18,0,depth*15)
+				_prop(layout,"RoofPillar_%s_%s" % [side,depth],"wakeup_wall_pillar.glb",at,6.0,0,plaster)
+				_prop(layout,"OriginalLamp_%s_%s" % [side,depth],"scan_industrial_wall_lamp.glb",at+Vector3(-side,4.4,0),.55)
+				var lamp := OmniLight3D.new()
+				lamp.position = at+Vector3(-side*2,4.5,0)
+				lamp.light_color = Color(1,.82,.62)
+				lamp.light_energy = 2.8
+				lamp.omni_range = 15.0
+				lamp.shadow_enabled = false
+				layout.add_child(lamp)
 
 func build() -> void:
 	if built: return
@@ -56,55 +145,39 @@ func build() -> void:
 	ground = StaticBody3D.new()
 	ground.name = "Invisible_FloorAndBoundary_Physics_Only"
 	add_child(ground)
-	_collider(Vector3(0,-.31,0),Vector3(WIDTH,.64,WIDTH))
-	for side in [-1.0,1.0]:
-		_collider(Vector3(side*(WIDTH*.5+.13),1.5,0),Vector3(.30,3.0,WIDTH+.65))
-		_collider(Vector3(0,1.5,side*(WIDTH*.5+.13)),Vector3(WIDTH+.65,3.0,.30))
-	var finish: Material = _floor_material()
+	_collider(ground,Vector3(0,-.31,0),Vector3(WIDTH,.64,WIDTH))
+	var finish := _pbr("large_grey_tiles",Color(.8,.83,.86),.32)
 	for x in range(4):
 		for z in range(4):
-			var tile: Node3D = Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
-			tile.name = "KenneyCC0_PhysicalArenaFloor_GLB"
-			var dims: Vector3 = tile.get_meta("dimensions",Vector3.ONE)
-			tile.scale = Vector3((TILE+.10)/maxf(dims.x,.01),1.0,(TILE+.10)/maxf(dims.z,.01))
-			tile.position = Vector3((float(x)-1.5)*TILE,-.16-float(x+z)*.0003,(float(z)-1.5)*TILE)
-			tile.set_meta("original_kenney_glb","wakeup_floor_panel.glb")
-			for surface in tile.find_children("*","MeshInstance3D",true,false):
-				(surface as MeshInstance3D).material_override = finish
-				(surface as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var tile := Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
+			var dimensions: Vector3 = tile.get_meta("dimensions",Vector3.ONE)
+			tile.scale = Vector3((TILE+.10)/dimensions.x,1,(TILE+.10)/dimensions.z)
+			tile.position = Vector3((x-1.5)*TILE,-.16-float(x+z)*.0003,(z-1.5)*TILE)
+			for mesh in tile.find_children("*","MeshInstance3D",true,false):
+				(mesh as MeshInstance3D).material_override = finish
+				(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(tile)
 			floor_modules.append(tile)
-	# One original floor GLB extends the visual ground beyond the invisible
-	# 48m playable boundary. No exposed void at the edge or horizon.
-	var horizon: Node3D = Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
-	var horizon_dims: Vector3 = horizon.get_meta("dimensions",Vector3.ONE)
-	horizon.scale = Vector3(384.0/horizon_dims.x,1.0,384.0/horizon_dims.z)
+	horizon = Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
+	var horizon_dimensions: Vector3 = horizon.get_meta("dimensions",Vector3.ONE)
+	horizon.scale = Vector3(384.0/horizon_dimensions.x,1,384.0/horizon_dimensions.z)
 	horizon.position.y = -.19
-	horizon.name = "OriginalKenneyGLB_DistantGround"
-	for mesh in horizon.find_children("*","MeshInstance3D",true,false):
-		(mesh as MeshInstance3D).material_override = finish
-		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(horizon)
+	_build_map(0)
+	_build_map(1)
 	light = DirectionalLight3D.new()
-	light.name = "WarmSun_FPS_Arena_QualityShadows"
-	light.rotation_degrees = Vector3(-38,-32,0)
-	light.light_energy = .88
+	light.name = "Sun_QualityShadows"
+	light.rotation_degrees = Vector3(-28,-32,0)
 	light.light_color = Color(1,.93,.82)
 	light.shadow_bias = .10
 	light.shadow_normal_bias = 1.5
 	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	light.directional_shadow_blend_splits = true
 	add_child(light)
-	# An original licensed character casts the local player's ground shadow.
-	# It never appears in first person, adds no primitive visible geometry,
-	# and uses the same authored animation skin as network avatars.
 	local_shadow = Assets.fitted("vendor/crew.glb",1.75)
-	local_shadow.name = "OriginalLicensedCrew_LocalShadowOnly"
 	for mesh in local_shadow.find_children("*","MeshInstance3D",true,false):
 		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	shadow_animations = local_shadow.find_children("*","AnimationPlayer",true,false)
 	add_child(local_shadow)
-	apply_quality(get_parent().quality)
 
 func apply_quality(quality: int) -> void:
 	if not is_instance_valid(light): return
@@ -117,21 +190,32 @@ func _process(_delta: float) -> void:
 	local_shadow.global_position = player.global_position
 	local_shadow.rotation.y = player.rotation.y
 	var speed: float = Vector2(player.velocity.x,player.velocity.z).length()
-	for animation in shadow_animations:
-		(animation as AnimationPlayer).speed_scale = clampf(speed/2.6,0.0,1.5)
+	for animation in shadow_animations: (animation as AnimationPlayer).speed_scale = clampf(speed/2.6,0,1.5)
 
-func activate() -> void:
+func activate(selected: int = 0) -> void:
+	if selected < 0 or selected >= MAP_NAMES.size():
+		push_error("Invalid authoritative FPS map ID")
+		return
 	build()
+	map_id = selected
 	visible = true
 	set_process(true)
-	apply_quality(get_parent().quality)
 	ground.collision_layer = 1
+	for index in range(map_roots.size()):
+		map_roots[index].visible = index == map_id
+		for body in map_roots[index].find_children("*","StaticBody3D",true,false):
+			(body as StaticBody3D).collision_layer = 1 if index == map_id else 0
+	var finish := _pbr("concrete_floor" if map_id==0 else "large_grey_tiles",Color(.73,.77,.8),.55 if map_id==0 else .32)
+	for tile in floor_modules+[horizon]:
+		for mesh in tile.find_children("*","MeshInstance3D",true,false): (mesh as MeshInstance3D).material_override = finish
+	light.light_energy = .70 if map_id == 0 else .48
+	apply_quality(get_parent().quality)
 	var world: WorldEnvironment = get_parent().environment
-	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(.18,.34,.52)
-	sky_material.sky_horizon_color = Color(.72,.79,.85)
-	sky_material.ground_bottom_color = Color(.23,.27,.30)
-	sky_material.ground_horizon_color = Color(.72,.79,.85)
+	var sky_material := PanoramaSkyMaterial.new()
+	var sky_path := Assets.path("vendor/fps_daylight_sky.hdr")
+	if ResourceLoader.exists(sky_path): sky_material.panorama = load(sky_path)
+	else: push_error("Verified original CC0 HDR sky is not packaged")
+	sky_material.energy_multiplier = .50
 	var sky := Sky.new()
 	sky.sky_material = sky_material
 	world.environment.sky = sky
@@ -139,17 +223,28 @@ func activate() -> void:
 	world.environment.fog_enabled = false
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	world.environment.ambient_light_energy = .30
+	world.environment.ambient_light_energy = .32 if map_id == 0 else .22
 	world.environment.tonemap_exposure = .90
+	layout_digest = geometry_digest()
+
+func geometry_digest() -> String:
+	var records: PackedStringArray = []
+	for body in map_roots[map_id].find_children("*","StaticBody3D",true,false):
+		var record := str(body.name)+str(body.global_transform)
+		for node in body.get_children():
+			if node is CollisionShape3D and node.shape is BoxShape3D:
+				record += str(node.transform)+str(node.shape.size)
+		records.append(record)
+	records.sort()
+	return "\n".join(records).sha256_text()
 
 func deactivate() -> void:
 	visible = false
 	set_process(false)
 	if is_instance_valid(ground): ground.collision_layer = 0
+	for layout in map_roots:
+		for body in layout.find_children("*","StaticBody3D",true,false): (body as StaticBody3D).collision_layer = 0
 
 func spawn_for(slot: int) -> Vector3:
-	# Stable spawn ring, all > 5m apart from another living player.
-	var locations: Array[Vector3] = [
-		Vector3(-7,.12,7), Vector3(7,.12,-7),
-		Vector3(7,.12,7), Vector3(-7,.12,-7)]
+	var locations: Array[Vector3] = [Vector3(-7,.12,7),Vector3(7,.12,-7),Vector3(7,.12,7),Vector3(-7,.12,-7)]
 	return locations[posmod(slot-1,locations.size())]

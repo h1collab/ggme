@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 18
+const PROTOCOL := 19
 const MAX_CREW := 4
 var game: Node
 var peer: ENetMultiplayerPeer
@@ -178,7 +178,7 @@ func _hello(version: int, key: String) -> void:
 	if game.fps_arena.visible: game.fps.register_peer(id)
 	pose_times[id] = Time.get_ticks_msec()
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
-	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores,game.fps.combat_state())
+	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps_arena.map_id,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores,game.fps.combat_state())
 	if game.fps_arena.visible: broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
 	game.rooms.notify_roster_changed()
 	status = "Room / %d of %d" % [members.size(), max_crew]
@@ -331,9 +331,10 @@ func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Di
 	if game.fps_arena.visible: game.fps.receive_fps_state(hp,ammo,points,combat)
 
 @rpc("authority","call_remote","reliable",0)
-func _fps_join(spawn: Vector3, hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
+func _fps_join(spawn: Vector3, selected_map: int, hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
 	if mode != "client": return
-	game.start_fps_arena()
+	if selected_map not in [0,1]: return
+	game.start_fps_arena(selected_map)
 	# Actual authoritative peer spawn (ENet peer IDs are not seat numbers).
 	game.player.reset_to(spawn)
 	game.fps.receive_fps_state(hp,ammo,points,combat)

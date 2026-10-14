@@ -15,6 +15,10 @@ var modal := true
 var monitoring := false  # Kept for stable ENet wire arguments; no CCTV mode.
 var result_shown := false
 var run_held := false
+var fire_held := false
+var touch_preview := false
+var sprint_button: Button
+var pause_button: Button
 var status_label: Label
 var goal_label: Label
 var prompt_label: Label
@@ -53,6 +57,18 @@ var transient_hint: Label
 var hint_timer := 0.0
 var facility_goal_label: Label
 var facility_goal_phase := -1
+
+func touch_controls_enabled() -> bool:
+	return touch_preview or OS.has_feature("android") or OS.has_feature("ios")
+
+func release_mobile_inputs() -> void:
+	fire_held = false
+	run_held = false
+	if is_instance_valid(joystick): joystick.reset()
+	for button in [shoot_button,aim_button,jump_button,sprint_button]:
+		if is_instance_valid(button): button.release_pointer()
+	if is_instance_valid(game) and is_instance_valid(game.player): game.player.aim_pointer = -1
+	if is_instance_valid(game) and is_instance_valid(game.fps): game.fps.set_aim(false)
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
@@ -173,7 +189,7 @@ func _build_hud() -> void:
 	_card(hud, Rect2(1203, 25, 183, 78), Color(0.013, 0.025, 0.025, 0.72))
 	notice_label = _label(hud, "", Vector2(1217, 43), 168, 18, MUTED)
 	_button(hud, localized("JOURNAL / J", "日志 / J"), Rect2(996, 30, 190, 69), open_journal, true)
-	_button(hud, "Ⅱ", Rect2(1410, 30, 135, 69), open_pause, true)
+	pause_button = _button(hud, "Ⅱ", Rect2(1440, 30, 112, 72), open_pause, true)
 	prompt_label = _label(hud, "", Vector2(468, 689), 665, 24, ACCENT)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle_backdrop = _card(hud, Rect2(340, 764, 920, 80), Color(0.014, 0.028, 0.027, 0.72))
@@ -182,15 +198,20 @@ func _build_hud() -> void:
 	fps_crosshair = _label(hud, "+", Vector2(780, 425), 42, 21, Color(0.80,0.86,0.82,0.77))
 	fps_crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	joystick = Joystick.new()
-	joystick.position = Vector2(16, 689)
-	joystick.size = Vector2(180, 180)
+	joystick.position = Vector2(40, 650)
+	joystick.size = Vector2(216, 216)
 	hud.add_child(joystick)
 	_button(hud, localized("INTERACT / E", "调查 / E"), Rect2(1352, 637, 195, 77), func(): game.player.interact_or_locked_door(), true)
-	jump_button = _button(hud, localized("JUMP", "跳跃"), Rect2(1370, 782, 176, 83), func(): game.player.request_jump(), true)
+	jump_button = _button(hud, localized("JUMP", "跳跃"), Rect2(1396, 782, 156, 84), func(): pass, true)
+	jump_button.button_down.connect(func(): game.player.request_jump())
 	light_button = _button(hud, localized("LIGHT / F", "灯光 / F"), Rect2(1352, 714, 195, 64), func(): game.player.toggle_torch(), true)
-	shoot_button = _button(hud, localized("FIRE", "开火"),Rect2(1205,715,137,68),func(): if is_instance_valid(game.fps): game.fps.fire(),true)
-	reload_button = _button(hud,localized("RELOAD", "装弹"),Rect2(1205,785,137,64),func(): if is_instance_valid(game.fps): game.fps.reload(),true)
-	aim_button = _button(hud,localized("ADS", "瞄准"),Rect2(1205,640,137,68),func(): pass,true)
+	shoot_button = _button(hud, localized("FIRE", "开火"),Rect2(1388,660,164,108),func(): pass,true)
+	shoot_button.button_down.connect(func():
+		fire_held = true
+		if is_instance_valid(game.fps): game.fps.fire())
+	shoot_button.button_up.connect(func(): fire_held = false)
+	reload_button = _button(hud,localized("RELOAD", "装弹"),Rect2(1214,790,154,70),func(): if is_instance_valid(game.fps): game.fps.reload(),true)
+	aim_button = _button(hud,localized("ADS", "瞄准"),Rect2(1214,690,154,78),func(): pass,true)
 	aim_button.button_down.connect(func(): if is_instance_valid(game.fps): game.fps.set_aim(true))
 	aim_button.button_up.connect(func(): if is_instance_valid(game.fps): game.fps.set_aim(false))
 	fps_status_label = _label(hud,"",Vector2(52,96),810,23,ACCENT)
@@ -201,7 +222,8 @@ func _build_hud() -> void:
 	fps_crosshair.visible = false
 	_button(hud, localized("DRINK ALMOND", "杏仁水 / 喝"), Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
 	_button(hud, localized("REPLAY VOICE", "重播语音"), Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
-	var run := _button(hud, "RUN", Rect2(214, 790, 125, 67), func(): pass, true)
+	var run := _button(hud, localized("RUN", "奔跑"), Rect2(290, 780, 142, 80), func(): pass, true)
+	sprint_button = run
 	transient_hint = _label(hud, "", Vector2(365, 660), 870, 25, ACCENT)
 	transient_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	transient_hint.visible = false
@@ -217,6 +239,7 @@ func _replay_generated_voice() -> void:
 		game.story.play_voice(game.story.last_voice_key)
 
 func _clear(kind: String) -> void:
+	release_mobile_inputs()
 	if facility_hud_mode:
 		for child in hud.get_children(): child.visible = true
 		facility_hud_mode = false
@@ -278,8 +301,8 @@ func menu() -> void:
 	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
 	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
 	_label(panels, localized("FPS ARENA", "独立 FPS 竞技场"), Vector2(73, 323), 640, 27, ACCENT)
-	_label(panels, localized("ONE ROOM. ONE UNANSWERED CALL.\nThe number has no name.", "一个房间，一通没有名字的来电。\n接通之后，事情开始失控。"), Vector2(72, 411), 600, 26, MUTED)
-	_button(panels, localized("PLAY FPS / EMPTY ARENA", "开始 FPS / 空白场地"), Rect2(72, 538, 600, 76), func(): game.net.leave(); game.start_fps_arena())
+	_label(panels, localized("TWO MAPS. TWO PLAYERS TO START.\nCargo courtyard / Maintenance hangar.", "两张地图，两人即可开局。\n货运庭院 / 维修仓库。"), Vector2(72, 411), 600, 26, MUTED)
+	_button(panels, localized("TRAINING / RANDOM MAP", "本地训练 / 随机地图"), Rect2(72, 538, 600, 76), func(): game.net.leave(); game.start_fps_arena())
 	_button(panels, localized("FPS MATCH / MIN 2 MAX 4", "FPS 匹配 / 最低 2 人，最多 4 人"), Rect2(72, 631, 600, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
@@ -388,15 +411,15 @@ func prologue_finished() -> void:
 	panels.visible = true
 	hud.visible = false
 	modal = false
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if touch_controls_enabled() else Input.MOUSE_MODE_CAPTURED
 	# Keep real mobile joystick and sprint button visible while hiding the old
 	# four-floor evidence UI. No full-screen overlay steals touch look input.
 	facility_hud_mode = true
 	hud.visible = true
-	var use_touch_controls := OS.has_feature("android") or OS.has_feature("ios")
+	var use_touch_controls := touch_controls_enabled()
 	var fps_mode: bool = is_instance_valid(game.fps) and game.fps.active
 	for child in hud.get_children():
-		var is_touch_action := child == joystick or child == jump_button or (child is Button and (child as Button).text == "RUN")
+		var is_touch_action := child == joystick or child == jump_button or child == sprint_button or child == pause_button
 		if not fps_mode: is_touch_action = is_touch_action or child == light_button or (child is Button and (child as Button).text.contains("INTERACT"))
 		var fps_control := child == shoot_button or child == reload_button or child == aim_button
 		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and (is_touch_action or (fps_mode and fps_control))) or (fps_mode and (child == fps_status_label or child == fps_crosshair))
@@ -410,9 +433,9 @@ func prologue_finished() -> void:
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
 	var movement_instruction := localized("WASD / FIRE LMB / AIM RMB / RELOAD R","移动 / 射击 / 瞄准 / 换弹") if fps_mode else localized("MOVE / EXPLORE THE DOORS","移动 / 探索周围的门")
-	_label(panels,movement_instruction,Vector2(40,820),750,16,MUTED)
+	if not use_touch_controls: _label(panels,movement_instruction,Vector2(40,820),750,16,MUTED)
 	var replay := _button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
-	var home := _button(panels, localized("MAIN MENU", "主菜单"), Rect2(1380,24,190,64), func(): game.net.leave(); game.running = false; menu())
+	var home := _button(panels, localized("MAIN MENU", "主菜单"), Rect2(1190,24,180,64), func(): game.net.leave(); game.running = false; menu())
 	replay.visible = use_touch_controls and not fps_mode
 	home.visible = use_touch_controls
 
@@ -428,6 +451,9 @@ func open_briefing() -> void:
 	game.story.play_voice("brief_%d" % game.stage)
 
 func close_panels() -> void:
+	if is_instance_valid(game.fps) and game.fps.active:
+		prologue_finished()
+		return
 	if facility_hud_mode:
 		for child in hud.get_children(): child.visible = true
 		facility_hud_mode = false
@@ -489,10 +515,10 @@ func open_about() -> void:
 	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 248, 357, 357), true)
 	_label(panels, "Zorix GAme Team", Vector2(580, 244), 840, 45)
 	_label(panels, "Made By Zorix GAme Team", Vector2(584, 335), 850, 27, ACCENT)
-	_label(panels, "FACELESS 2 / FPS ARENA\nStandalone empty field with licensed original Kenney GLB rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
+	_label(panels, "FACELESS 2 / FPS ARENA\nTwo authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.18.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.32.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -649,7 +675,7 @@ func show_timed_hint(message: String, seconds: float = 2.0) -> void:
 func _refresh_facility_goal() -> void:
 	if is_instance_valid(game.fps_arena) and game.fps_arena.visible:
 		facility_goal_label.visible = true
-		facility_goal_label.text = localized("FACELESS 2 / EMPTY FPS ARENA","FACELESS 2 / 空白 FPS 场地")
+		facility_goal_label.text = "FACELESS 2 / "+game.fps_arena.map_title(game.language == "zh")
 		return
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
 		facility_goal_label.visible = true
@@ -697,7 +723,7 @@ func refresh() -> void:
 	if facility_hud_mode:
 		_refresh_facility_goal()
 		var fps_active: bool = is_instance_valid(game.fps) and game.fps.active
-		var mobile_fps: bool = fps_active and (OS.has_feature("android") or OS.has_feature("ios"))
+		var mobile_fps: bool = fps_active and touch_controls_enabled()
 		if is_instance_valid(shoot_button): shoot_button.visible = mobile_fps
 		if is_instance_valid(reload_button): reload_button.visible = mobile_fps
 		if is_instance_valid(aim_button): aim_button.visible = mobile_fps

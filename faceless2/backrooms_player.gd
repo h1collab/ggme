@@ -189,7 +189,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not game.running or game.ui.modal: return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		look(event.relative)
-	if event is InputEventMouseButton and is_instance_valid(game.fps) and game.fps.active:
+	if event is InputEventMouseButton and not game.ui.touch_controls_enabled() and is_instance_valid(game.fps) and game.fps.active:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed: game.fps.fire()
 		elif event.button_index == MOUSE_BUTTON_RIGHT: game.fps.set_aim(event.pressed)
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -312,11 +312,12 @@ func _physics_process(delta: float) -> void:
 		if jump_requested and not lift_riding: jump_count += 1
 	jump_requested = false
 	move_and_slide()
+	if game.ui.fire_held and is_instance_valid(game.fps) and game.fps.active: game.fps.fire()
 	if is_on_floor() and not last_grounded: landing_dip = 0.045
 	last_grounded = is_on_floor()
 	landing_dip = move_toward(landing_dip, 0.0, delta * 0.18)
 	if position.y < -2:
-		position = Vector3(0,0.1,3.1) if game.prologue.phase == "ended" and game.wakeup_room.visible else (game.extra_levels.exits[0]+Vector3(0,0.05,0.3) if is_instance_valid(game.extra_levels) and game.extra_levels.visible else game.level.spawn)
+		position = game.fps_arena.spawn_for(1) if game.fps_arena.visible else (Vector3(0,0.1,3.1) if game.prologue.phase == "ended" and game.wakeup_room.visible else (game.extra_levels.exits[0]+Vector3(0,0.05,0.3) if is_instance_valid(game.extra_levels) and game.extra_levels.visible else game.level.spawn))
 		velocity = Vector3.ZERO
 	var moving := Vector2(velocity.x, velocity.z).length() > 0.3
 	motion_clock += delta * (10 if sprinting else 7) if moving else delta
@@ -354,7 +355,7 @@ func _physics_process(delta: float) -> void:
 	if is_instance_valid(leg_root):
 		# Imported skinned GLB boots belong near the collision capsule on the
 		# real floor. Only show them on an intentional deep downward look.
-		leg_root.visible = not lift_riding and pitch < -0.72
+		leg_root.visible = not lift_riding and pitch < -0.72 and (not is_instance_valid(game.fps) or not game.fps.active)
 		leg_root.position.y = lerpf(leg_root.position.y,0.018,minf(delta*8.0,1.0))
 		if is_instance_valid(leg_animation):
 			var stepping := moving and is_on_floor()

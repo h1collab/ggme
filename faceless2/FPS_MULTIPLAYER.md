@@ -1,18 +1,18 @@
-# Faceless 2 standalone FPS / headless network notes (v0.31)
+# Faceless 2 standalone FPS / headless network notes (v0.32)
 
-The FPS playfield is **one independent empty 48m x 48m open area** made of 16 licensed Kenney CC0 floor GLBs plus physically invisible walls. It is not Level 2 and does not contain elevators, story objectives or passive Backrooms entities. Legacy source is kept for regression but is not a prerequisite to playing an FPS match.
+The FPS playfield is **two independent 48m x 48m FPS maps**, Cargo Courtyard and Maintenance Hangar. Both use 16 licensed Kenney CC0 floor GLBs, authored Kenney structural/cover GLBs, original Poly Haven scanned props and source-verified PBR textures. Courtyard is open with loading bays; Hangar has original GLB roof wings, an open skylight, pillars, service consoles and warm source lamp fixtures. Invisible collision proxies match visible structures. It is not Level 2 and does not contain elevators, story objectives or passive Backrooms entities. Legacy source is kept for regression but is not a prerequisite to playing an FPS match.
 
 ## Controls and source
 
-PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, mouse to look. Android: movement joystick, RUN, JUMP, FIRE, RELOAD and swipe-to-look. The held first-person rifle is the source-verified **Kenney Blaster Kit blaster_f.glb**, not a runtime-created visible primitive. Recoil and walking sway apply to its camera pivot. Headless checks do not measure Android frame rate or cinematic quality.
+PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, mouse to look. Android: movement joystick, RUN, immediate touch-down JUMP, held FIRE, held ADS, RELOAD, PAUSE and swipe-to-look. Separate pointer capture supports movement/look/aim/fire/sprint together. Releasing outside or opening a menu clears held input. Real headless viewport touch tests check three landscape aspect ratios; this is not Android device execution. The held first-person rifle is the source-verified **Kenney Blaster Kit blaster_f.glb**, not a runtime-created visible primitive. Recoil and walking sway apply to its camera pivot. Headless checks do not measure Android frame rate or cinematic quality.
 
 ## Network version and authority
 
-Native ENet/UDP gameplay protocol is **18** (default UDP 24711), room discovery protocol version **18** (LAN multicast/broadcast + optional HTTPS Node room directory). The explicit version change is mandatory because validated pose RPCs include camera pitch and combat-state RPCs include host-owned reload/reserve state. v17 clients must not join v18 rooms.
+Native ENet/UDP gameplay protocol is **19** (default UDP 24711), room discovery protocol version **19** (LAN multicast/broadcast + optional HTTPS Node room directory). The explicit version change is mandatory because validated pose RPCs include camera pitch and combat-state RPCs include host-owned reload/reserve state. v18 clients must not join v19 rooms. The join RPC now carries the host-selected map ID; combat and world snapshots also carry that ID.
 
 A room can hold 2-4 connected players. One player waits; combat starts at two, even in a room with three or four seats. Losing the second player returns to waiting. Late joins and disconnects broadcast the current combat roster to all authenticated live peers. Seat numbers are allocated separately from ENet IDs, reclaimed on disconnect and used for respawns. Repeated handshakes cannot refill health/ammo. The host owns health, ammo, kills, respawn location and accepted fire rate, validates membership on every firing/reload RPC and checks ray LOS/shot yaw/pitch against the last validated peer location. Clients cannot submit direct target damage or scores. Snapshots for joining clients contain their actual assigned spawn and current combat state. Hit positions are only approximated from host-validated player movement; full lag compensation and full adversarial anti-cheat remain future work.
 
-The QUICK MATCH UI discovers available public/LAN rooms first, then joins one with a free slot or creates a four-player host. Eight-character room codes are also supported. The optional JavaScript room directory is **not** a UDP relay and does **not** solve NAT traversal. Public internet play requires a deployed reachable HTTPS directory plus a reachable host UDP port/working mapping; otherwise match locally on compatible LAN.
+The QUICK MATCH UI discovers available public/LAN rooms first, randomly selects an available room or creates a four-player host. The host chooses one of the two maps uniformly with Crypto random bytes; joins, rejoining and late joining use that fixed authoritative map. Clients cannot change map through directory heartbeat or combat requests. Eight-character room codes are also supported. The optional JavaScript room directory is **not** a UDP relay and does **not** solve NAT traversal. Public internet play requires a deployed reachable HTTPS directory plus a reachable host UDP port/working mapping; otherwise match locally on compatible LAN.
 
 ## Validation and limits
 
@@ -25,11 +25,11 @@ detaches a hand by 10cm to verify the measurement detects displacement. Both
 hands and gun inherit ADS/recoil/movement together. Native captures include
 walking, running, landing, reload and boundary retraction.
 
-Protocol 18 synchronizes authoritative reserve ammo and reload countdown. Reload
+Protocol 19 synchronizes authoritative reserve ammo and reload countdown. Reload
 takes 1.65 seconds, cannot be spammed to instantly refill, and blocks host-side
 fire until completion. Direction must agree with the last validated yaw/pitch;
 full client trust, transport security and lag compensation remain out of scope.
-`test_fps_sessions.py` additionally exercises 2/3/4-seat FPS rooms through Node
+`test_fps_sessions.py` additionally exercises both maps × 2/3/4-seat FPS rooms through Node
 and independent headless Godot UDP processes: unauthorized pre-handshake fire,
 duplicate fire, forged direction/position, late joining, full-room refusal,
 graceful reconnect, killed clients, return to waiting, and host loss.
@@ -49,7 +49,7 @@ The test harness defers shutdown outside SceneTree._process and drains source
 audio/resources, preserving strict no-ERROR log verification.
 
 Near-wall QA uses an actual licensed Kenney GLB wall as a temporary capture-only
-fixture. It is never added to the shipped empty arena. Retraction measures the
+fixture. It is never added to either shipped map. Actual shipped map walls and cover are also captured. Retraction measures the
 real gun vertices in its current transformed basis against the physics ray's
 wall plane; headless geometry and native screenshots/video verify separately.
 

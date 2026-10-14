@@ -293,6 +293,7 @@ func enter_arena() -> void:
     # This also fixes visual QA scripts which intentionally disable
     # player physics: the old distant Sketchfab hands may NOT reappear.
     if is_instance_valid(game.player.viewmodel_root): game.player.viewmodel_root.visible = false
+    if is_instance_valid(game.player.leg_root): game.player.leg_root.visible = false
     if is_instance_valid(game.player.flashlight_rig): game.player.flashlight_rig.visible = false
     if is_instance_valid(game.player.torch): game.player.torch.visible = false
     set_process(true)
@@ -634,7 +635,7 @@ func combat_state() -> Dictionary:
     var remaining := {}
     for id in reload_ends:
         remaining[id] = maxf(0.0,float(int(reload_ends[id])-Time.get_ticks_msec())/1000.0)
-    return {"reserve":reserve_by_peer,"reload":remaining}
+    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id}
 
 func finish_server_reloads() -> void:
     var changed := false
@@ -648,6 +649,7 @@ func finish_server_reloads() -> void:
     if changed: game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
 
 func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
+    if int(combat.get("map_id",game.fps_arena.map_id)) != game.fps_arena.map_id: return
     health_by_peer = hp.duplicate()
     ammo_by_peer = ammo.duplicate()
     scores = points.duplicate()

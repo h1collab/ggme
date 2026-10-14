@@ -12,8 +12,39 @@ func run() -> void:
 	await process_frame
 	game.ui.intro_timer.stop()
 	game.net.leave()
-	game.start_fps_arena()
+	game.start_fps_arena(0)
 	game.player.set_physics_process(false)
+	# Test real world collision state for both host-selectable maps.
+	var layouts: Array[String] = []
+	var seen: Dictionary = {}
+	for i in range(128): seen[game.fps_arena.random_map()] = true
+	check(seen.size() == 2 and seen.has(0) and seen.has(1),"Random picker can produce exactly both map IDs")
+	for selected in [0,1]:
+		game.fps_arena.activate(selected)
+		await physics_frame
+		await physics_frame
+		layouts.append(game.fps_arena.geometry_digest())
+		for index in range(2):
+			check(game.fps_arena.map_roots[index].visible == (index == selected),"Exactly the selected map is visible")
+			for body in game.fps_arena.map_roots[index].find_children("*","StaticBody3D",true,false):
+				check(body.collision_layer == (1 if index == selected else 0),"Inactive map collisions never obstruct the current map")
+		for slot in range(1,5):
+			var spawn: Vector3 = game.fps_arena.spawn_for(slot)
+			var capsule := CapsuleShape3D.new()
+			capsule.radius = .30
+			capsule.height = 1.65
+			var query := PhysicsShapeQueryParameters3D.new()
+			query.shape = capsule
+			query.transform.origin = spawn+Vector3(0,.85,0)
+			query.exclude = [game.player.get_rid()]
+			check(game.player.get_world_3d().direct_space_state.intersect_shape(query).is_empty(),"All four actual spawn capsules clear authored map geometry")
+		var ray := PhysicsRayQueryParameters3D.create(Vector3(14,1,0),Vector3(14,1,8),1)
+		var hit: Dictionary = game.player.get_world_3d().direct_space_state.intersect_ray(ray)
+		check(not hit.is_empty() and str(hit.collider.name).begins_with("Crate_"),"Real map cover blocks shooting LOS")
+	check(layouts[0] != layouts[1],"Two maps have genuinely different collision layouts")
+	game.start_fps_arena(0)
+	print("FPS_TWO_MAP_PHYSICS_PASS both layouts, 8 spawn capsules, cover LOS, inactive geometry and random picker")
+
 	var fps: Node3D = game.fps
 	check(game.fps_arena.visible and game.fps_arena.floor_modules.size() == 16, "One open arena of sixteen real imported CC0 GLB tiles")
 	check(fps.active and fps.level_id == -2, "FPS has no level ID or elevator")

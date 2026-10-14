@@ -257,7 +257,9 @@ func open_backrooms_level(level_number: int) -> void:
 	running = true
 	# Old Backrooms levels remain playable but are not the FPS game.
 
-func start_fps_arena() -> void:
+func start_fps_arena(selected_map: int = -1) -> void:
+	if selected_map == -1: selected_map = fps_arena.random_map()
+	if selected_map < 0 or selected_map > 1: return
 	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(prologue_room): prologue_room.visible = false
@@ -267,7 +269,7 @@ func start_fps_arena() -> void:
 		wakeup_room.set_physics_active(false)
 	if is_instance_valid(level): level.visible = false
 	set_legacy_collisions(false)
-	fps_arena.activate()
+	fps_arena.activate(selected_map)
 	running = true
 	player.visible = true
 	player.reset_to(fps_arena.spawn_for(1 if net.mode != "client" else multiplayer.get_unique_id()))
@@ -533,11 +535,18 @@ func apply_action(action: String, index: int, pos: Vector3, monitoring: bool) ->
 	if hum.stream != null: hum.play()
 
 func snapshot() -> Dictionary:
-	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running,"lift_active":lift_active,"lift_elapsed":lift_elapsed,"lift_epoch":lift_epoch,"ending_variant":ending_variant,"inventory":inventory.duplicate(),"water_picked":water_picked,"key_picked":key_picked,"assembled":assembled}
+	return {"stage":stage,"elapsed":elapsed,"power":power,"pressure":signal_pressure,"heat":heat,"repaired":repaired.duplicate(),"doors":doors.duplicate(),"lights":lights_on,"fan":fan_on,"anomaly":anomaly,"reports":reports,"generator":generator_ready,"failed":failed,"completed":completed,"notice":notice,"revision":revision,"running":running,"lift_active":lift_active,"lift_elapsed":lift_elapsed,"lift_epoch":lift_epoch,"ending_variant":ending_variant,"inventory":inventory.duplicate(),"water_picked":water_picked,"key_picked":key_picked,"assembled":assembled,"fps_active":is_instance_valid(fps_arena) and fps_arena.visible,"fps_map":fps_arena.map_id if is_instance_valid(fps_arena) else -1}
 
 func receive_state(state: Dictionary) -> void:
 	if net.authoritative(): return
 	if int(state.get("revision", -1)) < revision: return
+	if bool(state.get("fps_active",false)):
+		var selected_map := int(state.get("fps_map",-1))
+		if selected_map not in [0,1]: return
+		if not fps_arena.visible or fps_arena.map_id != selected_map: start_fps_arena(selected_map)
+		revision = int(state.get("revision",0))
+		running = bool(state.get("running",true))
+		return
 	var next_stage := int(state.get("stage", 0))
 	var previous_repaired: Array = repaired.duplicate()
 	var previous_water := water_picked

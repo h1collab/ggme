@@ -37,14 +37,14 @@ def main():
         for _ in range(100):
             try:
                 with urlopen(url+'/health', timeout=.5) as response:
-                    assert json.load(response)['protocol'] == 18
+                    assert json.load(response)['protocol'] == 19
                 break
             except OSError:
                 time.sleep(.05)
         else:
             raise AssertionError('Node directory did not start')
-        for slots in (2, 3, 4):
-            with tempfile.TemporaryDirectory(prefix=f'fps-{slots}-', dir=output) as folder:
+        for slots, map_id in ((2,0),(2,1),(3,0),(3,1),(4,0),(4,1)):
+            with tempfile.TemporaryDirectory(prefix=f'fps-{slots}-map{map_id}-', dir=output) as folder:
                 work = Path(folder)
                 processes, handles = {}, []
                 sequence = 0
@@ -67,16 +67,16 @@ def main():
                         if processes[label].poll() is not None:
                             break
                         time.sleep(.1)
-                    log = (output/f'fps-{slots}-{label}.log').read_text()
+                    log = (output/f'fps-{slots}-map{map_id}-{label}.log').read_text()
                     raise AssertionError(f'{slots}/{label}: {detail}\n{state(label)}\n{log}')
 
                 def spawn(label, role='client', code=''):
-                    log = (output/f'fps-{slots}-{label}.log').open('w')
+                    log = (output/f'fps-{slots}-map{map_id}-{label}.log').open('w')
                     handles.append(log)
                     command = [args.godot, '--headless', '--path', str(project),
                                '--script', script, '--', f'--role={role}',
                                f'--label={label}', f'--directory={url}',
-                               f'--port={port}', f'--slots={slots}',
+                               f'--port={port}', f'--slots={slots}', f'--map={map_id}',
                                f'--room={code}', f'--output={work}']
                     processes[label] = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
 
@@ -113,11 +113,13 @@ def main():
                     command('raw', 'quit')
                     processes['raw'].wait(timeout=4)
                     code = initial['room']
-                    spawn('c1', code=code)
+                    spawn('c1', role='quick' if slots == 2 else 'client', code=code)
                     first = wait('c1', lambda x: x.get('active') and len(x.get('hp', {})) == 2,
                                  'two-player FPS snapshot')
                     roster(2)
                     assert first['can_fire'] and state('host')['can_fire']
+                    assert first['map'] == map_id == state('host')['map']
+                    assert first['geometry'] == state('host')['geometry'] and len(first['geometry']) == 64
                     shooter = str(first['id'])
                     command('c1', 'fire', direction=[100, 0, 0], count=8)
                     command('c1', 'fire', direction=[0, 0, 1], count=8)
@@ -177,6 +179,8 @@ def main():
                         roster(seat+1)
                         assert state(f'c{seat}')['ammo'][shooter] == 24
                         assert state(f'c{seat}')['scores'][shooter] == 1
+                        assert state(f'c{seat}')['map'] == map_id
+                        assert state(f'c{seat}')['geometry'] == state('host')['geometry']
                     assert state('host')['members'] == slots
                     assert len(set(state('host')['seats'].values())) == slots
                     spawn('overflow', 'overflow')
@@ -192,6 +196,7 @@ def main():
                     spawn('rejoin', code=code)
                     joined = wait('rejoin', lambda x: x.get('active') and len(x.get('hp', {})) == slots,
                                   'reconnect snapshot')
+                    assert joined['map'] == map_id and joined['geometry'] == state('host')['geometry']
                     new_id = str(joined['id'])
                     wait('host', lambda x: x.get('seats', {}).get(new_id) == 2, 'reconnect reclaims seat 2')
                     roster(slots)
@@ -215,14 +220,14 @@ def main():
                     command('final', 'quit')
                     processes['final'].wait(timeout=4)
                     for label in processes:
-                        log = (output/f'fps-{slots}-{label}.log').read_text()
+                        log = (output/f'fps-{slots}-map{map_id}-{label}.log').read_text()
                         assert 'ERROR:' not in log and 'FAIL:' not in log, log
-                    results.append({'capacity':slots, 'two_player_start':'PASS',
+                    results.append({'capacity':slots, 'map_id':map_id, 'map_sync':'PASS', 'actual_collision_geometry_sync':'PASS', 'two_player_start':'PASS',
                         'late_join':'PASS', 'full_room_rejection':'PASS',
                         'invalid_rpc':'PASS', 'duplicate_fire':'PASS',
                         'movement':'PASS', 'damage_score_respawn':'PASS', 'timed_reload':'PASS', 'reconnect':'PASS', 'strong_kill':'PASS',
                         'host_exit':'PASS'})
-                    print(f'FPS_REAL_UDP_CAPACITY_{slots}_PASS', flush=True)
+                    print(f'FPS_REAL_UDP_CAPACITY_{slots}_MAP_{map_id}_PASS', flush=True)
                 finally:
                     for process in processes.values():
                         if process.poll() is None:
@@ -235,7 +240,7 @@ def main():
                     for handle in handles:
                         handle.close()
         (output/'fps-session-results.json').write_text(json.dumps(results, indent=2)+'\n')
-        print('FPS_REAL_MULTIPROCESS_UDP_PASS capacities 2/3/4, two-player start, late join, invalid RPC, disconnect and reconnect')
+        print('FPS_REAL_MULTIPROCESS_UDP_PASS both maps, capacities 2/3/4, map/geometry sync, two-player start, late join, invalid RPC, disconnect and reconnect')
     finally:
         service.terminate()
         service.wait(timeout=4)

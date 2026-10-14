@@ -35,7 +35,7 @@ func run() -> void:
 	game.ui.intro_timer.stop()
 	game.rooms.configure(directory)
 	game.rooms.game_port = game_port
-	check(game.net.PROTOCOL == 18 and game.rooms.VERSION == 18, "wire protocol 18")
+	check(game.net.PROTOCOL == 19 and game.rooms.VERSION == 19, "wire protocol 19")
 	if role == "host":
 		game.rooms.create_room(true, 2, "Black Corridor")
 		check(await wait_for(func(): return game.rooms.room_code.length() == 8), "HTTP JS registration returns room code")

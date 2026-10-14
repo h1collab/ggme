@@ -46,7 +46,7 @@ export function createLobbyServer({ttlMs = DEFAULT_TTL, trustProxy = false, cloc
     }
     try {return JSON.parse(raw || '{}');} catch {throw Object.assign(Error('invalid json'), {status:400});}
   }
-  function visible(room) {return {code:room.code,name:room.name,players:room.players,max_players:room.max_players,public:room.public};}
+  function visible(room) {return {code:room.code,name:room.name,players:room.players,max_players:room.max_players,public:room.public,map_id:room.map_id};}
   const server = http.createServer(async (req,res) => {
     gc();
     const path = new URL(req.url || '/', 'http://lobby.invalid').pathname;
@@ -55,21 +55,21 @@ export function createLobbyServer({ttlMs = DEFAULT_TTL, trustProxy = false, cloc
     const count = previous?.window === window ? previous.count + 1 : 1;
     rates.set(address,{window,count});
     if(count > 140) return reply(res,429,{error:'rate limit'});
-    if(req.method === 'GET' && path === '/health') return reply(res,200,{ok:true,service:'faceless2-directory',protocol:18});
+    if(req.method === 'GET' && path === '/health') return reply(res,200,{ok:true,service:'faceless2-directory',protocol:19});
     if(req.method === 'GET' && path === '/v1/rooms') {
       return reply(res,200,{rooms:[...rooms.values()].filter(r => r.public).slice(0,64).map(visible)});
     }
     if(req.method === 'POST' && path === '/v1/rooms') {
       try {
         const p=await payload(req);
-        const port=Number(p.port), max=Number(p.max_players);
-        if (!Number.isInteger(port) || port<1024 || port>65535 || !Number.isInteger(max) || max<2 || max>4 || typeof p.public!=='boolean')
+        const port=Number(p.port), max=Number(p.max_players), map=Number(p.map_id ?? 0);
+        if (!Number.isInteger(port) || port<1024 || port>65535 || !Number.isInteger(max) || max<2 || max>4 || typeof p.public!=='boolean' || !Number.isInteger(map) || map<0 || map>1)
           return reply(res,400,{error:'invalid capacity, visibility, or UDP port'});
         if([...rooms.values()].filter(r => r.address === address).length>=8) return reply(res,429,{error:'too many rooms'});
         let code = issueCode(); while (rooms.has(code)) code=issueCode();
         const token=randomBytes(24).toString('hex');
         const key=randomBytes(12).toString('hex');
-        const room={code,name:String(p.name || 'Faceless 2').trim().slice(0,48),address,port,public:p.public,max_players:max,players:1,token,key,expires:clock()+ttlMs};
+        const room={code,name:String(p.name || 'Faceless 2').trim().slice(0,48),address,port,public:p.public,map_id:map,max_players:max,players:1,token,key,expires:clock()+ttlMs};
         rooms.set(code,room);
         return reply(res,201,{code,owner_token:token,key,expires_in_ms:ttlMs,...visible(room)});
       }catch(e){return reply(res,e.status||500,{error:e.message});}

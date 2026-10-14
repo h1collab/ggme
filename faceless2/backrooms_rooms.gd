@@ -9,7 +9,7 @@ signal room_error(message: String)
 const DISCOVERY_PORT := 24717
 const DEFAULT_GAME_PORT := 24711
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-const VERSION := 18
+const VERSION := 19
 var game: Node
 var client: HTTPRequest
 var receiver: PacketPeerUDP
@@ -28,6 +28,7 @@ var timer := 0.0
 var heartbeat_clock := 0.0
 var pending_code := ""
 var advertised: Dictionary = {}
+var selected_map := -1
 var remote_public: Array = []
 
 func _ready() -> void:
@@ -57,16 +58,17 @@ func _new_code() -> String:
 		result += CODE_ALPHABET[int(value) % CODE_ALPHABET.length()]
 	return result
 
-func create_room(public_room: bool, slots: int, title: String = "") -> void:
+func create_room(public_room: bool, slots: int, title: String = "", requested_map: int = -1) -> void:
 	if game.net.mode != "solo": game.net.leave()
 	room_public = public_room
 	max_players = clampi(slots, 2, 4)
-	room_name = title.strip_edges().substr(0, 40) if not title.strip_edges().is_empty() else "Faceless 2 / FPS Arena"
+	room_name = title.strip_edges().substr(0, 40) if not title.strip_edges().is_empty() else "Faceless 2 / Random Maps"
 	room_code = ""
 	owner_token = ""
 	room_key = ""
+	selected_map = requested_map if requested_map in [0,1] else game.fps_arena.random_map()
 	if not directory_url.is_empty():
-		_send("create", HTTPClient.METHOD_POST, "/v1/rooms", {"name":room_name,"port":game_port,"public":room_public,"max_players":max_players})
+		_send("create", HTTPClient.METHOD_POST, "/v1/rooms", {"name":room_name,"port":game_port,"public":room_public,"max_players":max_players,"map_id":selected_map})
 	else:
 		_finish_create(_new_code(), _new_code())
 
@@ -74,8 +76,10 @@ func _finish_create(code: String, key: String) -> void:
 	# ENet.host() internally calls leave(); preserve the just-issued JS owner
 	# capability while it clears a previously active room.
 	var issued_token := owner_token
+	var issued_map := selected_map
 	var result: Error = game.net.host(game_port, key, true, max_players)
 	owner_token = issued_token
+	selected_map = issued_map
 	if result != OK:
 		room_error.emit("无法打开 UDP 房间端口；请稍后重试")
 		return
@@ -84,7 +88,7 @@ func _finish_create(code: String, key: String) -> void:
 	state = "host"
 	# All public/private matchmaking now enters the independent FPS arena;
 	# do NOT spawn a legacy Backrooms level when a room becomes host.
-	game.start_fps_arena()
+	game.start_fps_arena(selected_map)
 	room_created.emit(code)
 
 func discover() -> void:
@@ -110,12 +114,14 @@ func quick_match() -> void:
 	discover()
 	await get_tree().create_timer(1.5).timeout
 	if state == "host" or state == "client": return
-	for candidate in public_rooms():
+	var candidates := public_rooms()
+	candidates.shuffle()
+	for candidate in candidates:
 		var found: Dictionary = candidate
 		if int(found.get("players",1)) >= int(found.get("max_players",4)): continue
 		join_code(String(found.get("code","")))
 		return
-	create_room(true,4,"Faceless 2 / FPS Arena")
+	create_room(true,4,"Faceless 2 / Random Maps")
 
 func join_code(input_code: String) -> void:
 	var code := input_code.strip_edges().to_upper().replace("-", "")
@@ -138,6 +144,7 @@ func _join_endpoint(target: Dictionary) -> void:
 	if result != OK: room_error.emit("无法连接房主的 UDP 地址；检查端口映射或网络")
 	else:
 		game.net.max_crew = clampi(int(target.get("max_players",4)),2,4)
+		selected_map = int(target.get("map_id",-1))
 		room_code = String(target.get("code", pending_code))
 		state = "client"
 
@@ -162,6 +169,9 @@ func _http_complete(_result: int, status_code: int, _headers: PackedStringArray,
 		return
 	match op:
 		"create":
+			if int(response.get("map_id",selected_map)) != selected_map:
+				room_error.emit("Room directory map mismatch")
+				return
 			owner_token = String(response.get("owner_token", ""))
 			_finish_create(String(response.get("code", "")), String(response.get("key", "")))
 		"list":
@@ -195,7 +205,7 @@ func _process(delta: float) -> void:
 		if state == "host" and game.net.mode == "host" and not room_code.is_empty():
 			# Both public and private rooms broadcast; private listings are hidden
 			# from UI, but a local peer knowing the code can resolve it.
-			var info := {"protocol":VERSION,"code":room_code,"key":room_key,"port":game.net.port,"name":room_name,"max_players":max_players,"players":game.net.members.size(),"public":room_public}
+			var info := {"protocol":VERSION,"code":room_code,"key":room_key,"port":game.net.port,"name":room_name,"max_players":max_players,"players":game.net.members.size(),"public":room_public,"map_id":selected_map}
 			broadcaster.put_packet(JSON.stringify(info).to_utf8_buffer())
 		if state == "host" and game.net.mode != "host": state = "idle"
 		if is_instance_valid(game.ui) and game.ui.panel_kind == "lobby":
@@ -216,6 +226,7 @@ func leave_room() -> void:
 	room_code = ""
 	owner_token = ""
 	room_key = ""
+	selected_map = -1
 
 func _exit_tree() -> void:
 	if receiver != null: receiver.close()
