@@ -19,7 +19,7 @@ func _ready() -> void:
 
 func _floor_material() -> Material:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(.92,.95,.98)
+	material.albedo_color = Color(.80,.83,.86)
 	material.roughness = .88
 	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	var prefix := "vendor/pbr_large_grey_tiles_"
@@ -88,10 +88,10 @@ func build() -> void:
 	light = DirectionalLight3D.new()
 	light.name = "WarmSun_FPS_Arena_QualityShadows"
 	light.rotation_degrees = Vector3(-38,-32,0)
-	light.light_energy = 1.05
+	light.light_energy = .88
 	light.light_color = Color(1,.93,.82)
-	light.shadow_bias = .035
-	light.shadow_normal_bias = .8
+	light.shadow_bias = .10
+	light.shadow_normal_bias = 1.5
 	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	light.directional_shadow_blend_splits = true
 	add_child(light)
@@ -109,7 +109,7 @@ func build() -> void:
 func apply_quality(quality: int) -> void:
 	if not is_instance_valid(light): return
 	light.shadow_enabled = quality > 0
-	light.directional_shadow_max_distance = 24.0 if OS.has_feature("android") else 60.0
+	light.directional_shadow_max_distance = 24.0 if OS.has_feature("android") else 45.0
 
 func _process(_delta: float) -> void:
 	if not is_instance_valid(local_shadow): return
@@ -139,8 +139,8 @@ func activate() -> void:
 	world.environment.fog_enabled = false
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	world.environment.ambient_light_energy = .42
-	world.environment.tonemap_exposure = 1.0
+	world.environment.ambient_light_energy = .30
+	world.environment.tonemap_exposure = .90
 
 func deactivate() -> void:
 	visible = false

@@ -140,9 +140,13 @@ func _ready() -> void:
                 var source_material := skin_mesh.get_active_material(surface) as StandardMaterial3D
                 if source_material == null: continue
                 var skin_finish := source_material.duplicate() as StandardMaterial3D
+                skin_finish.albedo_color *= Color(.72,.71,.69,1.0)
                 skin_finish.roughness = .78
                 skin_finish.metallic = 0.0
                 skin_finish.metallic_specular = .28
+                # The shadow-only full body uses another authored pose;
+                # its limbs must not stripe the separate first-person rig.
+                skin_finish.disable_receive_shadows = true
                 skin_mesh.set_surface_override_material(surface,skin_finish)
         mounted += 1
     measure_grip()

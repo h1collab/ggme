@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
+render_mode cull_disabled, diffuse_burley, specular_schlick_ggx, shadows_disabled;
 
 // Original Kenney atlas defines authored material regions. Detail maps are
 // verified Poly Haven Metal Plate 02 CC0, projected in MODEL space so they

@@ -86,6 +86,8 @@ func run() -> void:
 	await _shot("15_hip_gentle_recoil_pbr_detail",Vector3(0,.12,0),Vector3(0,1.6,-12),true)
 	game.fps.set_aim(true)
 	await _shot("16_ads_gentle_recoil_pbr_detail",Vector3(0,.12,0),Vector3(0,1.6,-12),true)
+	game.fps.set_aim(false)
+	await _shot("17_ground_texture_and_original_avatar_shadow",Vector3(0,.12,0),Vector3(1.2,0,-.4))
 	game.fps.measure_grip()
 	print("PREVIEW_GRIP socket=",game.fps.grip_error," skin=",game.fps.grip_mesh_error)
 	game.net.leave()
