@@ -1,4 +1,4 @@
-# Faceless 2 standalone FPS / headless network notes (v0.32)
+# Faceless 2 standalone FPS / headless network notes (v0.33)
 
 The FPS playfield is **two independent 48m x 48m FPS maps**, Cargo Courtyard and Maintenance Hangar. Both use 16 licensed Kenney CC0 floor GLBs, authored Kenney structural/cover GLBs, original Poly Haven scanned props and source-verified PBR textures. Courtyard is open with loading bays; Hangar has original GLB roof wings, an open skylight, pillars, service consoles and warm source lamp fixtures. Invisible collision proxies match visible structures. It is not Level 2 and does not contain elevators, story objectives or passive Backrooms entities. Legacy source is kept for regression but is not a prerequisite to playing an FPS match.
 
@@ -69,3 +69,15 @@ the actual pistol-grip/fore-end surfaces. Native views still decide acceptance.
 The host reclaims authenticated clients after 15 seconds without an accepted pose, using monotonic time; normal clients submit poses at 20Hz even while waiting/in menus. The original ENet retransmission timeout alone exceeded the existing 23-second strong-kill test deadline in GitHub CI. Production liveness cleanup removes the transport, authoritative combat roster/avatar/seat and refreshes discovery; the test is retained unchanged. Neither the APK nor public cross-NAT play is declared successful from local testing alone.
 
 Central source-GLB cover islands retain diagonal spawn sightlines and a clear central lane. Rotated panel mesh thickness is centered on its physical proxy; real imported AABBs are checked against each map collider. Original pillar GLBs are fitted to structural footprints, and original lamp fixtures are mounted at their faces. Hangar uses balanced cool indirect ambient light plus warm fixtures and sun/skylight shadows. Both WRAD wrist frames are adjusted together with retained original skin/bones and measured grip contact. Four-corner SVG HUD icons show real map/room, health, magazine/reserve/reload, score and host-authorized kill events; mobile action icons preserve independent touch capture.
+
+## v0.33 responsive combat, HUD and matchmaking
+
+FPS-only walk/sprint is 3.8/6.2m/s; historical exploration remains 2.6/4.3. Host movement bounds follow the actual FPS sprint limit with bounded packet allowance. Local and host fire cadence uses the same 120ms interval (host tolerance 2ms). A 160ms single pending tap buffer prevents near-cooldown presses from disappearing. Holding desktop LMB and mobile FIRE repeats; opening a menu cancels pending taps. Hits remain instantaneous physics hitscan, not slow projectile flight. Gentle rig recoil is retained.
+
+Host-only hit serials are optional protocol-19 combat snapshot fields; only accepted damage yields a hit marker. HP loss gives a short screen-edge flash. Read-only live kills/HP scoreboard uses host-assigned seat numbers, desktop TAB or mobile score-card tap. Compact map/room card, centered dynamic reticle and actual stamina bar preserve separate mobile look and action zones.
+
+Quick match is single-flight and cancellable, awaits actual HTTP discovery, prioritizes occupied joinable rooms with random ties, resolves the published code, retries up to three endpoints with bounded lookup/UDP deadlines, then registers a host. Search cancellation prevents delayed room creation. Listings show map/capacity/code. This improves direct-room selection and error recovery; it is not a UDP relay or public NAT traversal service.
+
+Desktop medium/high now render at native 3D resolution with 2x/4x MSAA; low and Android adaptive presets remain available. Sun shadow bias is reduced and original source service pipes/stock fill hangar bays without obstructing spawn lanes. All source GLB/PBR/HDR checks remain enabled.
+
+Headless regressions measure actual accelerated movement, rapid mouse taps, five-pointer controls, scoreboard input and host cadence using monotonic wall time. Separate UDP/Node sessions cover failed-first endpoint retry, duplicate quick-match clicks, cancellation, authoritative hit confirmation and the retained six map/capacity matrices. Native desktop acceptance and APK must correspond to the new submitted SHA before delivery.

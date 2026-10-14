@@ -121,6 +121,13 @@ func run() -> void:
 	check(fps.server_fire(1,Vector3.FORWARD), "Host accepts normalized authoritative shot")
 	check(int(fps.ammo_by_peer[1]) == ammo-1,"Server subtracts ammo once")
 	check(not fps.server_fire(1,Vector3.FORWARD), "Server fire rate limit blocks duplicate shots")
+	var cadence_tick := Time.get_ticks_msec()
+	while Time.get_ticks_msec()-cadence_tick < 125: await process_frame
+	print("FPS_CADENCE_HOST ",Time.get_ticks_msec()-int(fps.shot_ticks.get(1,0)),"ms hp=",fps.health_by_peer," ammo=",fps.ammo_by_peer," facing=",game.player.yaw,",",game.player.pitch)
+	check(fps.server_fire(1,Vector3.FORWARD),"Host accepts next shot after 120ms, before old 185ms threshold")
+	check(int(fps.ammo_by_peer[1]) == ammo-2,"Faster host cadence still consumes one bullet per accepted request")
+	# Restore one consumed round for the existing reserve/reload fixture.
+	fps.ammo_by_peer[1] += 1
 	check(fps.server_reload(1),"Reload is server-authorized")
 	check(int(fps.ammo_by_peer[1]) == ammo-1,"Reload does not instantly refill the magazine")
 	check(not fps.server_reload(1),"Repeated reload requests rejected")

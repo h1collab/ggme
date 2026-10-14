@@ -86,10 +86,11 @@ func run() -> void:
 	await create_timer(1.9).timeout
 	check(game.fps.magazine == game.fps.MAGAZINE_CAPACITY and game.fps.reserve < stock,"Reload consumes reserve and refills after authoritative delay")
 	touch(7,point(game.ui.shoot_button),true)
-	await create_timer(3.8).timeout
+	var empty_deadline := Time.get_ticks_msec()+6500
+	while game.fps.magazine > 4 and Time.get_ticks_msec() < empty_deadline: await create_timer(.04).timeout
 	game.ui.refresh()
 	check(game.fps.magazine <= 5 and game.ui.fps_corner_hud.ammo_hint.text == "LOW AMMO","Real held shots trigger low-ammo HUD")
-	await create_timer(1.0).timeout
+	while game.fps.magazine > 0 and Time.get_ticks_msec() < empty_deadline: await create_timer(.04).timeout
 	touch(7,point(game.ui.shoot_button),false)
 	game.ui.refresh()
 	check(game.fps.magazine == 0 and game.ui.fps_corner_hud.ammo_hint.text == "RELOAD / R","Actually emptied magazine triggers reload prompt")
@@ -99,6 +100,49 @@ func run() -> void:
 	check(game.ui.modal and not game.ui.fire_held and game.ui.joystick.value == Vector2.ZERO,"Opening a menu cancels captured touches")
 	game.ui.close_panels()
 	check(game.ui.facility_hud_mode and game.ui.shoot_button.visible and not game.ui.light_button.visible,"Resume preserves FPS controls and hides legacy exploration controls")
+	# Scoreboard button must respond to real viewport input and display real state.
+	touch(9,point(game.ui.fps_corner_hud.score_toggle),true)
+	touch(9,point(game.ui.fps_corner_hud.score_toggle),false)
+	game.ui.refresh()
+	check(game.ui.fps_corner_hud.scoreboard.visible and game.ui.fps_corner_hud.scoreboard_text.text.contains("P1"),"Touch scoreboard displays authenticated combat roster")
+	touch(9,point(game.ui.fps_corner_hud.score_toggle),true)
+	touch(9,point(game.ui.fps_corner_hud.score_toggle),false)
+	# Measure actual accelerated CharacterBody velocity, not assigned constants.
+	game.ui.touch_preview = false
+	game.player.reset_to(Vector3(0,.12,0))
+	game.player.yaw = 0
+	game.player.rotation.y = 0
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_W
+	key.pressed = true
+	Input.parse_input_event(key)
+	await create_timer(.7).timeout
+	check(absf(Vector2(game.player.velocity.x,game.player.velocity.z).length()-3.8) < .1,"Actual FPS walking reaches 3.8m/s")
+	var shift := InputEventKey.new()
+	shift.physical_keycode = KEY_SHIFT
+	shift.pressed = true
+	Input.parse_input_event(shift)
+	await create_timer(.5).timeout
+	check(absf(Vector2(game.player.velocity.x,game.player.velocity.z).length()-6.2) < .1,"Actual FPS sprint reaches 6.2m/s")
+	key.pressed = false
+	shift.pressed = false
+	Input.parse_input_event(key)
+	Input.parse_input_event(shift)
+	game.fps.reload()
+	await create_timer(1.9).timeout
+	var before: int = game.fps.magazine
+	func_mouse(true)
+	func_mouse(false)
+	await create_timer(.045).timeout
+	func_mouse(true)
+	func_mouse(false)
+	await create_timer(.18).timeout
+	check(game.fps.magazine == before-2,"Real rapid mouse taps retain a shot across cooldown")
+	game.player.request_fire()
+	game.ui.open_pause()
+	await create_timer(.2).timeout
+	check(game.player.trigger_buffer == 0.0,"Menu opening cancels a buffered trigger")
+	print("FPS_RESPONSIVE_HANDLING_PASS walk=3.8 sprint=6.2 cadence=120ms tap-buffer scoreboard")
 	game.net.leave()
 	for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:
 		for sound in game.find_children("*",kind,true,false): sound.stop(); sound.set("stream",null)
@@ -108,3 +152,10 @@ func run() -> void:
 	else:
 		print("FPS_MOBILE_REAL_INPUT_PASS joystick/move/look/ADS/hold-fire/jump/reload, five fingers, release, menus and three aspect ratios")
 		quit(0)
+
+func func_mouse(pressed: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = Vector2(800,450)
+	root.push_input(event,true)

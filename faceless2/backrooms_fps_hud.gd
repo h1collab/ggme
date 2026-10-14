@@ -11,6 +11,11 @@ var ammo_hint: Label
 var health_card: Panel
 var ammo_card: Panel
 var reload_bar: ProgressBar
+var stamina_bar: ProgressBar
+var scoreboard: Panel
+var scoreboard_text: Label
+var scoreboard_open := false
+var score_toggle: Button
 var last_kill_serial := 0
 var feed_seconds := 0.0
 func icon_file(key: String) -> String:
@@ -33,11 +38,11 @@ func build(owner_ui: Control) -> void:
 	ui = owner_ui
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = Vector2(1600,900)
-	var left := card(Rect2(26,24,535,136))
+	var left := card(Rect2(26,24,500,106))
 	icon(left,"map",Vector2(16,18),Vector2(34,34))
-	map_text = ui._label(left,"",Vector2(62,16),455,23)
-	icon(left,"people",Vector2(16,70),Vector2(32,32))
-	room_text = ui._label(left,"",Vector2(62,72),455,20)
+	map_text = ui._label(left,"",Vector2(62,16),426,21)
+	icon(left,"people",Vector2(16,62),Vector2(32,32))
+	room_text = ui._label(left,"",Vector2(62,62),426,18)
 	var right := card(Rect2(1212,110,340,64))
 	icon(right,"score",Vector2(16,14),Vector2(30,30))
 	score_text = ui._label(right,"",Vector2(60,17),262,20)
@@ -58,12 +63,43 @@ func build(owner_ui: Control) -> void:
 	reload_bar.show_percentage = false
 	reload_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ammo_card.add_child(reload_bar)
+	stamina_bar = ProgressBar.new()
+	stamina_bar.position = Vector2(18,65)
+	stamina_bar.size = Vector2(226,4)
+	stamina_bar.show_percentage = false
+	stamina_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	health_card.add_child(stamina_bar)
+	score_toggle = Button.new()
+	score_toggle.position = right.position
+	score_toggle.size = right.size
+	score_toggle.flat = true
+	score_toggle.tooltip_text = ui.localized("Scoreboard / TAB","计分板 / TAB")
+	add_child(score_toggle)
+	score_toggle.pressed.connect(func(): scoreboard_open = not scoreboard_open)
+	scoreboard = card(Rect2(490,220,620,350))
+	scoreboard_text = ui._label(scoreboard,"",Vector2(28,20),560,25)
+	scoreboard_text.size.y = 320
+	scoreboard.visible = false
 func refresh(delta: float) -> void:
 	var game: Node = ui.game
 	var fps: Node3D = game.fps
 	visible = fps.active and not ui.modal
-	if not visible: return
+	if not visible:
+		scoreboard_open = false
+		return
 	var mobile: bool = ui.touch_controls_enabled()
+	stamina_bar.value = game.player.stamina
+	stamina_bar.modulate = Color(1,.64,.28) if game.player.stamina < 20 else Color(.55,.80,1)
+	scoreboard.visible = scoreboard_open or Input.is_physical_key_pressed(KEY_TAB)
+	if scoreboard.visible:
+		var rows: PackedStringArray = [ui.localized("SCOREBOARD   ·   KILLS / HP","计分板   ·   击倒 / 生命"),""]
+		var ids: Array = fps.health_by_peer.keys()
+		ids.sort_custom(func(a: int,b: int): return int(fps.scores.get(a,0)) > int(fps.scores.get(b,0)))
+		for peer_id in ids:
+			var number: int = int(game.net.seats.get(peer_id,peer_id))
+			rows.append("P%d   ·   %d / %d" % [number,int(fps.scores.get(peer_id,0)),int(fps.health_by_peer[peer_id])])
+		scoreboard_text.text = "\n".join(rows)
+	queue_redraw()
 	health_card.position.y = 557 if mobile else 790
 	ammo_card.position.y = 510 if mobile else 744
 	map_text.text = game.fps_arena.map_title(game.language == "zh")
@@ -97,3 +133,21 @@ func refresh(delta: float) -> void:
 		feed.text = ""
 	feed_seconds = maxf(0,feed_seconds-delta)
 	feed.visible = feed_seconds > 0 and not feed.text.is_empty()
+
+func _draw() -> void:
+	if not is_instance_valid(ui) or not is_instance_valid(ui.game.fps): return
+	var fps: Node3D = ui.game.fps
+	if not fps.active or ui.modal: return
+	var center := Vector2(800,450)
+	if not fps.aiming:
+		var motion: float = Vector2(ui.game.player.velocity.x,ui.game.player.velocity.z).length()
+		var gap: float = 5.0+motion*.65+fps.visual_recoil*10
+		for axis in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:
+			draw_line(center+axis*gap,center+axis*(gap+6),Color(.88,.94,.96,.80),1.5,true)
+	if fps.hit_feedback_time > 0:
+		for axis in [Vector2(-1,-1),Vector2(-1,1),Vector2(1,-1),Vector2(1,1)]:
+			draw_line(center+axis*7,center+axis*13,Color(1,.88,.55),2,true)
+	if fps.damage_feedback_time > 0:
+		var alpha: float = .22*fps.damage_feedback_time/.35
+		for inset in range(0,30,5):
+			draw_rect(Rect2(inset,inset,1600-inset*2,900-inset*2),Color(.86,.10,.06,alpha*(1-float(inset)/30)),false,5)

@@ -37,7 +37,14 @@ func run() -> void:
     game.rooms.configure(directory)
     game.rooms.game_port = port
     if role == "host": game.rooms.create_room(true,slots,"FPS regression",selected_map)
-    elif role == "quick": game.rooms.quick_match()
+    elif role == "quick":
+        game.rooms.quick_match()
+        game.rooms.quick_match() # duplicate UI request must be single-flight
+    elif role == "cancel":
+        game.rooms.quick_match()
+        game.rooms.quick_match()
+        await create_timer(.15).timeout
+        game.rooms.cancel_match()
     elif role == "raw":
         # Open real UDP but deliberately DO NOT authenticate membership.
         game.multiplayer.connected_to_server.disconnect(game.net._connected)
@@ -92,7 +99,7 @@ func _process(delta: float) -> bool:
     var data := {"mode":game.net.mode,"transport_connected":is_instance_valid(game.net.peer) and game.net.peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,"members":game.net.members.size(),
         "id":game.multiplayer.get_unique_id(),"active":game.fps.active,
         "arena":game.fps_arena.visible,"can_fire":game.fps.match_can_fire(),
-        "kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
+        "hit_serials":game.fps.hit_serials,"hit_marker":game.fps.last_confirmed_serial,"match_attempts":game.rooms.match_attempts,"matching":game.rooms.matching,"kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
         "hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
         "scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
         "room":game.rooms.room_code,"capacity":game.net.max_crew,

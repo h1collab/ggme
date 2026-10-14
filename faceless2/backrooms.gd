@@ -675,8 +675,8 @@ func set_quality(value: int) -> void:
 	quality = clampi(value, 0, 2)
 	frame_ema = 0.0167
 	auto_scale_timer = 0
-	get_viewport().scaling_3d_scale = [0.58, 0.74, 0.91][quality] if OS.has_feature("android") else [0.68, 0.85, 1.0][quality]
-	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X][quality]
+	get_viewport().scaling_3d_scale = [0.58, 0.74, 0.91][quality] if OS.has_feature("android") else [0.75, 1.0, 1.0][quality]
+	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X][quality] if OS.has_feature("android") else [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][quality]
 	# Shadow casting is desktop quality-only. Mobile beam uses compact unshadowed cone.
 	player.torch.shadow_enabled = quality == 2 and not OS.has_feature("android")
 	player.torch.spot_range = [9.0, 11.5, 14.0][quality]

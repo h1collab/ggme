@@ -6,7 +6,7 @@ const Assets = preload("backrooms_assets.gd")
 const WeaponFinish = preload("fps_weapon_finish.gdshader")
 const MAGAZINE_CAPACITY := 24
 const MAX_RANGE := 37.0
-const RATE_SECONDS := 0.19
+const RATE_SECONDS := 0.12
 const RELOAD_SECONDS := 1.65
 const HIP_RECOIL_IMPULSE := .040
 const ADS_RECOIL_IMPULSE := .024
@@ -54,6 +54,9 @@ var ammo_by_peer: Dictionary = {}
 var scores: Dictionary = {}
 var kill_events: Array[Dictionary] = []
 var kill_serial := 0
+var hit_serials: Dictionary = {}
+var last_confirmed_serial := 0
+var damage_feedback_time := 0.0
 var reserve_by_peer: Dictionary = {}
 var reload_ends: Dictionary = {}
 var shot_ticks: Dictionary = {}
@@ -293,6 +296,8 @@ func enter_arena() -> void:
     leave_level()
     kill_events.clear()
     kill_serial = 0
+    last_confirmed_serial = 0
+    damage_feedback_time = 0.0
     active = true
     equipped = true
     level_id = -2
@@ -315,6 +320,7 @@ func register_peer(id: int) -> void:
     ammo_by_peer[id] = MAGAZINE_CAPACITY
     scores[id] = 0
     reserve_by_peer[id] = 120
+    hit_serials[id] = 0
 
 func remove_peer(id: int) -> void:
     health_by_peer.erase(id)
@@ -323,6 +329,7 @@ func remove_peer(id: int) -> void:
     reserve_by_peer.erase(id)
     reload_ends.erase(id)
     shot_ticks.erase(id)
+    hit_serials.erase(id)
 
 func enter_level(number: int) -> void:
     # There is no authoritative replication yet for added-layer combat:
@@ -373,6 +380,9 @@ func leave_level() -> void:
     reserve_by_peer.clear()
     reload_ends.clear()
     shot_ticks.clear()
+    hit_serials.clear()
+    hit_feedback_time = 0.0
+    game.player.trigger_buffer = 0.0
     visual_recoil = 0.0
     muzzle_flash_time = 0.0
     if is_instance_valid(muzzle_light): muzzle_light.visible = false
@@ -415,6 +425,7 @@ func advance(delta: float) -> void:
     shot_cooldown = maxf(0.0,shot_cooldown-delta)
     invulnerable_time = maxf(0.0,invulnerable_time-delta)
     hit_feedback_time = maxf(0.0,hit_feedback_time-delta)
+    damage_feedback_time = maxf(0.0,damage_feedback_time-delta)
     combat_clock += delta
     if level_id == -2 and game.net.authoritative():
         finish_server_reloads()
@@ -602,7 +613,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
     var facing := Vector3(-sin(facing_yaw)*cos(facing_pitch),sin(facing_pitch),-cos(facing_yaw)*cos(facing_pitch))
     if direction.dot(facing) < .92: return false
     var now: int = Time.get_ticks_msec()
-    if now - int(shot_ticks.get(shooter,-999999)) < 185: return false
+    if now - int(shot_ticks.get(shooter,-999999)) < int(RATE_SECONDS*1000.0)-2: return false
     if int(ammo_by_peer.get(shooter,0)) <= 0: return false
     shot_ticks[shooter] = now
     ammo_by_peer[shooter] = int(ammo_by_peer[shooter])-1
@@ -625,6 +636,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         nearest = t
         victim = candidate
     if victim >= 0:
+        hit_serials[shooter] = int(hit_serials.get(shooter,0))+1
         health_by_peer[victim] = maxi(0,int(health_by_peer[victim])-25)
         if int(health_by_peer[victim]) == 0:
             scores[shooter] = int(scores.get(shooter,0))+1
@@ -648,7 +660,7 @@ func combat_state() -> Dictionary:
     var remaining := {}
     for id in reload_ends:
         remaining[id] = maxf(0.0,float(int(reload_ends[id])-Time.get_ticks_msec())/1000.0)
-    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true)}
+    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true),"hits":hit_serials.duplicate(),"seats":game.net.seats.duplicate()}
 
 func finish_server_reloads() -> void:
     var changed := false
@@ -666,10 +678,15 @@ func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, com
     kill_events.clear()
     for event in combat.get("kills",[]):
         if event is Dictionary: kill_events.append(event.duplicate())
+    game.net.seats = combat.get("seats",game.net.seats).duplicate()
     health_by_peer = hp.duplicate()
     ammo_by_peer = ammo.duplicate()
     scores = points.duplicate()
     var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
+    var next_hit: int = int(combat.get("hits",{}).get(id,0))
+    if next_hit > last_confirmed_serial: hit_feedback_time = .20
+    last_confirmed_serial = next_hit
+    if int(hp.get(id,100)) < health: damage_feedback_time = .35
     health = int(hp.get(id,100))
     magazine = int(ammo.get(id,MAGAZINE_CAPACITY))
     reserve = int(combat.get("reserve",{}).get(id,120))

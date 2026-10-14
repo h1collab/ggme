@@ -31,7 +31,7 @@ func fire(ads: bool) -> void:
 	game.fps.set_aim(ads)
 	for i in range(12): await frame()
 	for i in range(30):
-		if i%6 == 0: game.fps.fire()
+		if i%3 == 0: game.fps.fire()
 		await frame()
 func record() -> void:
 	output_dir = OS.get_environment("F2_CAPTURE_DIR")

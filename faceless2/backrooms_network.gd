@@ -263,7 +263,8 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool, pitch: float) -> v
 		if absf(pos.x) > 23.6 or absf(pos.z) > 23.6 or pos.y < -.5 or pos.y > 3.1: return
 	else:
 		if absf(pos.x) > 14.6 or pos.z < -29.6 or pos.z > 11.6 or pos.y < -0.5 or pos.y > 1.0: return
-	if pos.distance_to(old) > elapsed * 5.0 + 0.8: return
+	var speed_limit: float = game.player.FPS_SPRINT_SPEED + .8 if game.fps_arena.visible else 5.0
+	if pos.distance_to(old) > elapsed * speed_limit + 0.8: return
 	poses[id] = {"p":pos, "y":yaw,"pitch":pitch}
 	pose_times[id] = now
 	monitor_flags[id] = false

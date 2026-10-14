@@ -11,7 +11,7 @@ import socket
 import subprocess
 import tempfile
 import time
-from urllib.request import urlopen
+from urllib.request import urlopen, Request
 
 
 def main():
@@ -113,10 +113,33 @@ def main():
                     command('raw', 'quit')
                     processes['raw'].wait(timeout=4)
                     code = initial['room']
+                    if slots == 2 and map_id == 0:
+                        spawn('cancel',role='cancel')
+                        wait('cancel',lambda x: x.get('mode') == 'solo' and not x.get('matching',True),'search cancellation closes pending work')
+                        time.sleep(1.6)
+                        assert state('cancel')['mode'] == 'solo' and state('host')['members'] == 1
+                        command('cancel','quit')
+                        processes['cancel'].wait(timeout=4)
+                    stale = None
+                    if slots == 2 and map_id == 0:
+                        # Real directory entry with an unreachable real UDP endpoint.
+                        # Give it higher occupancy to force the first attempt.
+                        def request(path, body, method='POST'):
+                            with urlopen(Request(url+path, data=json.dumps(body).encode(),
+                                                 headers={'Content-Type':'application/json'}, method=method),timeout=3) as response:
+                                return json.load(response)
+                        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as dead:
+                            dead.bind(('127.0.0.1',0))
+                            dead_port = dead.getsockname()[1]
+                        stale = request('/v1/rooms', {'name':'Expired UDP candidate','port':dead_port,'public':True,'max_players':4,'map_id':1})
+                        request('/v1/rooms/'+stale['code']+'/heartbeat',{'owner_token':stale['owner_token'],'players':3})
                     spawn('c1', role='quick' if slots == 2 else 'client', code=code)
                     first = wait('c1', lambda x: x.get('active') and len(x.get('hp', {})) == 2,
                                  'two-player FPS snapshot')
                     roster(2)
+                    if stale:
+                        assert state('c1')['match_attempts'] >= 2, 'failed candidate must be retried'
+                        request('/v1/rooms/'+stale['code'],{'owner_token':stale['owner_token']},'DELETE')
                     assert first['can_fire'] and state('host')['can_fire']
                     assert first['map'] == map_id == state('host')['map']
                     assert first['geometry'] == state('host')['geometry'] and len(first['geometry']) == 64
@@ -137,13 +160,14 @@ def main():
                     assert state('host')['ammo'][shooter] == 23
                     before = state('host')['poses'][shooter][2]
                     command('c1', 'move', pressed=True)
-                    time.sleep(.5)
+                    time.sleep(.35)
                     command('c1', 'move', pressed=False)
                     wait('host', lambda x: x.get('poses', {}).get(shooter, [0,0,before])[2] < before-.25,
                          'movement replicated through UDP')
                     # Damage/score/respawn and reload must replicate over UDP,
                     # not only through same-process authority checks.
                     import math
+                    time.sleep(.4) # actual acceleration/deceleration settles before deriving the shot ray
                     poses = state('host')['poses']
                     eye = [poses[shooter][0], poses[shooter][1]+1.58, poses[shooter][2]]
                     target = [poses['1'][0], poses['1'][1]+1.0, poses['1'][2]]
@@ -162,6 +186,7 @@ def main():
                         time.sleep(.22)
                     wait('c1', lambda x: x.get('scores', {}).get(shooter) == 1 and x.get('hp', {}).get('1') == 100,
                          'score and respawn HP replicated')
+                    assert state('c1')['hit_marker'] == 4, 'authoritative four-hit confirmation reaches shooter'
                     for source in ('host','c1'):
                         wait(source, lambda x: bool(x.get('kills')) and x['kills'][-1]['killer'] == int(shooter) and x['kills'][-1]['victim'] == 1, 'host-authorized kill feed replicated')
                     command('c1', 'reload')
@@ -228,7 +253,7 @@ def main():
                     results.append({'capacity':slots, 'map_id':map_id, 'map_sync':'PASS', 'actual_collision_geometry_sync':'PASS', 'kill_feed':'PASS', 'peer_idle_watchdog':'PASS', 'two_player_start':'PASS',
                         'late_join':'PASS', 'full_room_rejection':'PASS',
                         'invalid_rpc':'PASS', 'duplicate_fire':'PASS',
-                        'movement':'PASS', 'damage_score_respawn':'PASS', 'timed_reload':'PASS', 'reconnect':'PASS', 'strong_kill':'PASS',
+                        'authority_hit_marker':'PASS', 'quick_match_retry':'PASS' if slots == 2 and map_id == 0 else 'covered_in_2_map0', 'movement':'PASS', 'damage_score_respawn':'PASS', 'timed_reload':'PASS', 'reconnect':'PASS', 'strong_kill':'PASS',
                         'host_exit':'PASS'})
                     print(f'FPS_REAL_UDP_CAPACITY_{slots}_MAP_{map_id}_PASS', flush=True)
                 finally:

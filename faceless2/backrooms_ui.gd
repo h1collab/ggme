@@ -28,6 +28,7 @@ var subtitle_backdrop: Panel
 var subtitle_label: Label
 var notice_label: Label
 var room_status: Label
+var quick_button: Button
 var address_field: LineEdit
 var port_field: SpinBox
 var key_field: LineEdit
@@ -210,7 +211,7 @@ func _build_hud() -> void:
 	shoot_button = _button(hud, localized("FIRE", "开火"),Rect2(1388,660,164,108),func(): pass,true)
 	shoot_button.button_down.connect(func():
 		fire_held = true
-		if is_instance_valid(game.fps): game.fps.fire())
+		if is_instance_valid(game.fps): game.player.request_fire())
 	shoot_button.button_up.connect(func(): fire_held = false)
 	reload_button = _button(hud,localized("RELOAD", "装弹"),Rect2(1214,790,154,70),func(): if is_instance_valid(game.fps): game.fps.reload(),true)
 	aim_button = _button(hud,localized("ADS", "瞄准"),Rect2(1214,690,154,78),func(): pass,true)
@@ -257,7 +258,10 @@ func _clear(kind: String) -> void:
 		facility_hud_mode = false
 		facility_goal_phase = -1
 		if is_instance_valid(facility_goal_label): facility_goal_label.visible = false
-	if is_instance_valid(game) and is_instance_valid(game.player): game.player.cancel_focus()
+	if is_instance_valid(game) and is_instance_valid(game.player):
+		game.player.cancel_focus()
+		game.player.trigger_buffer = 0.0
+	if kind not in ["lobby","prologue_end"] and game.rooms.matching: game.rooms.cancel_match()
 	panel_kind = kind
 	for child in panels.get_children():
 		panels.remove_child(child)
@@ -270,6 +274,7 @@ func _clear(kind: String) -> void:
 	panels.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	room_status = null
+	quick_button = null
 
 func intro() -> void:
 	_clear("intro")
@@ -534,7 +539,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / FPS ARENA\nTwo authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.32.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.33.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -621,11 +626,14 @@ func open_lobby() -> void:
 	directory_field.text = game.rooms.directory_url
 	panels.add_child(directory_field)
 	_button(panels, localized("SAVE DIRECTORY", "保存服务"), Rect2(1132, 815, 250, 60), _configure_directory)
-	_button(panels, localized("QUICK MATCH", "快速匹配"),Rect2(820,722,320,62),_quick_match,true)
+	quick_button = _button(panels, localized("QUICK MATCH", "快速匹配"),Rect2(820,722,320,62),_quick_match,true)
 	room_status = _label(panels, game.net.status, Vector2(1155, 722), 355, 17, ACCENT)
-	game.rooms.discover()
+	if not game.rooms.matching: game.rooms.discover()
 
 func _quick_match() -> void:
+	if game.rooms.matching:
+		game.rooms.cancel_match()
+		return
 	if is_instance_valid(room_status):
 		room_status.text = localized("Searching public rooms or opening a host...","寻找可加入房间，或创建房间……")
 	game.rooms.quick_match()
@@ -636,10 +644,12 @@ func _configure_directory() -> void:
 	game.rooms.discover()
 
 func _create_room() -> void:
+	game.rooms.cancel_match()
 	game.rooms.create_room(room_visibility.selected == 0, int(slot_limit.value), room_name_field.text)
 	if is_instance_valid(room_status): room_status.text = localized("Creating room...", "正在创建房间……")
 
 func _join_by_code() -> void:
+	game.rooms.cancel_match()
 	game.running = false
 	game.rooms.join_code(room_code_field.text)
 
@@ -668,10 +678,14 @@ func _render_rooms(list: Array) -> void:
 		var limit: int = int(entry.get("max_players", 4))
 		var join := Button.new()
 		join.custom_minimum_size = Vector2(600, 59)
-		join.text = "%s   %d/%d   %s" % [str(entry.get("name", "Faceless 2")), players, limit, code]
+		var map_id: int = int(entry.get("map_id",0))
+		var map_name: String = game.fps_arena.MAP_NAMES_ZH[clampi(map_id,0,1)] if game.language == "zh" else game.fps_arena.MAP_NAMES[clampi(map_id,0,1)]
+		join.text = "%s  ·  %d/%d  ·  %s" % [map_name,players,limit,code]
 		join.add_theme_font_size_override("font_size", 21)
 		join.disabled = players >= limit
-		join.pressed.connect(func(): game.rooms.join_code(code))
+		join.pressed.connect(func():
+			game.rooms.cancel_match()
+			game.rooms.join_code(code))
 		available_rooms.add_child(join)
 
 func open_result() -> void:
@@ -745,7 +759,7 @@ func refresh() -> void:
 		if is_instance_valid(shoot_button): shoot_button.visible = mobile_fps
 		if is_instance_valid(reload_button): reload_button.visible = mobile_fps
 		if is_instance_valid(aim_button): aim_button.visible = mobile_fps
-		if is_instance_valid(fps_crosshair): fps_crosshair.visible = fps_active and not game.fps.aiming
+		if is_instance_valid(fps_crosshair): fps_crosshair.visible = false # Reticle/confirmed-hit marker is drawn at the exact viewport center.
 		if is_instance_valid(fps_status_label):
 			fps_status_label.visible = false
 			if fps_active:
@@ -773,7 +787,9 @@ func refresh() -> void:
 	objective_label.text = localized("DESCENDING / DO NOT ANSWER THE VOICE", "正在下降 / 不要回答声音") if game.lift_active else localized("OBJECTIVE: %s\n%s · %d meters", "调查目标：%s\n%s · 约 %d 米") % [next_title, direction, int(offset.length())]
 	subtitle_label.text = game.story.subtitle
 	subtitle_backdrop.visible = not game.story.subtitle.is_empty()
-	if is_instance_valid(room_status): room_status.text = game.net.status
+	if is_instance_valid(room_status):
+		room_status.text = game.rooms.match_message if game.rooms.matching or not game.rooms.match_message.is_empty() else game.net.status
+	if is_instance_valid(quick_button): quick_button.text = localized("CANCEL SEARCH","取消搜索") if game.rooms.matching else localized("QUICK MATCH","快速匹配")
 
 func open_settings() -> void:
 	_page(localized("Graphics, Audio & Controls", "画质、配音和操作"), "settings")

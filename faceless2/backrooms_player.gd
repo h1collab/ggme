@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+const FPS_WALK_SPEED := 3.8
+const FPS_SPRINT_SPEED := 6.2
 const Assets = preload("backrooms_assets.gd")
 var game: Node
 var viewmodel_root: Node3D
@@ -31,6 +33,7 @@ var focus_seconds := 0.0
 var focus_target := Vector3.ZERO
 var attention_hold := 0.0
 var focus_allowed := false
+var trigger_buffer := 0.0
 var jump_requested := false
 var jump_count := 0
 var last_near_door: Node3D
@@ -190,7 +193,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		look(event.relative)
 	if event is InputEventMouseButton and not game.ui.touch_controls_enabled() and is_instance_valid(game.fps) and game.fps.active:
-		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed: game.fps.fire()
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed: request_fire()
 		elif event.button_index == MOUSE_BUTTON_RIGHT: game.fps.set_aim(event.pressed)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
@@ -212,6 +215,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif not event.pressed and event.index == aim_pointer: aim_pointer = -1
 	elif event is InputEventScreenDrag and event.index == aim_pointer:
 		look(event.relative * 1.15)
+
+func request_fire() -> void:
+	# A press just before cooldown ends is retained, never resets host timing.
+	if game.ui.modal or not game.fps.match_can_fire(): return
+	var result: String = game.fps.fire()
+	trigger_buffer = .16 if result == "COOLDOWN" and game.fps.magazine > 0 else 0.0
 
 func look(delta: Vector2) -> void:
 	if delta.length() > 0.7:
@@ -303,7 +312,8 @@ func _physics_process(delta: float) -> void:
 	sprinting = (Input.is_physical_key_pressed(KEY_SHIFT) or game.ui.run_held) and stamina > 5 and input.length() > 0.1
 	stamina = clampf(stamina + (-18.0 if sprinting else 12.0) * delta, 0, 100)
 	var direction := transform.basis * Vector3(input.x, 0, input.y)
-	var speed := 4.3 if sprinting else 2.6
+	var fps_mode: bool = is_instance_valid(game.fps) and game.fps.active
+	var speed := (FPS_SPRINT_SPEED if sprinting else FPS_WALK_SPEED) if fps_mode else (4.3 if sprinting else 2.6)
 	velocity.x = move_toward(velocity.x, direction.x * speed, delta * 14)
 	velocity.z = move_toward(velocity.z, direction.z * speed, delta * 14)
 	if not is_on_floor(): velocity.y -= 18.0 * delta
@@ -312,7 +322,11 @@ func _physics_process(delta: float) -> void:
 		if jump_requested and not lift_riding: jump_count += 1
 	jump_requested = false
 	move_and_slide()
-	if game.ui.fire_held and is_instance_valid(game.fps) and game.fps.active: game.fps.fire()
+	if fps_mode:
+		trigger_buffer = maxf(0.0,trigger_buffer-delta)
+		var desktop_trigger: bool = not game.ui.touch_controls_enabled() and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		if game.ui.fire_held or desktop_trigger or trigger_buffer > 0.0:
+			if game.fps.fire() == "REQUESTED": trigger_buffer = 0.0
 	if is_on_floor() and not last_grounded: landing_dip = 0.045
 	last_grounded = is_on_floor()
 	landing_dip = move_toward(landing_dip, 0.0, delta * 0.18)

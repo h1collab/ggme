@@ -1,4 +1,4 @@
-name: Build Faceless 2 v0.32 Android APK
+name: Build Faceless 2 v0.33 Android APK
 
 on:
   workflow_dispatch:
@@ -90,8 +90,8 @@ jobs:
           p=Path('app/export_presets.cfg'); s=p.read_text()
           s=s.replace('Escape Black Pine','Faceless 2').replace('School Brawl','Faceless 2')
           s=s.replace('res://ui/icon.svg','res://ui/game_icon.png')
-          s=re.sub(r'(?m)^version/code=.*','version/code=32',s)
-          s=re.sub(r'(?m)^version/name=.*','version/name="0.32.0"',s)
+          s=re.sub(r'(?m)^version/code=.*','version/code=33',s)
+          s=re.sub(r'(?m)^version/name=.*','version/name="0.33.0"',s)
           # Export all resources: scripts load imported GLBs, audio and textures by path.
           # A resource-only selection is unsafe for dynamic ResourceLoader paths.
           s=re.sub(r'(?m)^export_filter=.*', 'export_filter="all_resources"', s)
@@ -251,7 +251,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export Faceless 2 v0.32 APK
+      - name: Export Faceless 2 v0.33 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -259,21 +259,21 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/faceless2-v032-zorix.apk
-          test -s app/build/faceless2-v032-zorix.apk
+          godot --headless --path app --export-debug Android build/faceless2-v033-zorix.apk
+          test -s app/build/faceless2-v033-zorix.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v032-zorix-apk
-          path: app/build/faceless2-v032-zorix.apk
+          name: faceless2-v033-zorix-apk
+          path: app/build/faceless2-v033-zorix.apk
           if-no-files-found: error
 
       - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v032-headless-qa
+          name: faceless2-v033-headless-qa
           path: qa
           if-no-files-found: error

@@ -30,6 +30,10 @@ var pending_code := ""
 var advertised: Dictionary = {}
 var selected_map := -1
 var remote_public: Array = []
+var matching := false
+var match_epoch := 0
+var match_message := ""
+var match_attempts := 0
 
 func _ready() -> void:
 	name = "RoomDiscovery"
@@ -108,22 +112,68 @@ func public_rooms() -> Array:
 		if not dup: result.append(item.duplicate())
 	return result
 
+func cancel_match() -> void:
+	var was_matching := matching
+	match_epoch += 1
+	matching = false
+	match_message = game.ui.localized("Search cancelled","已取消搜索") if was_matching else ""
+	if operation in ["list","resolve","create"]:
+		client.cancel_request()
+		operation = ""
+	if game.net.mode == "client" and game.net.members.is_empty(): game.net.leave()
+
 func quick_match() -> void:
-	# Query the published rooms first. This is room matchmaking, NOT a
-	# UDP relay or NAT hole punching system.
+	if matching or game.net.mode != "solo": return
+	matching = true
+	match_epoch += 1
+	var ticket := match_epoch
+	match_attempts = 0
+	match_message = game.ui.localized("Searching rooms…","正在搜索房间……")
+	# Consume the real HTTP result, rather than a fixed sleep shorter than
+	# the directory timeout. LAN advertisements are allowed to arrive too.
+	remote_public.clear()
 	discover()
-	await get_tree().create_timer(1.5).timeout
-	if state == "host" or state == "client": return
+	var until := Time.get_ticks_msec()+8000
+	while ticket == match_epoch and (operation == "list" or Time.get_ticks_msec() < until-6500):
+		if Time.get_ticks_msec() >= until: break
+		await get_tree().create_timer(.1).timeout
+	if ticket != match_epoch: return
 	var candidates := public_rooms()
-	candidates.shuffle()
-	for candidate in candidates:
-		var found: Dictionary = candidate
+	candidates.shuffle() # Uniform map/room choice among equally occupied rooms.
+	candidates.sort_custom(func(a: Dictionary,b: Dictionary): return int(a.get("players",1)) > int(b.get("players",1)))
+	for found: Dictionary in candidates:
 		if int(found.get("players",1)) >= int(found.get("max_players",4)): continue
+		if match_attempts >= 3: break
+		match_attempts += 1
+		match_message = game.ui.localized("Connecting · attempt %d/3","正在连接 · 第 %d/3 次") % match_attempts
 		join_code(String(found.get("code","")))
-		return
+		var lookup_deadline := Time.get_ticks_msec()+8000
+		while ticket == match_epoch and operation == "resolve" and Time.get_ticks_msec() < lookup_deadline:
+			await get_tree().create_timer(.1).timeout
+		if ticket != match_epoch: return
+		if operation == "resolve":
+			client.cancel_request()
+			operation = ""
+		var deadline := Time.get_ticks_msec()+5000
+		while ticket == match_epoch and game.net.mode == "client" and game.net.members.is_empty() and Time.get_ticks_msec() < deadline:
+			await get_tree().create_timer(.1).timeout
+		if ticket != match_epoch: return
+		if game.net.mode == "client" and game.net.members.has(1):
+			matching = false
+			match_message = game.ui.localized("Connected","已加入房间")
+			return
+		game.net.leave()
+	if ticket != match_epoch: return
+	match_message = game.ui.localized("Opening a room · waiting for player 2","正在建房 · 等待第 2 人")
 	create_room(true,4,"Faceless 2 / Random Maps")
+	# Keep the single-flight lock until actual directory creation completes.
+	while ticket == match_epoch and operation == "create": await get_tree().create_timer(.1).timeout
+	if ticket == match_epoch:
+		matching = false
+		if game.net.mode != "host": match_message = game.ui.localized("Directory unavailable · retry or use LAN","目录暂不可用 · 请重试或使用局域网")
 
 func join_code(input_code: String) -> void:
+	if not matching: match_message = ""
 	var code := input_code.strip_edges().to_upper().replace("-", "")
 	if code.length() != 8:
 		room_error.emit("请输入 8 位房间号")
@@ -156,7 +206,9 @@ func _send(kind: String, method: HTTPClient.Method, path: String, content: Dicti
 	operation = kind
 	var body := JSON.stringify(content) if method != HTTPClient.METHOD_GET else ""
 	var error: Error = client.request(directory_url + path, ["Content-Type: application/json"], method, body)
-	if error != OK and kind != "heartbeat": room_error.emit("房间服务不可达，局域网模式仍可用")
+	if error != OK:
+		operation = ""
+		if kind != "heartbeat": room_error.emit("房间服务不可达，局域网模式仍可用")
 
 func _http_complete(_result: int, status_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	var op := operation
@@ -220,6 +272,7 @@ func _prune() -> void:
 		if Time.get_ticks_msec() - int(advertised[code].get("last_seen", 0)) > 11000: advertised.erase(code)
 
 func leave_room() -> void:
+	if not matching: match_message = ""
 	if state == "host" and not owner_token.is_empty():
 		_send("delete", HTTPClient.METHOD_DELETE, "/v1/rooms/%s" % room_code, {"owner_token":owner_token})
 	state = "idle"

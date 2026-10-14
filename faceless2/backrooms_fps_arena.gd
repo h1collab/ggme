@@ -139,6 +139,8 @@ func _build_map(index: int) -> void:
 		for depth in [-1.0,1.0]:
 			_panel(layout,"ServiceBay_%s" % depth,Vector3(0,1.25,depth*17),Vector3(12,2.5,.28),metal)
 			_prop(layout,"ServiceConsole_%s" % depth,"wakeup_computer_screen.glb",Vector3(-4,0,depth*18.8),1.3,PI if depth<0 else 0)
+			_prop(layout,"ServicePipe_%s" % depth,"wakeup_pipe.glb",Vector3(9,0,depth*19.5),2.4,PI*.5,metal)
+			_prop(layout,"ServiceStock_%s" % depth,"scan_cardboard_box_01.glb",Vector3(6,0,depth*19.8),.8,.3*depth)
 		for side in [-1.0,1.0]:
 			for depth in [-1.0,1.0]:
 				var at := Vector3(side*18,0,depth*15)
@@ -182,8 +184,9 @@ func build() -> void:
 	light.name = "Sun_QualityShadows"
 	light.rotation_degrees = Vector3(-28,-32,0)
 	light.light_color = Color(1,.93,.82)
-	light.shadow_bias = .10
-	light.shadow_normal_bias = 1.5
+	light.shadow_bias = .04
+	light.light_angular_distance = .65
+	light.shadow_normal_bias = 1.0
 	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	add_child(light)
 	local_shadow = Assets.fitted("vendor/crew.glb",1.75)
@@ -203,7 +206,7 @@ func _process(_delta: float) -> void:
 	local_shadow.global_position = player.global_position
 	local_shadow.rotation.y = player.rotation.y
 	var speed: float = Vector2(player.velocity.x,player.velocity.z).length()
-	for animation in shadow_animations: (animation as AnimationPlayer).speed_scale = clampf(speed/2.6,0,1.5)
+	for animation in shadow_animations: (animation as AnimationPlayer).speed_scale = clampf(speed/get_parent().player.FPS_WALK_SPEED,0,1.8)
 
 func activate(selected: int = 0) -> void:
 	if selected < 0 or selected >= MAP_NAMES.size():

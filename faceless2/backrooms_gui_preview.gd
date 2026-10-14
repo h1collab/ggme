@@ -45,6 +45,9 @@ func run() -> void:
 		game.ui.touch_preview = true
 		game.ui.prologue_finished()
 		await shot(prefix+"07_mobile_hud",Vector3(-7,.12,7),Vector3(8,1.6,-13))
+		game.ui.fps_corner_hud.scoreboard_open = true
+		await shot(prefix+"08_scoreboard",Vector3(-7,.12,7),Vector3(8,1.6,-13))
+		game.ui.fps_corner_hud.scoreboard_open = false
 		game.fps.measure_grip()
 		print("PREVIEW_MAP ",map_id," GEOMETRY ",game.fps_arena.geometry_digest())
 	game.net.leave()
