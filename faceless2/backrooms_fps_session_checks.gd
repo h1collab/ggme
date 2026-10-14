@@ -34,9 +34,16 @@ func run() -> void:
     game.ui.intro_timer.stop()
     game.set_process(false)
     game.player.set_physics_process(false)
-    game.rooms.configure(directory)
+    game.rooms.configure("" if role.begins_with("lan_") else directory)
     game.rooms.game_port = port
-    if role == "host": game.rooms.create_room(true,slots,"FPS regression",selected_map)
+    if role == "lan_host":
+        # Two real UDP peers on CI's single machine: release the host's
+        # unused discovery listener and route real announcements to loopback.
+        game.rooms.receiver.close()
+        game.rooms.broadcaster.set_dest_address("127.0.0.1",game.rooms.DISCOVERY_PORT)
+        game.rooms.create_room(true,slots,"LAN regression",selected_map)
+    elif role == "lan_quick": game.rooms.quick_match()
+    elif role == "host": game.rooms.create_room(true,slots,"FPS regression",selected_map)
     elif role == "quick":
         game.rooms.quick_match()
         game.rooms.quick_match() # duplicate UI request must be single-flight
@@ -102,7 +109,7 @@ func _process(delta: float) -> bool:
         "hit_serials":game.fps.hit_serials,"hit_marker":game.fps.last_confirmed_serial,"match_attempts":game.rooms.match_attempts,"matching":game.rooms.matching,"kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
         "hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
         "scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
-        "room":game.rooms.room_code,"capacity":game.net.max_crew,
+        "directory":game.rooms.directory_url,"room":game.rooms.room_code,"capacity":game.net.max_crew,
         "running":game.running,"panel":game.ui.panel_kind,
         "hud":game.ui.fps_status_label.text,"serial":serial}
     var path := output.path_join(label+"-state.json")

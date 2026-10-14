@@ -93,6 +93,7 @@ func _finish_create(code: String, key: String) -> void:
 	# All public/private matchmaking now enters the independent FPS arena;
 	# do NOT spawn a legacy Backrooms level when a room becomes host.
 	game.start_fps_arena(selected_map)
+	notify_roster_changed() # Publish the new host immediately.
 	room_created.emit(code)
 
 func discover() -> void:
@@ -134,7 +135,8 @@ func quick_match() -> void:
 	remote_public.clear()
 	discover()
 	var until := Time.get_ticks_msec()+8000
-	while ticket == match_epoch and (operation == "list" or Time.get_ticks_msec() < until-6500):
+	var settle_until := Time.get_ticks_msec()+(2250 if directory_url.is_empty() else 500)
+	while ticket == match_epoch and (operation == "list" or Time.get_ticks_msec() < settle_until):
 		if Time.get_ticks_msec() >= until: break
 		await get_tree().create_timer(.1).timeout
 	if ticket != match_epoch: return

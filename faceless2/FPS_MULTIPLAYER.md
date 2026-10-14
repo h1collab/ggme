@@ -87,3 +87,5 @@ Native screenshot settling uses 20 frames at fixed 30Hz (~0.67s); bounded captur
 Exhausted FPS sprint has 5%/25% hysteresis: exhaustion locks sprint until meaningful recovery instead of alternating walk/run at the 5% boundary. Respawn resets the lock. A real input/physics regression reproduces the previous jitter and verifies recovery/resume; historical exploration behavior remains unchanged.
 
 FPS fixture shutdown returns its physics-query/Shape3D locals before a separately deferred cleanup/quit phase. Verbose CI logs identify any resource lifetime failures; strict ERROR/FAIL checks remain mandatory.
+
+Quick match covers a complete 2-second LAN announcement cycle (2.25s minimum), publishes new hosts immediately, and waits only 0.5s minimum when an HTTP directory is configured. An extra real headless pair verifies UDP discovery -> room code -> authenticated ENet without HTTP, including identical map/geometry/seats. CI routes announcement datagrams to loopback and closes the host discovery listener to avoid a single-machine port conflict; physical Wi-Fi and public NAT remain unverified.

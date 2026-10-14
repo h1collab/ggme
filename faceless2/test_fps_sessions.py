@@ -14,17 +14,73 @@ import time
 from urllib.request import urlopen, Request
 
 
+def test_lan(args,output,project,script):
+    """Real UDP discovery payload -> code -> authenticated ENet, without HTTP."""
+    with tempfile.TemporaryDirectory(prefix='fps-lan-',dir=output) as folder:
+        work=Path(folder)
+        with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as sock:
+            sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+        processes={};handles=[]
+        def state(label):
+            try:return json.loads((work/(label+'-state.json')).read_text())
+            except (OSError,ValueError):return {}
+        def wait(label,predicate):
+            deadline=time.monotonic()+14
+            while time.monotonic()<deadline:
+                data=state(label)
+                if predicate(data):return data
+                if processes[label].poll() is not None:break
+                time.sleep(.05)
+            raise AssertionError(f'LAN {label}: {state(label)}')
+        def spawn(label,role):
+            handle=(output/f'fps-lan-{label}.log').open('w');handles.append(handle)
+            processes[label]=subprocess.Popen([args.godot,'--headless','--path',str(project),
+                '--script',script,'--',f'--role={role}',f'--label={label}',
+                f'--port={port}','--slots=2','--map=1',f'--output={work}'],stdout=handle,stderr=subprocess.STDOUT)
+        try:
+            spawn('host','lan_host')
+            host=wait('host',lambda x:x.get('mode')=='host' and len(x.get('room',''))==8)
+            assert not host['can_fire'] and host['directory']==''
+            spawn('client','lan_quick')
+            client=wait('client',lambda x:x.get('mode')=='client' and len(x.get('hp',{}))==2)
+            host=wait('host',lambda x:x.get('members')==2)
+            assert client['room']==host['room'] and client['directory']==''
+            assert client['map']==host['map']==1 and client['geometry']==host['geometry']
+            assert client['can_fire'] and host['can_fire']
+            assert client['seats']==host['seats'] and len(client['seats'])==2
+            for label,process in processes.items():
+                (work/(label+'-command.json')).write_text(json.dumps({'op':'quit','serial':1}))
+                process.wait(timeout=6)
+                assert process.returncode==0
+            for label in processes:
+                text=(output/f'fps-lan-{label}.log').read_text()
+                assert 'ERROR:' not in text and 'FAIL:' not in text,text
+            (output/'fps-lan-results.json').write_text(json.dumps({'udp_discovery':'PASS','no_http_directory':'PASS','code_to_enet':'PASS','two_player_start':'PASS','map_geometry_and_seats':'PASS'},indent=2))
+            print('FPS_REAL_LAN_ROOM_PASS native UDP announcements, code, two headless ENet peers; no HTTP',flush=True)
+        finally:
+            for process in processes.values():
+                if process.poll() is None:
+                    process.terminate()
+                    try:process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:process.kill();process.wait(timeout=3)
+            for handle in handles:handle.close()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--godot', default='godot')
     parser.add_argument('--project', default='app')
     parser.add_argument('--output', default='qa')
+    parser.add_argument('--lan-only', action='store_true')
     args = parser.parse_args()
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     project = Path(args.project).resolve()
     script = ('faceless2/' if (project/'faceless2/backrooms_fps_session_checks.gd').exists()
               else 'scripts/') + 'backrooms_fps_session_checks.gd'
+    if args.lan_only:
+        test_lan(args,output,project,script)
+        return
     with socket.socket() as sock:
         sock.bind(('127.0.0.1', 0))
         http_port = sock.getsockname()[1]
@@ -268,6 +324,7 @@ def main():
                     for handle in handles:
                         handle.close()
         (output/'fps-session-results.json').write_text(json.dumps(results, indent=2)+'\n')
+        test_lan(args,output,project,script)
         print('FPS_REAL_MULTIPROCESS_UDP_PASS both maps, capacities 2/3/4, map/geometry sync, two-player start, late join, invalid RPC, disconnect and reconnect')
     finally:
         service.terminate()
