@@ -45,7 +45,7 @@ concurrency:
 jobs:
   desktop-preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 19
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: Verify Sketchfab licensing importer without network or secrets
@@ -154,7 +154,7 @@ jobs:
           cp app/assets/vendor/sketchfab_smiler_face.png preview_frames/smiler_baked_source_review.png
           export FACELESS_PREVIEW_DIR="$GITHUB_WORKSPACE/preview_frames"
           export LIBGL_ALWAYS_SOFTWARE=1
-          timeout 280 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 60 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
+          timeout 420 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 30 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
           test "$(find preview_frames -maxdepth 1 -name '*.png' | wc -l)" -ge 8
           ! grep -E "ERROR:|FAIL:" preview_frames/preview.log
           echo "GODOT_PREVIEW_PASS independent desktop viewport screenshots, no APK"
@@ -167,7 +167,7 @@ jobs:
           mkdir -p preview_frames/movie_frames
           export F2_CAPTURE_DIR="$GITHUB_WORKSPACE/preview_frames/movie_frames"
           export LIBGL_ALWAYS_SOFTWARE=1
-          timeout 250 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1
+          timeout 600 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1
           grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
           ! grep -E "ERROR:|FAIL:" preview_frames/video.log
           ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v033-godot-real-gameplay.mp4

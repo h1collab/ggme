@@ -9,10 +9,11 @@ func shot(label: String, at: Vector3, target: Vector3, fire: bool = false) -> vo
 	game.player.global_position = at
 	game.player.camera.look_at(target)
 	game.ui.refresh()
-	for i in range(35): await process_frame
+	for i in range(20): await process_frame
 	if fire:
 		game.fps.fire()
 		for i in range(2): await process_frame
+		game.ui.refresh()
 	await RenderingServer.frame_post_draw
 	var img: Image = root.get_texture().get_image()
 	if img.is_empty() or img.save_png(output_dir.path_join(label+".png")) != OK: issues.append(label)

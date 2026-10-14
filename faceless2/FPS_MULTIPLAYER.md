@@ -81,3 +81,5 @@ Quick match is single-flight and cancellable, awaits actual HTTP discovery, prio
 Desktop medium/high now render at native 3D resolution with 2x/4x MSAA; low and Android adaptive presets remain available. Sun shadow bias is reduced and original source service pipes/stock fill hangar bays without obstructing spawn lanes. All source GLB/PBR/HDR checks remain enabled.
 
 Headless regressions measure actual accelerated movement, rapid mouse taps, five-pointer controls, scoreboard input and host cadence using monotonic wall time. Separate UDP/Node sessions cover failed-first endpoint retry, duplicate quick-match clicks, cancellation, authoritative hit confirmation and the retained six map/capacity matrices. Native desktop acceptance and APK must correspond to the new submitted SHA before delivery.
+
+Native screenshot settling uses 20 frames at fixed 30Hz (~0.67s); bounded capture/video timeouts account for native-resolution MSAA on the CI software renderer. Recording FPS is not an Android performance measurement.
