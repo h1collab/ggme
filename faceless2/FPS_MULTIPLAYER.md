@@ -47,3 +47,13 @@ refresh LAN announcements and directory heartbeats. UDP regressions also check
 actual remote HP damage, kill/respawn score replication and timed reserve reload.
 The test harness defers shutdown outside SceneTree._process and drains source
 audio/resources, preserving strict no-ERROR log verification.
+
+Near-wall QA uses an actual licensed Kenney GLB wall as a temporary capture-only
+fixture. It is never added to the shipped empty arena. Retraction measures the
+real gun vertices in its current transformed basis against the physics ray's
+wall plane; headless geometry and native screenshots/video verify separately.
+
+The scope's original opaque lens caps are removed by a fixed-source-hash baker
+(12 original faces only), so ADS has an actual open sightline through the
+authored GLB tube. The original source remains packaged; derivative output
+hash is audited. ADS eye height follows the original optic center coordinate.

@@ -69,6 +69,16 @@ func run() -> void:
 	await physics_frame
 	check(fps.server_fire(1,direction),"Valid shot against real occluding collision is processed")
 	check(int(fps.health_by_peer[2]) == 100,"Real physics wall prevents damage through it")
+	# Move the real physics fixture close to the camera and test the actual
+	# imported gun vertex clearance; screenshots separately check appearance.
+	wall.position.z = game.player.position.z-.4
+	await physics_frame
+	await physics_frame
+	for i in range(20): fps.advance(.05)
+	var nearest_weapon_z := 0.0
+	for vertex in fps.weapon_vertices:
+		nearest_weapon_z = minf(nearest_weapon_z,(fps.weapon_pivot.transform*vertex).z)
+	check(nearest_weapon_z >= -fps.wall_clearance+.024,"Actual original firearm vertices retract behind the physics wall")
 	wall.queue_free()
 	await physics_frame
 	await physics_frame

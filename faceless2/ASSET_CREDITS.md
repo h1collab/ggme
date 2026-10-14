@@ -157,3 +157,19 @@ The final subset keeps 589 original arm/wrist/finger triangles per side
 (1178/1196 combined), including the original bicep faces so the cut is beyond
 the camera view. This replaces the earlier 521-face subset without adding
 triangles or changing the author, CC0 license, source SHA, bind data or UVs.
+
+## Functional original-geometry ADS optic
+
+`fps_blaster_f_open_optic.glb` is a CC0 derivative of the unchanged verified
+Kenney Blaster Kit `fps_blaster_f.glb` (source/mirror/revision and original
+SHA-256 remain as recorded above). `bake_fps_optic.py` requires that exact
+82,676-byte source and removes exactly 12 original opaque lens-cap faces
+(192/204 original scope faces retained), preserving every original vertex
+attribute, texture, material, gun-body and magazine index stream. No new
+visible geometry is generated. The derivative SHA-256 is logged at build time;
+the original firearm file is also packaged for provenance.
+
+Open-optic derivative pinned SHA-256:
+`6256615dc836e0d51a4a082c70892988608469b82f47c5937aec5099b584a2fb`.
+This is the locally reproduced lawful derivative hash, never an accepted
+replacement for the original publisher file's unchanged SHA-256.

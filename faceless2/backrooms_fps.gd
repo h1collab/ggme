@@ -39,6 +39,8 @@ const GUN_SCALE := .55
 const GRIP_POINTS := [Vector3(.042,-.077,.335),Vector3(0,-.042,-.22)]
 var wall_retract := 0.0
 var wall_probe_seconds := 0.0
+var wall_clearance := 100.0
+var weapon_vertices := PackedVector3Array()
 var reload_visual_seconds := 0.0
 var sentries: Array[StaticBody3D] = []
 var health_by_peer: Dictionary = {}
@@ -59,13 +61,18 @@ func _ready() -> void:
     game.player.camera.add_child(weapon_pivot)
     weapon_pivot.position = Vector3(.24,-.22,-.64)
     weapon_pivot.rotation = Vector3(-.04,-.08,-.025)
-    if ResourceLoader.exists(Assets.path("vendor/fps_blaster_f.glb")):
-        weapon_model = load(Assets.path("vendor/fps_blaster_f.glb")).instantiate()
-        weapon_model.name = "Original_Kenney_BlasterF_CC0_GLB"
+    if ResourceLoader.exists(Assets.path("vendor/fps_blaster_f_open_optic.glb")):
+        weapon_model = load(Assets.path("vendor/fps_blaster_f_open_optic.glb")).instantiate()
+        weapon_model.name = "Kenney_BlasterF_CC0_AuthoredOpenOpticSubset"
         weapon_model.scale = Vector3.ONE * GUN_SCALE
         weapon_pivot.add_child(weapon_model)
         for node in weapon_model.find_children("*","MeshInstance3D",true,false):
-            (node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            var mesh := node as MeshInstance3D
+            mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            var local: Transform3D = weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
+            for surface in range(mesh.mesh.get_surface_count()):
+                var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+                for vertex in arrays[Mesh.ARRAY_VERTEX]: weapon_vertices.append(local*vertex)
     else:
         push_error("Source-verified Kenney Blaster GLB not packaged")
     # New, genuinely rigged WRAD ARMS CC0 authored GLB replaces the
@@ -342,23 +349,32 @@ func advance(delta: float) -> void:
         probe.collision_mask = 1
         probe.exclude = [game.player.get_rid()]
         var hit_wall: Dictionary = get_world_3d().direct_space_state.intersect_ray(probe)
-        wall_retract = 0.0 if hit_wall.is_empty() else clampf((1.12-eye.distance_to(hit_wall.position))/1.12,0.0,1.0)
+        wall_clearance = 100.0 if hit_wall.is_empty() else eye.distance_to(hit_wall.position)
+        wall_retract = clampf((1.12-wall_clearance)/.78,0.0,1.0)
     if is_instance_valid(weapon_pivot):
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
         var walking: float = sin(game.player.motion_clock)
         var base := Vector3(.24 + walking*.006*motion,
             -.22 - absf(walking)*.006*motion + game.player.landing_dip*.35,
             -.64 + visual_recoil*.45)
-        if aiming: base = Vector3(0,-.098,-.60 + visual_recoil*.35)
+        if aiming: base = Vector3(0,-.100375,-.60 + visual_recoil*.35)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
         base.y -= reload_phase*.14 + wall_retract*.16
         base.z += wall_retract*.20
         base.x -= wall_retract*.035
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
-        var pitch := (0.0 if aiming else -.04)+visual_recoil*.30+reload_phase*.36-wall_retract*1.15
+        var pitch := (0.0 if aiming else -.04)+visual_recoil*.30+reload_phase*.36-wall_retract*1.35
         weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,minf(1.0,delta*11.0))
         weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,0.0 if aiming else -.08,minf(1.0,delta*9.0))
         weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,(0.0 if aiming else -.025)+wall_retract*.10,minf(1.0,delta*9.0))
+        if wall_retract > .001:
+            # Use actual original GLB vertices in the current viewmodel basis,
+            # not a fictitious AABB corner, to keep the muzzle/scope behind
+            # the measured wall plane while the posture settles.
+            var forward_extent := 0.0
+            for vertex in weapon_vertices:
+                forward_extent = maxf(forward_extent,-(weapon_pivot.basis*vertex).z)
+            weapon_pivot.position.z = maxf(weapon_pivot.position.z,-wall_clearance+forward_extent+.025)
     game.player.camera.fov = lerpf(game.player.camera.fov,59.0 if aiming and equipped else 76.0,minf(1.0,delta*9.0))
     if level_id != 2 or target_remaining <= 0 or game.ui.modal: return
     enemy_timer -= delta

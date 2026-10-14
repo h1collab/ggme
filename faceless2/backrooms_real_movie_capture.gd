@@ -1,4 +1,5 @@
 extends SceneTree
+const Assets = preload("backrooms_assets.gd")
 # Genuine consecutive rendered frames at fixed 20Hz, NO still montage.
 var game: Node3D
 var camera: Camera3D
@@ -62,6 +63,20 @@ func record() -> void:
 	await move(Vector3(0,1.1,0),Vector3(0,.12,0),Vector3(0,1.6,-8),Vector3(0,1.6,-8),30)
 	game.player.landing_dip = 0
 	await move(Vector3(0,.12,-22.6),Vector3(0,.12,-23.6),Vector3(0,1.6,-26),Vector3(0,1.6,-26),40)
+	var wall := StaticBody3D.new()
+	wall.position = Vector3(0,0,-10)
+	var model: Node3D = Assets.fitted("vendor/wakeup_wall.glb",3.0)
+	var dimensions: Vector3 = model.get_meta("dimensions",Vector3.ONE)
+	wall.add_child(model)
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = dimensions
+	collision.shape = shape
+	collision.position.y = dimensions.y*.5
+	wall.add_child(collision)
+	game.add_child(wall)
+	var wall_front := -10+dimensions.z*.5
+	await move(Vector3(0,.12,wall_front+1.5),Vector3(0,.12,wall_front+.34),Vector3(0,1.6,-12),Vector3(0,1.6,-12),40)
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame

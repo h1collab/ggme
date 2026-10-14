@@ -1,4 +1,5 @@
 extends SceneTree
+const Assets = preload("backrooms_assets.gd")
 # Native desktop Godot OpenGL capture, independent of Android APK.
 var game: Node3D
 var output_dir := ""
@@ -16,6 +17,22 @@ func _shot(name: String, position: Vector3, target: Vector3) -> void:
 	if image.is_empty() or image.save_png(output_dir.path_join(name + ".png")) != OK:
 		issues.append("Native frame missing: " + name)
 	else: print("GODOT_GUI_PREVIEW " + name)
+func add_wall_fixture() -> float:
+	# QA fixture only: actual licensed imported wall, absent from gameplay.
+	var wall := StaticBody3D.new()
+	wall.name = "QA_OriginalKenneyCC0_Wall"
+	wall.position = Vector3(0,0,-10)
+	var model: Node3D = Assets.fitted("vendor/wakeup_wall.glb",3.0)
+	var dimensions: Vector3 = model.get_meta("dimensions",Vector3.ONE)
+	wall.add_child(model)
+	var collision := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = dimensions
+	collision.shape = shape
+	collision.position.y = dimensions.y*.5
+	wall.add_child(collision)
+	game.add_child(wall)
+	return -10+dimensions.z*.5
 func run() -> void:
 	output_dir = OS.get_environment("FACELESS_PREVIEW_DIR")
 	if output_dir.is_empty(): output_dir = OS.get_user_data_dir().path_join("preview_frames")
@@ -61,6 +78,8 @@ func run() -> void:
 	game.fps.reload_visual_seconds = .8
 	await _shot("12_reload_grip_contact",Vector3(0,.12,0),Vector3(0,1.6,-12))
 	await _shot("13_near_boundary_retraction",Vector3(0,.12,-23.6),Vector3(0,1.6,-26))
+	var wall_front := add_wall_fixture()
+	await _shot("14_near_real_licensed_glb_wall",Vector3(0,.12,wall_front+.34),Vector3(0,1.6,-12))
 	game.fps.measure_grip()
 	print("PREVIEW_GRIP socket=",game.fps.grip_error," skin=",game.fps.grip_mesh_error)
 	game.net.leave()

@@ -103,6 +103,10 @@ def main(folder: Path) -> None:
         dest.write_bytes(raw)
         print("FPS_ORIGINAL_GLB_PASS", output, sha256)
     fetch_wrad_arms(folder)
+    from bake_fps_optic import bake as bake_optic
+    digest = bake_optic(folder/"fps_blaster_f.glb",folder/"fps_blaster_f_open_optic.glb")
+    if digest != "6256615dc836e0d51a4a082c70892988608469b82f47c5937aec5099b584a2fb":
+        raise ValueError("Deterministic licensed optic derivative hash mismatch")
 
 if __name__ == "__main__":
     main(Path(sys.argv[1] if len(sys.argv) > 1 else "app/assets/vendor"))
