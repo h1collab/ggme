@@ -33,3 +33,10 @@ full client trust, transport security and lag compensation remain out of scope.
 and independent headless Godot UDP processes: unauthorized pre-handshake fire,
 duplicate fire, forged direction/position, late joining, full-room refusal,
 graceful reconnect, killed clients, return to waiting, and host loss.
+
+SceneMultiplayer's automatic client-to-client peer relay is disabled before
+connections are opened: every gameplay message uses the authoritative host.
+This avoids engine relay notifications to concurrently closing transports.
+The native preview job also preserves the actual licensed source project as a
+separate artifact for reproducible local **headless** diagnosis. It contains no
+API credentials; its BUILD_SHA.txt identifies the source revision.

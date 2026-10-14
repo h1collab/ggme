@@ -28,6 +28,9 @@ var max_crew := 4
 
 func _ready() -> void:
 	name = "DirectSession"
+	# All gameplay is host-authoritative; no client-to-client relay is used.
+	# Disable engine peer-relay notifications before any ENet connections.
+	(multiplayer as SceneMultiplayer).server_relay = false
 	multiplayer.peer_connected.connect(_peer_connected)
 	multiplayer.peer_disconnected.connect(_peer_disconnected)
 	multiplayer.connected_to_server.connect(_connected)
