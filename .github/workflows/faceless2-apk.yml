@@ -63,7 +63,7 @@ jobs:
               for item in root.iterdir():
                   if item.is_file(): item.unlink()
           source=Path('faceless2')
-          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_wakeup_room.gd','backrooms_extra_levels.gd','backrooms_extra_transport.gd','backrooms_fps_arena.gd','backrooms_fps.gd','backrooms_fps_checks.gd','backrooms_extra_levels_checks.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','virtual_joystick.gd','touch_action.gd']:
+          for name in ['backrooms.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_wakeup_room.gd','backrooms_extra_levels.gd','backrooms_extra_transport.gd','backrooms_fps_arena.gd','backrooms_fps.gd','backrooms_fps_checks.gd','backrooms_extra_levels_checks.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','backrooms_fps_session_checks.gd','virtual_joystick.gd','touch_action.gd']:
               shutil.copy2(source/name, Path('app/scripts')/name)
           shutil.copy2(source/'assets/entity.glb', 'app/assets/entity.glb')
           (Path('app/assets/vendor')).mkdir(parents=True, exist_ok=True)
@@ -143,6 +143,7 @@ jobs:
           test -s app/assets/vendor/huuxloc_backroom.glb
           rm app/assets/vendor/huuxloc_backroom.draco.glb
           mkdir -p qa
+          printf '%s\n' "$GITHUB_SHA" > qa/commit-sha.txt
 
       - name: Test JavaScript room directory without external services
         shell: bash
@@ -223,7 +224,7 @@ jobs:
           assert not missing, f'Chinese story font missing glyphs: {missing}'
           print('Build-time source asset inventory, all-GLB geometry and Chinese font: PASS')
           PYCODE
-          for script in backrooms_extra_levels backrooms_extra_transport backrooms_fps_arena backrooms_fps backrooms_fps_checks backrooms_extra_levels_checks backrooms_rooms backrooms_level backrooms_story backrooms_prologue backrooms_prologue_room backrooms_wakeup_room backrooms_prologue_checks backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks backrooms_room_checks virtual_joystick touch_action; do
+          for script in backrooms_extra_levels backrooms_extra_transport backrooms_fps_arena backrooms_fps backrooms_fps_checks backrooms_extra_levels_checks backrooms_rooms backrooms_level backrooms_story backrooms_prologue backrooms_prologue_room backrooms_wakeup_room backrooms_prologue_checks backrooms_player backrooms_ui backrooms_network backrooms_assets backrooms_story backrooms_checks backrooms_story_checks backrooms_cinematic_checks backrooms_network_checks backrooms_room_checks backrooms_fps_session_checks virtual_joystick touch_action; do
             godot --headless --path app --script "scripts/$script.gd" --check-only
           done
           timeout 180 godot --headless --path app --script scripts/backrooms_checks.gd 2>&1 | tee qa/runtime-checks.log
@@ -234,9 +235,10 @@ jobs:
           timeout 180 godot --headless --verbose --path app --script scripts/backrooms_cinematic_checks.gd 2>&1 | tee qa/cinematic-checks.log
           python faceless2/test_backrooms_network.py --godot godot --project app --output qa 2>&1 | tee qa/network-checks.log
           python faceless2/test_room_directory.py --godot godot --project app --output qa 2>&1 | tee qa/room-directory.log
+          python faceless2/test_fps_sessions.py --godot godot --project app --output qa 2>&1 | tee qa/fps-sessions.log
           python - <<'PYCODE'
           from pathlib import Path
-          for name, marker in [("runtime-checks.log","Faceless 2 runtime checks: PASS"),("network-checks.log","Faceless 2 P2P checks: PASS"),("story-checks.log","Faceless 2 story checks: PASS"),("prologue-checks.log","Faceless 2 prologue checks: PASS"),("cinematic-checks.log","Faceless 2 cinematic checks: PASS"),("extra-levels-checks.log","Faceless 2 extra levels checks: PASS"),("room-directory.log","Faceless 2 room directory: PASS")]:
+          for name, marker in [("fps-sessions.log","FPS_REAL_MULTIPROCESS_UDP_PASS"),("runtime-checks.log","Faceless 2 runtime checks: PASS"),("network-checks.log","Faceless 2 P2P checks: PASS"),("story-checks.log","Faceless 2 story checks: PASS"),("prologue-checks.log","Faceless 2 prologue checks: PASS"),("cinematic-checks.log","Faceless 2 cinematic checks: PASS"),("extra-levels-checks.log","Faceless 2 extra levels checks: PASS"),("room-directory.log","Faceless 2 room directory: PASS")]:
               text=Path("qa",name).read_text()
               assert marker in text and "ERROR:" not in text and "FAIL" not in text, name
           PYCODE

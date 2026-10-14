@@ -127,6 +127,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p preview_frames
+          printf '%s\n' "$GITHUB_SHA" > preview_frames/commit-sha.txt
           cp app/assets/vendor/sketchfab_smiler.glb preview_frames/smiler-authorized-inspection.glb
           cp app/assets/vendor/sketchfab_smiler_face.png preview_frames/smiler_baked_source_review.png
           export FACELESS_PREVIEW_DIR="$GITHUB_WORKSPACE/preview_frames"

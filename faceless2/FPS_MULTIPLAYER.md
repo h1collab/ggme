@@ -8,9 +8,9 @@ PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, mouse to look. A
 
 ## Network version and authority
 
-Native ENet/UDP gameplay protocol is **17** (default UDP 24711), room discovery protocol version **17** (LAN multicast/broadcast + optional HTTPS Node room directory). The explicit version change is mandatory because the host sends new FPS peer-spawn and combat-state RPCs. v16 clients must not join v17 rooms.
+Native ENet/UDP gameplay protocol is **18** (default UDP 24711), room discovery protocol version **18** (LAN multicast/broadcast + optional HTTPS Node room directory). The explicit version change is mandatory because validated pose RPCs include camera pitch and combat-state RPCs include host-owned reload/reserve state. v17 clients must not join v18 rooms.
 
-A room can hold 2-4 connected players. One player waits; combat starts at two, even in a room with three or four seats. Losing the second player returns to waiting. Late joins and disconnects broadcast the current combat roster to all authenticated live peers. Seat numbers are allocated separately from ENet IDs, reclaimed on disconnect and used for respawns. Repeated handshakes cannot refill health/ammo. The host owns health, ammo, kills, respawn location and accepted fire rate, validates membership on every firing/reload RPC and checks ray LOS/shot yaw against the last validated peer location. Clients cannot submit direct target damage or scores. Snapshots for joining clients contain their actual assigned spawn and current combat state. Hit positions are only approximated from host-validated player movement; full lag compensation, pitch validation and full adversarial anti-cheat remain future work.
+A room can hold 2-4 connected players. One player waits; combat starts at two, even in a room with three or four seats. Losing the second player returns to waiting. Late joins and disconnects broadcast the current combat roster to all authenticated live peers. Seat numbers are allocated separately from ENet IDs, reclaimed on disconnect and used for respawns. Repeated handshakes cannot refill health/ammo. The host owns health, ammo, kills, respawn location and accepted fire rate, validates membership on every firing/reload RPC and checks ray LOS/shot yaw/pitch against the last validated peer location. Clients cannot submit direct target damage or scores. Snapshots for joining clients contain their actual assigned spawn and current combat state. Hit positions are only approximated from host-validated player movement; full lag compensation and full adversarial anti-cheat remain future work.
 
 The QUICK MATCH UI discovers available public/LAN rooms first, then joins one with a free slot or creates a four-player host. Eight-character room codes are also supported. The optional JavaScript room directory is **not** a UDP relay and does **not** solve NAT traversal. Public internet play requires a deployed reachable HTTPS directory plus a reachable host UDP port/working mapping; otherwise match locally on compatible LAN.
 
@@ -24,3 +24,12 @@ is measured from the actual source vertices and bind matrices. The regression
 detaches a hand by 10cm to verify the measurement detects displacement. Both
 hands and gun inherit ADS/recoil/movement together. Native captures include
 walking, running, landing, reload and boundary retraction.
+
+Protocol 18 synchronizes authoritative reserve ammo and reload countdown. Reload
+takes 1.65 seconds, cannot be spammed to instantly refill, and blocks host-side
+fire until completion. Direction must agree with the last validated yaw/pitch;
+full client trust, transport security and lag compensation remain out of scope.
+`test_fps_sessions.py` additionally exercises 2/3/4-seat FPS rooms through Node
+and independent headless Godot UDP processes: unauthorized pre-handshake fire,
+duplicate fire, forged direction/position, late joining, full-room refusal,
+graceful reconnect, killed clients, return to waiting, and host loss.

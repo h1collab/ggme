@@ -34,7 +34,7 @@ func run() -> void:
 	game.set_process(false)
 	game.player.set_physics_process(false)
 	game.ui.intro_timer.stop()
-	check(game.net.PROTOCOL == 17, "Protocol v17 keeps authoritative evidence and choice synchronization")
+	check(game.net.PROTOCOL == 18, "Protocol v18 keeps authoritative evidence and choice synchronization")
 	if role == "host":
 		check(game.net.host(port, "faceless16", false) == OK, "Host opened")
 		game.start_shift(0)

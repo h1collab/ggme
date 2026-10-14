@@ -8,7 +8,9 @@ func _shot(name: String, position: Vector3, target: Vector3) -> void:
 	game.player.global_position = position
 	game.player.camera.look_at(target)
 	game.ui.refresh()
-	for i in range(40): await process_frame
+	for i in range(40):
+		if game.player.velocity.length() > .2: game.player.motion_clock += 1.0/60.0*(10.0 if game.player.sprinting else 7.0)
+		await process_frame
 	await RenderingServer.frame_post_draw
 	var image: Image = root.get_texture().get_image()
 	if image.is_empty() or image.save_png(output_dir.path_join(name + ".png")) != OK:

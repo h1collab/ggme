@@ -41,7 +41,41 @@ func run() -> void:
 	check(int(fps.ammo_by_peer[1]) == ammo-1,"Server subtracts ammo once")
 	check(not fps.server_fire(1,Vector3.FORWARD), "Server fire rate limit blocks duplicate shots")
 	check(fps.server_reload(1),"Reload is server-authorized")
-	check(int(fps.ammo_by_peer[1]) == fps.MAGAZINE_CAPACITY,"Magazine updated on server")
+	check(int(fps.ammo_by_peer[1]) == ammo-1,"Reload does not instantly refill the magazine")
+	check(not fps.server_reload(1),"Repeated reload requests rejected")
+	check(not fps.server_fire(1,Vector3.FORWARD),"Host rejects firing during reload")
+	await create_timer(fps.RELOAD_SECONDS+.15).timeout
+	check(int(fps.ammo_by_peer[1]) == fps.MAGAZINE_CAPACITY,"Delayed host reload updates magazine")
+	check(int(fps.reserve_by_peer[1]) == 119,"Reload consumes actual host-owned reserve ammo")
+	# Real headless physics LOS, damage, death/score and authoritative respawn.
+	fps.register_peer(2)
+	game.net.poses[2] = {"p":game.player.position+Vector3(0,0,-4),"y":0.0,"pitch":0.0}
+	var direction: Vector3 = (game.net.poses[2].p+Vector3(0,1.0,0)-game.player.camera.global_position).normalized()
+	game.player.pitch = asin(direction.y)
+	var wall := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(2,3,.2)
+	shape.shape = box
+	wall.add_child(shape)
+	wall.position = game.player.position+Vector3(0,1.0,-2)
+	game.add_child(wall)
+	await physics_frame
+	await physics_frame
+	check(fps.server_fire(1,direction),"Valid shot against real occluding collision is processed")
+	check(int(fps.health_by_peer[2]) == 100,"Real physics wall prevents damage through it")
+	wall.queue_free()
+	await physics_frame
+	await physics_frame
+	for i in range(4):
+		await create_timer(.22).timeout
+		check(fps.server_fire(1,direction),"Authorized damage shot after cooldown")
+	check(int(fps.scores[1]) == 1 and int(fps.health_by_peer[2]) == 100,"Four hits yield one score and reset victim HP")
+	check(game.net.poses[2].p == game.fps_arena.spawn_for(1),"Authoritative respawn applies a bounded arena spawn")
+	check(not fps.server_fire(999,direction),"Unknown peer never acquires firing authority")
+	fps.remove_peer(2)
+	game.net.poses.erase(2)
+	game.player.pitch = 0
 	check(game.fps_arena.spawn_for(1).distance_to(game.fps_arena.spawn_for(2)) > 5,"Players spawn in separate positions")
 	game.show_title_room()
 	check(not fps.active and not game.fps_arena.visible,"Leaving arena unloads combat and collision")

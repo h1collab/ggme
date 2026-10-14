@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 17
+const PROTOCOL := 18
 const MAX_CREW := 4
 var game: Node
 var peer: ENetMultiplayerPeer
@@ -159,6 +159,7 @@ func _connected() -> void:
 func _hello(version: int, key: String) -> void:
 	if mode != "host": return
 	var id := multiplayer.get_remote_sender_id()
+	if members.has(id): return
 	if version != PROTOCOL or key != password or members.size() >= max_crew:
 		_reject.rpc_id(id, "Version or room key mismatch, or room full.")
 		return
@@ -169,11 +170,11 @@ func _hello(version: int, key: String) -> void:
 	if seat > max_crew: return
 	seats[id] = seat
 	members[id] = true
-	poses[id] = {"p":game.fps_arena.spawn_for(seat) if game.fps_arena.visible else game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0}
+	poses[id] = {"p":game.fps_arena.spawn_for(seat) if game.fps_arena.visible else game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0,"pitch":0.0}
 	if game.fps_arena.visible: game.fps.register_peer(id)
 	pose_times[id] = Time.get_ticks_msec()
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
-	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
+	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores,game.fps.combat_state())
 	if game.fps_arena.visible: broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
 	status = "Room / %d of %d" % [members.size(), max_crew]
 
@@ -219,17 +220,18 @@ func _process(delta: float) -> void:
 	if pose_elapsed >= 0.05:
 		pose_elapsed = 0
 		var p: Vector3 = game.player.position
-		if mode == "client": _submit_pose.rpc_id(1, p, game.player.yaw, game.ui.monitoring)
+		if mode == "client": _submit_pose.rpc_id(1, p, game.player.yaw, game.ui.monitoring,game.player.pitch)
 		else:
-			poses[1] = {"p":p, "y":game.player.yaw}
+			poses[1] = {"p":p, "y":game.player.yaw,"pitch":game.player.pitch}
 			send_members("_pose_bundle",[poses])
 	if mode == "host" and state_elapsed >= 0.2:
 		state_elapsed = 0
 		send_members("_shared_state",[game.snapshot()])
+		if game.fps_arena.visible: broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
-func _submit_pose(pos: Vector3, yaw: float, monitoring: bool) -> void:
-	if mode != "host" or not pos.is_finite() or not is_finite(yaw): return
+func _submit_pose(pos: Vector3, yaw: float, monitoring: bool, pitch: float) -> void:
+	if mode != "host" or not pos.is_finite() or not is_finite(yaw) or not is_finite(pitch) or pitch < -1.37 or pitch > 1.31: return
 	var id := multiplayer.get_remote_sender_id()
 	if not members.has(id): return
 	var now := Time.get_ticks_msec()
@@ -240,7 +242,7 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool) -> void:
 	else:
 		if absf(pos.x) > 14.6 or pos.z < -29.6 or pos.z > 11.6 or pos.y < -0.5 or pos.y > 1.0: return
 	if pos.distance_to(old) > elapsed * 5.0 + 0.8: return
-	poses[id] = {"p":pos, "y":yaw}
+	poses[id] = {"p":pos, "y":yaw,"pitch":pitch}
 	pose_times[id] = now
 	monitor_flags[id] = false
 	game.update_crew(poses)
@@ -316,26 +318,26 @@ func _fps_reload() -> void:
 
 func broadcast_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
 	if not authoritative() or not game.fps_arena.visible: return
-	game.fps.receive_fps_state(hp,ammo,points)
-	if mode == "host": send_members("_fps_state",[hp,ammo,points])
+	game.fps.receive_fps_state(hp,ammo,points,game.fps.combat_state())
+	if mode == "host": send_members("_fps_state",[hp,ammo,points,game.fps.combat_state()])
 
 @rpc("authority","call_remote","reliable",2)
-func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
-	if game.fps_arena.visible: game.fps.receive_fps_state(hp,ammo,points)
+func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
+	if game.fps_arena.visible: game.fps.receive_fps_state(hp,ammo,points,combat)
 
 @rpc("authority","call_remote","reliable",0)
-func _fps_join(spawn: Vector3, hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
+func _fps_join(spawn: Vector3, hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
 	if mode != "client": return
 	game.start_fps_arena()
 	# Actual authoritative peer spawn (ENet peer IDs are not seat numbers).
 	game.player.reset_to(spawn)
-	game.fps.receive_fps_state(hp,ammo,points)
+	game.fps.receive_fps_state(hp,ammo,points,combat)
 
 func send_fps_respawn(id: int, pos: Vector3) -> void:
 	if not authoritative() or not game.fps_arena.visible: return
 	if id == 1: game.player.reset_to(pos)
 	elif mode == "host" and can_send(id): _fps_respawn.rpc_id(id,pos)
-	poses[id] = {"p":pos,"y":0.0}
+	poses[id] = {"p":pos,"y":0.0,"pitch":0.0}
 
 @rpc("authority","call_remote","reliable",0)
 func _fps_respawn(pos: Vector3) -> void:

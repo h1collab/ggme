@@ -9,7 +9,7 @@ signal room_error(message: String)
 const DISCOVERY_PORT := 24717
 const DEFAULT_GAME_PORT := 24711
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-const VERSION := 17
+const VERSION := 18
 var game: Node
 var client: HTTPRequest
 var receiver: PacketPeerUDP
@@ -138,6 +138,7 @@ func _join_endpoint(target: Dictionary) -> void:
 	var result: Error = game.net.join(String(target.get("address", "")), int(target.get("port", DEFAULT_GAME_PORT)), String(target.get("key", "")))
 	if result != OK: room_error.emit("无法连接房主的 UDP 地址；检查端口映射或网络")
 	else:
+		game.net.max_crew = clampi(int(target.get("max_players",4)),2,4)
 		room_code = String(target.get("code", pending_code))
 		state = "client"
 

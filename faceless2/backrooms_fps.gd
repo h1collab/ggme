@@ -44,6 +44,8 @@ var sentries: Array[StaticBody3D] = []
 var health_by_peer: Dictionary = {}
 var ammo_by_peer: Dictionary = {}
 var scores: Dictionary = {}
+var reserve_by_peer: Dictionary = {}
+var reload_ends: Dictionary = {}
 var shot_ticks: Dictionary = {}
 var shot_audio: AudioStreamPlayer
 var reload_audio: AudioStreamPlayer
@@ -101,7 +103,9 @@ func _ready() -> void:
         _curl_hand_fingers(skel,side)
         # Align the authored wrist frame, not an AABB of unused vertices.
         # Y points along the palm; X is palm normal; Z is thumb side.
-        var palm := Basis(Vector3.RIGHT,Vector3(0,.60,-.80),Vector3(0,.80,.60)) if side == "r" else Basis(Vector3.UP,Vector3(.94,0,-.342).normalized(),Vector3(-.342,0,-.94).normalized())
+        var left_forward := Vector3(.60,.65,-.466).normalized()
+        var left_normal := (Vector3.UP-left_forward*left_forward.y).normalized()
+        var palm := Basis(Vector3.RIGHT,Vector3(0,.60,-.80),Vector3(0,.80,.60)) if side == "r" else Basis(left_normal,left_forward,left_normal.cross(left_forward))
         var source_wrist: Transform3D = hand.global_transform.affine_inverse() * skel.global_transform * skel.get_bone_global_pose(wrist)
         var aligned := Transform3D(palm.scaled(Vector3.ONE*.10),Vector3.ZERO) * source_wrist.affine_inverse()
         hand.transform = aligned
@@ -217,11 +221,14 @@ func register_peer(id: int) -> void:
     health_by_peer[id] = 100
     ammo_by_peer[id] = MAGAZINE_CAPACITY
     scores[id] = 0
+    reserve_by_peer[id] = 120
 
 func remove_peer(id: int) -> void:
     health_by_peer.erase(id)
     ammo_by_peer.erase(id)
     scores.erase(id)
+    reserve_by_peer.erase(id)
+    reload_ends.erase(id)
     shot_ticks.erase(id)
 
 func enter_level(number: int) -> void:
@@ -270,6 +277,8 @@ func leave_level() -> void:
     health_by_peer.clear()
     ammo_by_peer.clear()
     scores.clear()
+    reserve_by_peer.clear()
+    reload_ends.clear()
     shot_ticks.clear()
 
 func _spawn_sentry(at: Vector3, hitpoints: int, index: int) -> void:
@@ -311,7 +320,9 @@ func advance(delta: float) -> void:
     invulnerable_time = maxf(0.0,invulnerable_time-delta)
     hit_feedback_time = maxf(0.0,hit_feedback_time-delta)
     combat_clock += delta
-    if reload_time > 0.0:
+    if level_id == -2 and game.net.authoritative():
+        finish_server_reloads()
+    if reload_time > 0.0 and level_id != -2:
         reload_time -= delta
         if reload_time <= 0.0:
             var transfer := mini(MAGAZINE_CAPACITY-magazine,reserve)
@@ -338,13 +349,13 @@ func advance(delta: float) -> void:
         var base := Vector3(.24 + walking*.006*motion,
             -.22 - absf(walking)*.006*motion + game.player.landing_dip*.35,
             -.64 + visual_recoil*.45)
-        if aiming: base = Vector3(0,-.077,-.60 + visual_recoil*.35)
-        var reload_phase := sin((1.0-clampf(reload_visual_seconds/.85,0.0,1.0))*PI)
+        if aiming: base = Vector3(0,-.098,-.60 + visual_recoil*.35)
+        var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
         base.y -= reload_phase*.14 + wall_retract*.16
         base.z += wall_retract*.20
         base.x -= wall_retract*.035
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
-        var pitch := (0.0 if aiming else -.04)+visual_recoil*.30+reload_phase*.36+wall_retract*.70
+        var pitch := (0.0 if aiming else -.04)+visual_recoil*.30+reload_phase*.36-wall_retract*1.15
         weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,minf(1.0,delta*11.0))
         weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,0.0 if aiming else -.08,minf(1.0,delta*9.0))
         weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,(0.0 if aiming else -.025)+wall_retract*.10,minf(1.0,delta*9.0))
@@ -390,7 +401,11 @@ func select_flashlight() -> void:
 
 func reload() -> bool:
     if active and level_id == -2:
-        reload_visual_seconds = .85
+        if not equipped or not match_can_fire() or reload_time > 0 or magazine >= MAGAZINE_CAPACITY or reserve <= 0: return false
+        reload_visual_seconds = RELOAD_SECONDS
+        reload_time = RELOAD_SECONDS
+        aiming = false
+        if reload_audio.stream != null: reload_audio.play()
         game.net.request_fps_reload()
         return true
     if not active or not equipped or reload_time > 0.0 or magazine >= MAGAZINE_CAPACITY or reserve <= 0: return false
@@ -405,6 +420,7 @@ func remaining_targets() -> int:
 func fire() -> String:
     if active and level_id == -2:
         if not game.running or game.ui.modal or not equipped or not match_can_fire(): return "LOCKED"
+        if reload_time > 0: return "RELOADING"
         if shot_cooldown > 0.0 or magazine <= 0: return "COOLDOWN"
         shot_cooldown = RATE_SECONDS
         visual_recoil = .10
@@ -470,13 +486,14 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
     if not active or level_id != -2 or not game.net.authoritative() or not match_can_fire(): return false
     if not health_by_peer.has(shooter) or int(health_by_peer[shooter]) <= 0: return false
     if not direction.is_finite() or absf(direction.length()-1.0) > .05: return false
+    if reload_ends.has(shooter): return false
     if shooter != 1 and not game.net.poses.has(shooter): return false
     # The server has the last validated body yaw. Arbitrary client-provided
     # 180-degree backshots are rejected, independently of claimed hits.
     var facing_yaw: float = game.player.yaw if shooter == 1 else float(game.net.poses[shooter].y)
-    var facing: Vector3 = Vector3(-sin(facing_yaw),0,-cos(facing_yaw))
-    var aim_flat: Vector3 = Vector3(direction.x,0,direction.z).normalized()
-    if aim_flat.dot(facing) < .72: return false
+    var facing_pitch: float = game.player.pitch if shooter == 1 else float(game.net.poses[shooter].get("pitch",0.0))
+    var facing := Vector3(-sin(facing_yaw)*cos(facing_pitch),sin(facing_pitch),-cos(facing_yaw)*cos(facing_pitch))
+    if direction.dot(facing) < .92: return false
     var now: int = Time.get_ticks_msec()
     if now - int(shot_ticks.get(shooter,-999999)) < 185: return false
     if int(ammo_by_peer.get(shooter,0)) <= 0: return false
@@ -492,7 +509,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         var pos: Vector3 = game.player.position if candidate == 1 else game.net.poses[candidate].p
         var offset: Vector3 = pos + Vector3(0,1.0,0)-origin
         var t: float = offset.dot(direction)
-        if t < .2 or t > 42.0 or t >= nearest: continue
+        if t < .2 or t > MAX_RANGE or t >= nearest: continue
         if (offset-direction*t).length() > .55: continue
         var ray := PhysicsRayQueryParameters3D.create(origin,origin+direction*t)
         ray.collision_mask = 1
@@ -512,14 +529,34 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
 func server_reload(shooter: int) -> bool:
     if not active or not game.net.authoritative() or not ammo_by_peer.has(shooter) or not match_can_fire(): return false
     if int(ammo_by_peer[shooter]) >= MAGAZINE_CAPACITY: return false
-    ammo_by_peer[shooter] = MAGAZINE_CAPACITY
+    if reload_ends.has(shooter) or int(reserve_by_peer.get(shooter,0)) <= 0: return false
+    reload_ends[shooter] = Time.get_ticks_msec()+int(RELOAD_SECONDS*1000)
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
     return true
 
-func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
+func combat_state() -> Dictionary:
+    var remaining := {}
+    for id in reload_ends:
+        remaining[id] = maxf(0.0,float(int(reload_ends[id])-Time.get_ticks_msec())/1000.0)
+    return {"reserve":reserve_by_peer,"reload":remaining}
+
+func finish_server_reloads() -> void:
+    var changed := false
+    for id in reload_ends.keys():
+        if Time.get_ticks_msec() < int(reload_ends[id]): continue
+        var transfer := mini(MAGAZINE_CAPACITY-int(ammo_by_peer.get(id,0)),int(reserve_by_peer.get(id,0)))
+        ammo_by_peer[id] = int(ammo_by_peer.get(id,0))+transfer
+        reserve_by_peer[id] = int(reserve_by_peer.get(id,0))-transfer
+        reload_ends.erase(id)
+        changed = true
+    if changed: game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+
+func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
     health_by_peer = hp.duplicate()
     ammo_by_peer = ammo.duplicate()
     scores = points.duplicate()
     var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
     health = int(hp.get(id,100))
     magazine = int(ammo.get(id,MAGAZINE_CAPACITY))
+    reserve = int(combat.get("reserve",{}).get(id,120))
+    reload_time = float(combat.get("reload",{}).get(id,0.0))
