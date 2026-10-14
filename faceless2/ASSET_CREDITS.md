@@ -152,3 +152,8 @@ CPU-skinned vertex distance checks replace the previous constant-zero error.
 Gun orientation is corrected using original geometry. This is still a stylized
 Kenney blaster, not a photorealistic modern pistol. Visual acceptance requires
 inspection of the SHA-matched native Godot screenshots and movie.
+
+The final subset keeps 589 original arm/wrist/finger triangles per side
+(1178/1196 combined), including the original bicep faces so the cut is beyond
+the camera view. This replaces the earlier 521-face subset without adding
+triangles or changing the author, CC0 license, source SHA, bind data or UVs.

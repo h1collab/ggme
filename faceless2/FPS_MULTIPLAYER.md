@@ -40,3 +40,10 @@ This avoids engine relay notifications to concurrently closing transports.
 The native preview job also preserves the actual licensed source project as a
 separate artifact for reproducible local **headless** diagnosis. It contains no
 API credentials; its BUILD_SHA.txt identifies the source revision.
+
+Explicit room-code joins use the native host's actual seat limit rather than
+rejecting a request from stale directory counts. Join/leave events immediately
+refresh LAN announcements and directory heartbeats. UDP regressions also check
+actual remote HP damage, kill/respawn score replication and timed reserve reload.
+The test harness defers shutdown outside SceneTree._process and drains source
+audio/resources, preserving strict no-ERROR log verification.

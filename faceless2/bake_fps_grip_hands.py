@@ -1,6 +1,6 @@
-"""Bake ONLY authored WRAD CC0 forearm/wrist/hand/finger triangles out of the
+"""Bake ONLY authored WRAD CC0 arm/wrist/hand/finger triangles out of the
 fixed-hash original skinned GLB. Preserve geometry, UV, normals, original
-material, full skeleton and bind data; discard upper-arm triangles. Compact all attribute streams together.
+material, full skeleton and bind data; discard shoulder-end triangles. Compact all attribute streams together.
 The new GLB is a LICENSED SUBSET, never synthesized visible geometry.
 """
 import json
@@ -37,7 +37,7 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
         ws = item(prim["attributes"]["WEIGHTS_0"],vertex)
         return sum(w for j,w in zip(js,ws)
                    if (side == "both" or names[j].endswith("." + side)) and (names[j].startswith("finger_") or names[j].startswith("wrist.")
-                   or names[j].startswith("socket.") or names[j].startswith("forearm")))
+                   or names[j].startswith("socket.") or names[j].startswith("forearm") or names[j].startswith("bicep.")))
     weight = [hand_weight(i) for i in range(acc[prim["attributes"]["POSITION"]]["count"])]
     kept = []
     for t in range(0,len(all_indices),3):
@@ -87,7 +87,7 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
     prim["indices"] = len(g["accessors"])-1
     g["buffers"][0]["byteLength"] = len(raw)
     g.setdefault("asset",{}).setdefault("extras",{})["attribution"] = (
-        "WRAD ARMS, wriks, CC0 1.0; subset of original forearm/hand/wrist triangles only, original rig/skin/UV")
+        "WRAD ARMS, wriks, CC0 1.0; subset of original arm/hand/wrist triangles only, original rig/skin/UV")
     js = json.dumps(g,ensure_ascii=True,separators=(",",":")).encode()
     js += b" "*(-len(js)%4)
     target = (b"glTF" + struct.pack("<II",2,12+8+len(js)+8+len(raw))

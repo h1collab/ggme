@@ -132,9 +132,8 @@ func join_code(input_code: String) -> void:
 		room_error.emit("局域网尚未发现此房间；跨网络需要部署 JS 房间服务")
 
 func _join_endpoint(target: Dictionary) -> void:
-	if int(target.get("players", 1)) >= int(target.get("max_players", 4)):
-		room_error.emit("房间人数已满")
-		return
+	# Directory/LAN counts can be stale immediately after a disconnect.
+	# Explicit code joins ask the actual ENet host, which enforces capacity.
 	var result: Error = game.net.join(String(target.get("address", "")), int(target.get("port", DEFAULT_GAME_PORT)), String(target.get("key", "")))
 	if result != OK: room_error.emit("无法连接房主的 UDP 地址；检查端口映射或网络")
 	else:
@@ -170,6 +169,11 @@ func _http_complete(_result: int, status_code: int, _headers: PackedStringArray,
 			rooms_changed.emit(public_rooms())
 		"resolve": _join_endpoint(response)
 
+func notify_roster_changed() -> void:
+	# Publish reclaimed seats immediately instead of waiting 12 seconds.
+	timer = 2.0
+	heartbeat_clock = 13.0
+
 func _process(delta: float) -> void:
 	timer += delta
 	if receiver != null:
@@ -197,7 +201,7 @@ func _process(delta: float) -> void:
 		if is_instance_valid(game.ui) and game.ui.panel_kind == "lobby":
 			rooms_changed.emit(public_rooms())
 	heartbeat_clock += delta
-	if state == "host" and heartbeat_clock > 12.0 and not owner_token.is_empty():
+	if state == "host" and heartbeat_clock > 12.0 and not owner_token.is_empty() and client.get_http_client_status() == HTTPClient.STATUS_DISCONNECTED:
 		heartbeat_clock = 0
 		_send("heartbeat", HTTPClient.METHOD_POST, "/v1/rooms/%s/heartbeat" % room_code, {"owner_token":owner_token,"players":game.net.members.size()})
 

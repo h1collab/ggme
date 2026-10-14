@@ -104,7 +104,7 @@ def main():
                     # Real unauthenticated UDP client must not consume ammo or
                     # receive the protected roster before the handshake.
                     spawn('raw', 'raw')
-                    wait('raw', lambda x: x.get('mode') == 'client', 'raw UDP socket')
+                    wait('raw', lambda x: x.get('transport_connected'), 'raw UDP socket')
                     time.sleep(.7)
                     command('raw', 'fire', count=10)
                     time.sleep(.4)
@@ -121,6 +121,7 @@ def main():
                     shooter = str(first['id'])
                     command('c1', 'fire', direction=[100, 0, 0], count=8)
                     command('c1', 'fire', direction=[0, 0, 1], count=8)
+                    command('c1', 'fire', direction=[0, .9, -.435889894], count=8)
                     command('c1', 'pose')
                     time.sleep(.4)
                     assert state('host')['ammo'][shooter] == 24
@@ -138,12 +139,44 @@ def main():
                     command('c1', 'move', pressed=False)
                     wait('host', lambda x: x.get('poses', {}).get(shooter, [0,0,before])[2] < before-.25,
                          'movement replicated through UDP')
+                    # Damage/score/respawn and reload must replicate over UDP,
+                    # not only through same-process authority checks.
+                    import math
+                    poses = state('host')['poses']
+                    eye = [poses[shooter][0], poses[shooter][1]+1.58, poses[shooter][2]]
+                    target = [poses['1'][0], poses['1'][1]+1.0, poses['1'][2]]
+                    direction = [target[i]-eye[i] for i in range(3)]
+                    length = math.sqrt(sum(v*v for v in direction))
+                    direction = [v/length for v in direction]
+                    command('c1', 'aim', direction=direction)
+                    time.sleep(.3)
+                    for shot in range(4):
+                        command('c1', 'fire', direction=direction)
+                        wait('c1', lambda x: x.get('ammo', {}).get(shooter) == 22-shot,
+                             'damage shot acknowledged')
+                        if shot < 3:
+                            wait('c1', lambda x: x.get('hp', {}).get('1') == 75-25*shot,
+                                 'host HP damage replicated to shooter')
+                        time.sleep(.22)
+                    wait('c1', lambda x: x.get('scores', {}).get(shooter) == 1 and x.get('hp', {}).get('1') == 100,
+                         'score and respawn HP replicated')
+                    command('c1', 'reload')
+                    time.sleep(.25)
+                    assert state('host')['ammo'][shooter] == 19
+                    command('c1', 'fire', direction=direction, count=10)
+                    time.sleep(.25)
+                    assert state('host')['ammo'][shooter] == 19
+                    wait('c1', lambda x: x.get('ammo', {}).get(shooter) == 24,
+                         'delayed authoritative reload replicated')
+                    assert state('host')['stock'][shooter] == 115
+                    command('c1', 'aim', direction=[0,0,-1])
                     for seat in range(2, slots):
                         spawn(f'c{seat}', code=code)
                         wait(f'c{seat}', lambda x: x.get('active') and len(x.get('hp', {})) == seat+1,
                              'late joining player received current roster')
                         roster(seat+1)
-                        assert state(f'c{seat}')['ammo'][shooter] == 23
+                        assert state(f'c{seat}')['ammo'][shooter] == 24
+                        assert state(f'c{seat}')['scores'][shooter] == 1
                     assert state('host')['members'] == slots
                     assert len(set(state('host')['seats'].values())) == slots
                     spawn('overflow', 'overflow')
@@ -160,7 +193,7 @@ def main():
                     joined = wait('rejoin', lambda x: x.get('active') and len(x.get('hp', {})) == slots,
                                   'reconnect snapshot')
                     new_id = str(joined['id'])
-                    assert state('host')['seats'][new_id] == 2
+                    wait('host', lambda x: x.get('seats', {}).get(new_id) == 2, 'reconnect reclaims seat 2')
                     roster(slots)
                     # No clean leave RPC: kill every client and wait for actual
                     # ENet timeout/reclaimed roster before shooting resumes.
@@ -187,7 +220,7 @@ def main():
                     results.append({'capacity':slots, 'two_player_start':'PASS',
                         'late_join':'PASS', 'full_room_rejection':'PASS',
                         'invalid_rpc':'PASS', 'duplicate_fire':'PASS',
-                        'movement':'PASS', 'reconnect':'PASS', 'strong_kill':'PASS',
+                        'movement':'PASS', 'damage_score_respawn':'PASS', 'timed_reload':'PASS', 'reconnect':'PASS', 'strong_kill':'PASS',
                         'host_exit':'PASS'})
                     print(f'FPS_REAL_UDP_CAPACITY_{slots}_PASS', flush=True)
                 finally:

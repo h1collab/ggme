@@ -11,6 +11,7 @@ var port := 24711
 var slots := 4
 var elapsed := 0.0
 var serial := 0
+var started := false
 func _initialize() -> void:
     for arg in OS.get_cmdline_user_args():
         var pair := arg.trim_prefix("--").split("=",true,1)
@@ -40,9 +41,10 @@ func run() -> void:
         game.net.join("127.0.0.1",port,"")
     elif role == "overflow": game.net.join("127.0.0.1",port,"overflow")
     else: game.rooms.join_code(room)
+    started = true
     print("FPS_SESSION_PROCESS ",label)
 func _process(delta: float) -> bool:
-    if not is_instance_valid(game): return false
+    if not is_instance_valid(game) or not started: return false
     elapsed += delta
     if elapsed < .10: return false
     elapsed = 0
@@ -57,6 +59,14 @@ func _process(delta: float) -> bool:
                     var v: Array = command.get("direction",[0,0,-1])
                     for i in range(int(command.get("count",1))):
                         game.net._fps_fire.rpc_id(1,Vector3(float(v[0]),float(v[1]),float(v[2])))
+                "aim":
+                    var v: Array = command.get("direction",[0,0,-1])
+                    var direction := Vector3(float(v[0]),float(v[1]),float(v[2])).normalized()
+                    game.player.yaw = atan2(-direction.x,-direction.z)
+                    game.player.rotation.y = game.player.yaw
+                    game.player.pitch = asin(direction.y)
+                    game.player.camera.rotation.x = game.player.pitch
+                "reload": game.net.request_fps_reload()
                 "pose": game.net._submit_pose.rpc_id(1,Vector3(10000,0,10000),0.0,false,0.0)
                 "handshake": game.net._hello.rpc_id(1,game.net.PROTOCOL,game.net.password)
                 "move":
@@ -68,21 +78,19 @@ func _process(delta: float) -> bool:
                     Input.parse_input_event(event)
                 "leave": game.net.leave()
                 "quit":
-                    game.net.leave()
-                    game.queue_free()
-                    await create_timer(.3).timeout
-                    quit()
+                    started = false
+                    call_deferred("shutdown")
                     return false
     game.ui.refresh()
     var pose_data := {}
     for id in game.net.poses:
         var p: Vector3 = game.net.poses[id].p
         pose_data[str(id)] = [p.x,p.y,p.z,float(game.net.poses[id].y)]
-    var data := {"mode":game.net.mode,"members":game.net.members.size(),
+    var data := {"mode":game.net.mode,"transport_connected":is_instance_valid(game.net.peer) and game.net.peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,"members":game.net.members.size(),
         "id":game.multiplayer.get_unique_id(),"active":game.fps.active,
         "arena":game.fps_arena.visible,"can_fire":game.fps.match_can_fire(),
         "hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
-        "scores":game.fps.scores,"seats":game.net.seats,"poses":pose_data,
+        "scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
         "room":game.rooms.room_code,"capacity":game.net.max_crew,
         "running":game.running,"panel":game.ui.panel_kind,
         "hud":game.ui.fps_status_label.text,"serial":serial}
@@ -93,3 +101,15 @@ func _process(delta: float) -> bool:
         file.close()
         DirAccess.rename_absolute(path+".tmp",path)
     return false
+
+func shutdown() -> void:
+    game.net.leave()
+    for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:
+        for sound in game.find_children("*",kind,true,false):
+            sound.stop()
+            sound.set("stream",null)
+    game.queue_free()
+    game = null
+    for i in range(12): await process_frame
+    print("FPS_SESSION_SHUTDOWN ",label)
+    quit()

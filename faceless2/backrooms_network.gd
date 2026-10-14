@@ -152,6 +152,7 @@ func _peer_disconnected(id: int) -> void:
 		game.fps.remove_peer(id)
 		if mode == "host" and game.fps_arena.visible:
 			broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
+	if mode == "host" and is_instance_valid(game.rooms): game.rooms.notify_roster_changed()
 	status = "Room / %d of %d" % [members.size(),max_crew] if mode == "host" else status
 
 func _connected() -> void:
@@ -179,6 +180,7 @@ func _hello(version: int, key: String) -> void:
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
 	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores,game.fps.combat_state())
 	if game.fps_arena.visible: broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
+	game.rooms.notify_roster_changed()
 	status = "Room / %d of %d" % [members.size(), max_crew]
 
 @rpc("authority", "call_remote", "reliable", 0)
