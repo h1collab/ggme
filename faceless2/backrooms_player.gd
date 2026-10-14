@@ -27,6 +27,7 @@ var pitch := 0.0
 var aim_pointer := -1
 var stamina := 100.0
 var sprinting := false
+var sprint_exhausted := false
 var step_clock := 0.0
 var motion_clock := 0.0
 var focus_seconds := 0.0
@@ -309,10 +310,13 @@ func _physics_process(delta: float) -> void:
 	if is_instance_valid(game.ui.joystick): input += game.ui.joystick.value
 	input = input.limit_length(1.0)
 	if attention_hold > 0 or lift_riding: input = Vector2.ZERO
-	sprinting = (Input.is_physical_key_pressed(KEY_SHIFT) or game.ui.run_held) and stamina > 5 and input.length() > 0.1
+	var fps_mode: bool = is_instance_valid(game.fps) and game.fps.active
+	if fps_mode:
+		if stamina <= 5.0: sprint_exhausted = true
+		elif stamina >= 25.0: sprint_exhausted = false
+	sprinting = (Input.is_physical_key_pressed(KEY_SHIFT) or game.ui.run_held) and stamina > 5 and input.length() > 0.1 and (not fps_mode or not sprint_exhausted)
 	stamina = clampf(stamina + (-18.0 if sprinting else 12.0) * delta, 0, 100)
 	var direction := transform.basis * Vector3(input.x, 0, input.y)
-	var fps_mode: bool = is_instance_valid(game.fps) and game.fps.active
 	var speed := (FPS_SPRINT_SPEED if sprinting else FPS_WALK_SPEED) if fps_mode else (4.3 if sprinting else 2.6)
 	velocity.x = move_toward(velocity.x, direction.x * speed, delta * 14)
 	velocity.z = move_toward(velocity.z, direction.z * speed, delta * 14)
@@ -445,6 +449,7 @@ func reset_to(pos: Vector3) -> void:
 	rotation = Vector3.ZERO
 	camera.rotation = Vector3.ZERO
 	stamina = 100
+	sprint_exhausted = false
 	lift_riding = false
 	lift_clock = 0.0
 	landing_dip = 0.0

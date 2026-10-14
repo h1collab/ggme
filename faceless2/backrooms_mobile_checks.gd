@@ -124,6 +124,12 @@ func run() -> void:
 	Input.parse_input_event(shift)
 	await create_timer(.5).timeout
 	check(absf(Vector2(game.player.velocity.x,game.player.velocity.z).length()-6.2) < .1,"Actual FPS sprint reaches 6.2m/s")
+	game.player.stamina = 4.8
+	await create_timer(.25).timeout
+	check(not game.player.sprinting and game.player.stamina > 6.0,"Exhausted sprint recovers continuously without rapid speed toggling")
+	game.player.stamina = 26.0
+	await create_timer(.1).timeout
+	check(game.player.sprinting,"Sprint resumes only after a useful stamina recovery")
 	key.pressed = false
 	shift.pressed = false
 	Input.parse_input_event(key)
