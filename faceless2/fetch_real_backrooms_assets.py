@@ -7,6 +7,8 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -49,11 +51,42 @@ def download(info, path):
     expected = int(info["size"])
     if expected < 100 or expected > LIMIT:
         raise ValueError("Invalid publisher file size: " + path.name)
-    req = urllib.request.Request(url, headers={"User-Agent":"Faceless2-licensed-real-PBR/0.27"})
-    with urllib.request.urlopen(req, timeout=100) as response:
-        data = response.read(LIMIT + 1)
-    if len(data) != expected or hashlib.md5(data).hexdigest().lower() != str(info["md5"]).lower():
-        raise ValueError("Publisher file size / MD5 mismatch: " + path.name)
+    # Never accept bytes by updating the expected digest after a failure.
+    # The same immutable publisher record is checked on every fresh request.
+    expected_md5 = str(info["md5"]).lower()
+    if len(expected_md5) != 32 or any(c not in "0123456789abcdef" for c in expected_md5):
+        raise ValueError("Invalid publisher MD5: " + path.name)
+    last_error = ""
+    for attempt in range(3):
+        req = urllib.request.Request(url, headers={
+            "User-Agent":"Faceless2-licensed-real-PBR/0.31",
+            "Cache-Control":"no-cache", "Accept-Encoding":"identity"})
+        try:
+            with urllib.request.urlopen(req, timeout=100) as response:
+                final = urllib.parse.urlparse(response.geturl())
+                if final.scheme != "https" or final.hostname != "dl.polyhaven.org":
+                    raise ValueError("Unapproved Poly Haven redirect host")
+                data = response.read(LIMIT + 1)
+                status = response.status
+                content_type = response.headers.get("Content-Type", "unknown")
+            actual_md5 = hashlib.md5(data).hexdigest()
+            actual_sha256 = hashlib.sha256(data).hexdigest()
+            valid = len(data) == expected and actual_md5 == expected_md5
+            print("POLYHAVEN_DOWNLOAD", json.dumps({
+                "file":path.name, "url":url, "attempt":attempt+1,
+                "status":status, "content_type":content_type,
+                "expected_bytes":expected, "actual_bytes":len(data),
+                "expected_md5":expected_md5, "actual_md5":actual_md5,
+                "actual_sha256":actual_sha256, "verified":valid}, sort_keys=True), flush=True)
+            if valid: break
+            last_error = "Publisher file size / MD5 mismatch: " + path.name
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            # Do not print exception URLs or credentials; sources above are public.
+            last_error = "Poly Haven transport failure: " + path.name + " (" + type(error).__name__ + ")"
+            print("POLYHAVEN_RETRY", path.name, attempt+1, type(error).__name__, flush=True)
+        if attempt < 2: time.sleep(attempt+1)
+    else:
+        raise ValueError(last_error)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     print("POLYHAVEN_VERIFIED", path.name, len(data))

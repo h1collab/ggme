@@ -130,3 +130,11 @@ The single FPS arena floor consists of transformed, licensed **Kenney Space Stat
 **Author:** wriks / WRAD ARMS, original project https://github.com/wwwriks/wrad-arms ; **license:** CC0 1.0 (including commercial redistribution), https://github.com/wwwriks/wrad-arms/blob/f3987244176c33d2c20d4f9e139980af12684d87/LICENSE . Original fixed binary `arms.glb` (456328 bytes), revision `f3987244176c33d2c20d4f9e139980af12684d87`, Git blob `be023c46705bf8571e9ab97dbd3e71d2f18f8473`, SHA-256 `580efbb0852bf0b41f82dd3e17eafec86b3d2a48f4a7acaa7e64d60e850f565d`. `fetch_fps_assets.py` validates both object ID and SHA-256, source skeleton and skin before writing `fps_wrad_arms.glb`. Reposed at runtime using the original named finger, wrist, forearm and upper-arm bones for weapon grip. **The original CC0 meshes and skins remain untouched; this is a licensed pose modification, not a new AI mesh.** FPS mode hides the previous separately displayed Sketchfab hands to prevent double-arm overlap.
 
 **Visual QA revision:** The initially imported WRAD GLB revealed overly long, disconnected elbows in actual Godot ADS/hip screenshots even though wrist IK numerical errors were small. `bake_fps_grip_hands.py` now retains only source-authored WRAD wrist, palm and finger triangles (expected approx. 856 of 1196 original triangles), keeping original skinned vertices, UVs, normals and material. Source `fps_wrad_arms.glb` retains upstream SHA-256 check and derived `fps_wrad_grip_hands.glb` is baked on the trusted CI runner for the FPS view only. Do not restore floating upper-arm geometry.
+
+## Publisher integrity diagnostics (2026-10-14)
+
+Poly Haven downloads still require the exact size and MD5 from the publisher API.
+A failed response is discarded and retried at most three times against the same
+record; persistent mismatch fails the build. Public source URL, status, MIME type,
+expected/actual size and MD5, and actual SHA-256 are recorded. No license, source
+URL or accepted digest was replaced to work around the vintage_day_bed failure.

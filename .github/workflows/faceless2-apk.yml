@@ -18,7 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify Sketchfab licensing importer without network or secrets
-        run: python -m unittest discover -s faceless2 -p 'test_fetch_sketchfab_cast.py' -v
+        run: |
+          python -m unittest discover -s faceless2 -p 'test_fetch_sketchfab_cast.py' -v
+          python -m unittest discover -s faceless2 -p 'test_fetch_real_backrooms_assets.py' -v
 
   build:
     runs-on: ubuntu-latest
