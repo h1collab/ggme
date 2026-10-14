@@ -210,8 +210,12 @@ func _curl_hand_fingers(skel: Skeleton3D, side: String) -> void:
             # Multiplication on the right retains each authored joint frame.
             var axis := Vector3.BACK
             if finger == "thumb":
-                axis = Vector3.RIGHT
-                direction = 1.0
+                # Calibrated on actual WRAD distal joints in the mounted GLB rig:
+                # right opposition is -Z; left opposition is -X. The former
+                # common +X bend left both thumbs projecting away from the gun.
+                axis = Vector3.BACK if side == "r" else Vector3.RIGHT
+                direction = -1.0
+                curl = (.4 if side == "r" else .7)*(1.0 if segment < 3 else .6)
             skel.set_bone_pose_rotation(bone,
                 skel.get_bone_pose_rotation(bone)*Quaternion(axis,curl*direction))
     skel.force_update_all_bone_transforms()

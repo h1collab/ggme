@@ -45,6 +45,12 @@ func run() -> void:
 	root.size = Vector2i(1600,900)
 	await process_frame
 	game.ui._fit()
+	# Actual imported SVG controls must retain their requested size, not
+	# inherit the texture's 64px minimum and overlap neighboring labels.
+	for picture in game.ui.fps_corner_hud.find_children("*","TextureRect",true,false):
+		check(picture.size.x <= 77 and picture.size.y <= 42,"SVG controls use explicit bounded extents")
+		for sibling in picture.get_parent().get_children():
+			if sibling is Label: check(not picture.get_rect().intersects(sibling.get_rect()),"SVG and adjacent state text do not overlap")
 	var start: Vector3 = game.player.position
 	var ammo: int = game.fps.magazine
 	var yaw: float = game.player.yaw

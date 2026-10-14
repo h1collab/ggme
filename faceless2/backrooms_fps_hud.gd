@@ -18,10 +18,10 @@ func icon_file(key: String) -> String:
 	return file if ResourceLoader.exists(file) else "res://faceless2/hud_icons/"+key+".svg"
 func icon(parent: Control, key: String, at: Vector2, extent: Vector2) -> void:
 	var picture := TextureRect.new()
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.texture = load(icon_file(key))
 	picture.position = at
 	picture.size = extent
-	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(picture)
@@ -38,9 +38,9 @@ func build(owner_ui: Control) -> void:
 	map_text = ui._label(left,"",Vector2(62,16),455,23)
 	icon(left,"people",Vector2(16,70),Vector2(32,32))
 	room_text = ui._label(left,"",Vector2(62,72),455,20)
-	var right := card(Rect2(1030,110,522,64))
+	var right := card(Rect2(1212,110,340,64))
 	icon(right,"score",Vector2(16,14),Vector2(30,30))
-	score_text = ui._label(right,"",Vector2(60,17),450,20)
+	score_text = ui._label(right,"",Vector2(60,17),262,20)
 	feed = ui._label(self,"",Vector2(1050,190),480,20)
 	feed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	feed.size.y = 140
@@ -82,7 +82,7 @@ func refresh(delta: float) -> void:
 	if fps.reload_time > 0: ammo_hint.text = ui.localized("RELOADING %.1fs","装弹中 %.1f 秒") % fps.reload_time
 	elif fps.magazine == 0: ammo_hint.text = ui.localized("RELOAD / R","请装弹") if fps.reserve > 0 else ui.localized("NO AMMO","弹药耗尽")
 	elif fps.magazine <= 5: ammo_hint.text = ui.localized("LOW AMMO","弹匣将空")
-	else: ammo_hint.text = ui.localized("BLASTER  ·  %d ROUND MAG","枪械  ·  弹匣容量 %d") % fps.MAGAZINE_CAPACITY
+	else: ammo_hint.text = ui.localized("MAGAZINE %d","枪械  ·  弹匣容量 %d") % fps.MAGAZINE_CAPACITY
 	if not fps.kill_events.is_empty():
 		var newest: int = int(fps.kill_events.back().get("serial",0))
 		if newest < last_kill_serial: last_kill_serial = 0

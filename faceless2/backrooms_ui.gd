@@ -238,6 +238,7 @@ func _build_hud() -> void:
 		button.icon = load(fps_corner_hud.icon_file(binding[1]))
 		button.expand_icon = true
 		button.add_theme_constant_override("icon_max_width",32)
+		if button == pause_button: button.text = ""
 	facility_goal_label = _label(hud,"",Vector2(42,48),760,22,ACCENT)
 	facility_goal_label.visible = false
 	run.button_down.connect(func(): run_held = true)

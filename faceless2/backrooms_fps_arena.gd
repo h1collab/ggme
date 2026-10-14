@@ -125,8 +125,7 @@ func _build_map(index: int) -> void:
 	for side in [-1.0,1.0]:
 		for depth in [-1.0,1.0]:
 			var pocket := Vector3(side*6,0,depth*3)
-			for offset in [-.55,.55]:
-				_prop(layout,"MidCover_%s_%s_%s" % [side,depth,offset],"wakeup_container_tall.glb",pocket+Vector3(offset,0,0),1.15,0,metal)
+			_prop(layout,"MidCover_%s_%s" % [side,depth],"wakeup_wall.glb",pocket,1.15,0,metal,Vector2(3.2,.35))
 			_prop(layout,"MidBarrel_%s_%s" % [side,depth],"scan_barrel_02.glb",pocket+Vector3(side*1.25,0,.8),.95)
 	if index == 0:
 		for depth in [-1.0,1.0]:

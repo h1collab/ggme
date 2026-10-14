@@ -24,6 +24,7 @@ var password := ""
 var monitor_flags: Dictionary = {}
 var action_times: Dictionary = {}
 var pose_times: Dictionary = {}
+var closed_peers: Dictionary = {}
 var disconnected_count := 0
 var max_crew := 4
 
@@ -94,6 +95,7 @@ func leave() -> void:
 	monitor_flags.clear()
 	action_times.clear()
 	pose_times.clear()
+	closed_peers.clear()
 	if is_instance_valid(game) and is_instance_valid(game.fps): game.fps.leave_level()
 	status = "Offline / solo"
 	if is_instance_valid(game): game.clear_crew()
@@ -135,13 +137,16 @@ func _exit_tree() -> void:
 	if upnp_thread != null and upnp_thread.is_started(): upnp_thread.wait_to_finish()
 
 func _peer_connected(id: int) -> void:
+	closed_peers.erase(id)
 	# An app killed by Android cannot send a normal leave message. Bound
 	# reliable-packet timeout so its avatar and room slot are reclaimed.
 	if mode == "host": peer.get_peer(id).set_timeout(32, 5000, 15000)
 	# Membership still requires the version/password handshake.
 
 func _peer_disconnected(id: int) -> void:
-	if not members.has(id) and not poses.has(id) and not seats.has(id): return
+	# Count actual wrong-key transports too; only suppress duplicate cleanup.
+	if closed_peers.has(id): return
+	closed_peers[id] = true
 	members.erase(id)
 	poses.erase(id)
 	seats.erase(id)

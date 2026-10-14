@@ -133,6 +133,8 @@ func run() -> void:
 	check(int(fps.ammo_by_peer[1]) == fps.MAGAZINE_CAPACITY,"Delayed host reload updates magazine")
 	check(int(fps.reserve_by_peer[1]) == 119,"Reload consumes actual host-owned reserve ammo")
 	# Real headless physics LOS, damage, death/score and authoritative respawn.
+	# Keep the original LOS/damage fixture in the clear central lane.
+	game.player.reset_to(Vector3(0,.12,0))
 	fps.register_peer(2)
 	game.net.seats[2] = 2
 	game.net.poses[2] = {"p":game.player.position+Vector3(0,0,-4),"y":0.0,"pitch":0.0}

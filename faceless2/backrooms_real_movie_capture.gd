@@ -58,7 +58,7 @@ func record() -> void:
 		await move(Vector3(-3,.12,3),Vector3(4,.12,-4),Vector3(0,1.6,-18),Vector3(14,1.4,5),40)
 		game.player.sprinting = false
 		game.fps.reload()
-		await move(Vector3(4,.12,-4),Vector3(9,.12,9),Vector3(14,1.4,5),Vector3(15,1.3,5),36)
+		await move(Vector3(4,.12,-4),Vector3(9,.12,-6),Vector3(14,1.4,5),Vector3(15,1.3,5),36)
 		await move(Vector3(0,.12,-22.6),Vector3(0,.12,-23.45),Vector3(0,1.6,-26),Vector3(0,1.6,-26),25)
 		game.ui.touch_preview = true
 		game.ui.prologue_finished()
