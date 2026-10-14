@@ -190,3 +190,18 @@ Arena floor uses previously verified Poly Haven Large Grey Tiles CC0 diffuse/GL-
 Cargo Courtyard and Maintenance Hangar are independent FPS layouts. Structures, floor/roof panels, pillars, containers, pipes and consoles reuse the already verified original Kenney Space Station Kit CC0 GLBs from `fetch_wakeup_assets.py`; scanned barrels, boxes and industrial wall lamps reuse original Poly Haven CC0 GLBs from `fetch_real_backrooms_assets.py`. Existing publisher hashes and source credits remain checked. Reorientation/scaling and runtime source-PBR material assignment are lawful modifications, not newly downloaded unverified geometry. Gameplay collision boxes are invisible.
 
 Kloppenheim 06 Pure Sky — Greg Zaal (original) and Jarod Guest (pure sky edits), Poly Haven CC0-1.0, https://polyhaven.com/a/kloppenheim_06_puresky. Original unmodified 1K HDR: https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_puresky_1k.hdr . Publisher bytes **1173154**, MD5 `995d68b1656f26452572645c0ffe898b`, independently verified SHA-256 `206c67e3a1b992282821cf06662bdd69bbb4915c1c4444a66338a40d6a7d4e34`. `fetch_fps_surface.py` rejects changed metadata, URL, size, MD5 or SHA-256. No AI-generated texture or substituted gun/hand is introduced.
+
+## Original four-corner FPS UI vectors
+
+`faceless2/hud_icons/*.svg`: original project-native vector paths created for this change, dedicated CC0-1.0. These are generic weapon/ammunition/health/room/map/score/aim/reload/jump/run/pause symbols; no external SVG library, font icon or third-party game artwork is copied. Counts and combat feed come from actual host-authorized state; no unimplemented grenade count is fabricated.
+- faceless2/hud_icons/aim.svg: SHA-256 `0ec4d4663ce8be0ceb66ce5c01dff9c54ceb72733560c18be6b215c84c3ba7d2`.
+- faceless2/hud_icons/bullet.svg: SHA-256 `7c66735aed75f2bf87fb30b9118b9d9652264ca5d5c561bac55deecf5bb186a3`.
+- faceless2/hud_icons/health.svg: SHA-256 `f920709e562f8ee897ba15404d993c9dff555d7f2876b1fb111599f05717941c`.
+- faceless2/hud_icons/jump.svg: SHA-256 `d9c360e9d921788f5dfe016753c82d5c8394f1ed1f0a464f68dcb49659f90dfb`.
+- faceless2/hud_icons/map.svg: SHA-256 `405b082e897be3c77db6f7e5b5638d89e2a0d3c0167d00d63f29fad5bfd7cd6d`.
+- faceless2/hud_icons/pause.svg: SHA-256 `f21ee41b650df5deecd4eddb781b9092536eb36a513f6768f9234370106601ba`.
+- faceless2/hud_icons/people.svg: SHA-256 `b63cbbbd53eff27744246414ab437d7cc8d4a3699e1b804a23e7080a723f4c7c`.
+- faceless2/hud_icons/reload.svg: SHA-256 `3aff55a4821afed355baa4e0817deba351d2d2431b430d24e2b687c1a871d3d3`.
+- faceless2/hud_icons/run.svg: SHA-256 `bed3f6458b0250c5a048b4f1ac40bf31b4a2bcecbf9b55cf17a77cd5dd2541d7`.
+- faceless2/hud_icons/score.svg: SHA-256 `053eebf7a44fea1ccaccddf1ff901e66b6309fa2a8ac30080a410292633c403d`.
+- faceless2/hud_icons/weapon.svg: SHA-256 `d35a2421ef02e1aa99ff6dd95e426b45c98939c042feefbfb3106940489f53f2`.

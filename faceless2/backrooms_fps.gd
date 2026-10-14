@@ -52,6 +52,8 @@ var sentries: Array[StaticBody3D] = []
 var health_by_peer: Dictionary = {}
 var ammo_by_peer: Dictionary = {}
 var scores: Dictionary = {}
+var kill_events: Array[Dictionary] = []
+var kill_serial := 0
 var reserve_by_peer: Dictionary = {}
 var reload_ends: Dictionary = {}
 var shot_ticks: Dictionary = {}
@@ -123,9 +125,11 @@ func _ready() -> void:
         _curl_hand_fingers(skel,side)
         # Align the authored wrist frame, not an AABB of unused vertices.
         # Y points along the palm; X is palm normal; Z is thumb side.
-        var left_forward := Vector3(.60,.65,-.466).normalized()
+        var left_forward := Vector3(.35,.25,-.90).normalized()
         var left_normal := (Vector3.UP-left_forward*left_forward.y).normalized()
-        var palm := Basis(Vector3.RIGHT,Vector3(0,.60,-.80),Vector3(0,.80,.60)) if side == "r" else Basis(left_normal,left_forward,left_normal.cross(left_forward))
+        var right_forward := Vector3(-.35,.32,-.88).normalized()
+        var right_normal := (Vector3.RIGHT-right_forward*right_forward.x).normalized()
+        var palm := Basis(right_normal,right_forward,right_normal.cross(right_forward)) if side == "r" else Basis(left_normal,left_forward,left_normal.cross(left_forward))
         var source_wrist: Transform3D = hand.global_transform.affine_inverse() * skel.global_transform * skel.get_bone_global_pose(wrist)
         var aligned := Transform3D(palm.scaled(Vector3.ONE*.10),Vector3.ZERO) * source_wrist.affine_inverse()
         hand.transform = aligned
@@ -283,6 +287,8 @@ func match_can_fire() -> bool:
 
 func enter_arena() -> void:
     leave_level()
+    kill_events.clear()
+    kill_serial = 0
     active = true
     equipped = true
     level_id = -2
@@ -618,6 +624,9 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         health_by_peer[victim] = maxi(0,int(health_by_peer[victim])-25)
         if int(health_by_peer[victim]) == 0:
             scores[shooter] = int(scores.get(shooter,0))+1
+            kill_serial += 1
+            kill_events.append({"serial":kill_serial,"killer":shooter,"victim":victim})
+            if kill_events.size() > 4: kill_events.pop_front()
             health_by_peer[victim] = 100
             game.net.send_fps_respawn(victim,game.fps_arena.spawn_for(int(game.net.seats.get(victim,1))))
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
@@ -635,7 +644,7 @@ func combat_state() -> Dictionary:
     var remaining := {}
     for id in reload_ends:
         remaining[id] = maxf(0.0,float(int(reload_ends[id])-Time.get_ticks_msec())/1000.0)
-    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id}
+    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true)}
 
 func finish_server_reloads() -> void:
     var changed := false
@@ -650,6 +659,9 @@ func finish_server_reloads() -> void:
 
 func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
     if int(combat.get("map_id",game.fps_arena.map_id)) != game.fps_arena.map_id: return
+    kill_events.clear()
+    for event in combat.get("kills",[]):
+        if event is Dictionary: kill_events.append(event.duplicate())
     health_by_peer = hp.duplicate()
     ammo_by_peer = ammo.duplicate()
     scores = points.duplicate()

@@ -60,13 +60,16 @@ func _panel(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish:
 	body.name = label
 	parent.add_child(body)
 	var model := Assets.licensed_panel(at,extent,finish,side)
+	# Original fitted floor thickness begins at local Y=0: center it on the proxy.
+	var authored: Vector3 = model.get_meta("dimensions",Vector3.ONE)
+	model.position -= model.basis*Vector3(0,authored.y*.5,0)
 	for mesh in model.find_children("*","MeshInstance3D",true,false):
 		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	body.add_child(model)
 	_collider(body,at,extent)
 	return body
 
-func _prop(parent: Node3D, label: String, file: String, at: Vector3, height: float, yaw: float = 0.0, finish: Material = null) -> StaticBody3D:
+func _prop(parent: Node3D, label: String, file: String, at: Vector3, height: float, yaw: float = 0.0, finish: Material = null, footprint: Vector2 = Vector2.ZERO) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = label
 	body.position = at
@@ -74,6 +77,10 @@ func _prop(parent: Node3D, label: String, file: String, at: Vector3, height: flo
 	parent.add_child(body)
 	var model := Assets.fitted("vendor/"+file,height)
 	var dimensions: Vector3 = model.get_meta("dimensions",Vector3.ONE)
+	if footprint != Vector2.ZERO:
+		model.scale = Vector3(footprint.x/dimensions.x,1,footprint.y/dimensions.z)
+		dimensions = Vector3(footprint.x,dimensions.y,footprint.y)
+		model.set_meta("dimensions",dimensions)
 	body.add_child(model)
 	for mesh in model.find_children("*","MeshInstance3D",true,false):
 		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
@@ -114,11 +121,18 @@ func _build_map(index: int) -> void:
 			_prop(layout,"Crate_%s_%s" % [side,depth],"wakeup_container_tall.glb",at,2.25,0,metal)
 			_prop(layout,"ScannedBarrel_%s_%s" % [side,depth],"scan_barrel_02.glb",at+Vector3(side*2.4,0,1.5),1.1)
 			_prop(layout,"ScannedBox_%s_%s" % [side,depth],"scan_cardboard_box_01.glb",at+Vector3(0,0,2.3),.75,.18*side)
+	# Central islands remove the empty middle while retaining the spawn diagonals.
+	for side in [-1.0,1.0]:
+		for depth in [-1.0,1.0]:
+			var pocket := Vector3(side*6,0,depth*3)
+			for offset in [-.55,.55]:
+				_prop(layout,"MidCover_%s_%s_%s" % [side,depth,offset],"wakeup_container_tall.glb",pocket+Vector3(offset,0,0),1.15,0,metal)
+			_prop(layout,"MidBarrel_%s_%s" % [side,depth],"scan_barrel_02.glb",pocket+Vector3(side*1.25,0,.8),.95)
 	if index == 0:
 		for depth in [-1.0,1.0]:
 			_panel(layout,"LoadingBay_%s" % depth,Vector3(0,1.6,depth*18),Vector3(10,3.2,.30),metal)
 			_prop(layout,"UtilityPipe_%s" % depth,"wakeup_pipe.glb",Vector3(-19,0,depth*13),2.4,PI*.5,metal)
-			_prop(layout,"BayPillar_%s" % depth,"wakeup_wall_pillar.glb",Vector3(6,0,depth*18),3.5,0,plaster)
+			_prop(layout,"BayPillar_%s" % depth,"wakeup_wall_pillar.glb",Vector3(6,0,depth*18),3.5,0,plaster,Vector2(.65,.65))
 	else:
 		# Real floor GLBs form roof wings with a 6m open skylight between them.
 		_roof(layout,"Roof_West",Vector3(-13.5,6,0),Vector3(21,.20,48.2),metal)
@@ -129,8 +143,8 @@ func _build_map(index: int) -> void:
 		for side in [-1.0,1.0]:
 			for depth in [-1.0,1.0]:
 				var at := Vector3(side*18,0,depth*15)
-				_prop(layout,"RoofPillar_%s_%s" % [side,depth],"wakeup_wall_pillar.glb",at,6.0,0,plaster)
-				_prop(layout,"OriginalLamp_%s_%s" % [side,depth],"scan_industrial_wall_lamp.glb",at+Vector3(-side,4.4,0),.55)
+				_prop(layout,"RoofPillar_%s_%s" % [side,depth],"wakeup_wall_pillar.glb",at,6.0,0,plaster,Vector2(.75,.75))
+				_prop(layout,"OriginalLamp_%s_%s" % [side,depth],"scan_industrial_wall_lamp.glb",at+Vector3(-side*.465,4.2,0),.55,-side*PI*.5)
 				var lamp := OmniLight3D.new()
 				lamp.position = at+Vector3(-side*2,4.5,0)
 				lamp.light_color = Color(1,.82,.62)
@@ -221,9 +235,10 @@ func activate(selected: int = 0) -> void:
 	world.environment.sky = sky
 	world.environment.background_mode = Environment.BG_SKY
 	world.environment.fog_enabled = false
-	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	world.environment.ambient_light_color = Color(.62,.70,.80)
 	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	world.environment.ambient_light_energy = .32 if map_id == 0 else .22
+	world.environment.ambient_light_energy = .38 if map_id == 0 else .58
 	world.environment.tonemap_exposure = .90
 	layout_digest = geometry_digest()
 

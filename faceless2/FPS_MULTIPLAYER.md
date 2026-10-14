@@ -63,3 +63,9 @@ nearby coordinates. Runtime measures anchor-to-gun-surface distance as well as
 socket displacement and CPU-skinned contact: limits are 0.5mm / 2mm / 5mm.
 This closes the earlier roughly 10mm/17mm gaps between estimated anchors and
 the actual pistol-grip/fore-end surfaces. Native views still decide acceptance.
+
+## v0.32 visible polish and disconnect deadline
+
+The host reclaims authenticated clients after 15 seconds without an accepted pose, using monotonic time; normal clients submit poses at 20Hz even while waiting/in menus. The original ENet retransmission timeout alone exceeded the existing 23-second strong-kill test deadline in GitHub CI. Production liveness cleanup removes the transport, authoritative combat roster/avatar/seat and refreshes discovery; the test is retained unchanged. Neither the APK nor public cross-NAT play is declared successful from local testing alone.
+
+Central source-GLB cover islands retain diagonal spawn sightlines and a clear central lane. Rotated panel mesh thickness is centered on its physical proxy; real imported AABBs are checked against each map collider. Original pillar GLBs are fitted to structural footprints, and original lamp fixtures are mounted at their faces. Hangar uses balanced cool indirect ambient light plus warm fixtures and sun/skylight shadows. Both WRAD wrist frames are adjusted together with retained original skin/bones and measured grip contact. Four-corner SVG HUD icons show real map/room, health, magazine/reserve/reload, score and host-authorized kill events; mobile action icons preserve independent touch capture.

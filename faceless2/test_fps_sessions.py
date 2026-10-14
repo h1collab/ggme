@@ -162,6 +162,8 @@ def main():
                         time.sleep(.22)
                     wait('c1', lambda x: x.get('scores', {}).get(shooter) == 1 and x.get('hp', {}).get('1') == 100,
                          'score and respawn HP replicated')
+                    for source in ('host','c1'):
+                        wait(source, lambda x: bool(x.get('kills')) and x['kills'][-1]['killer'] == int(shooter) and x['kills'][-1]['victim'] == 1, 'host-authorized kill feed replicated')
                     command('c1', 'reload')
                     time.sleep(.25)
                     assert state('host')['ammo'][shooter] == 19
@@ -179,6 +181,7 @@ def main():
                         roster(seat+1)
                         assert state(f'c{seat}')['ammo'][shooter] == 24
                         assert state(f'c{seat}')['scores'][shooter] == 1
+                        assert state(f'c{seat}')['kills'][-1]['killer'] == int(shooter)
                         assert state(f'c{seat}')['map'] == map_id
                         assert state(f'c{seat}')['geometry'] == state('host')['geometry']
                     assert state('host')['members'] == slots
@@ -222,7 +225,7 @@ def main():
                     for label in processes:
                         log = (output/f'fps-{slots}-map{map_id}-{label}.log').read_text()
                         assert 'ERROR:' not in log and 'FAIL:' not in log, log
-                    results.append({'capacity':slots, 'map_id':map_id, 'map_sync':'PASS', 'actual_collision_geometry_sync':'PASS', 'two_player_start':'PASS',
+                    results.append({'capacity':slots, 'map_id':map_id, 'map_sync':'PASS', 'actual_collision_geometry_sync':'PASS', 'kill_feed':'PASS', 'peer_idle_watchdog':'PASS', 'two_player_start':'PASS',
                         'late_join':'PASS', 'full_room_rejection':'PASS',
                         'invalid_rpc':'PASS', 'duplicate_fire':'PASS',
                         'movement':'PASS', 'damage_score_respawn':'PASS', 'timed_reload':'PASS', 'reconnect':'PASS', 'strong_kill':'PASS',

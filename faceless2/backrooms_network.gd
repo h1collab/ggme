@@ -4,6 +4,7 @@ extends Node
 # Host owns the clock and all consequential actions; clients submit intentions.
 const PROTOCOL := 19
 const MAX_CREW := 4
+const PEER_IDLE_LIMIT_MSEC := 15000
 var game: Node
 var peer: ENetMultiplayerPeer
 var mode := "solo"
@@ -140,6 +141,7 @@ func _peer_connected(id: int) -> void:
 	# Membership still requires the version/password handshake.
 
 func _peer_disconnected(id: int) -> void:
+	if not members.has(id) and not poses.has(id) and not seats.has(id): return
 	members.erase(id)
 	poses.erase(id)
 	seats.erase(id)
@@ -215,6 +217,16 @@ func _lost_host() -> void:
 
 func _process(delta: float) -> void:
 	if mode == "solo": return
+	if mode == "host":
+		# ENet retransmission backoff alone was not bounded reliably in CI.
+		# Accepted authenticated poses arrive at 20Hz even while waiting/menu.
+		# Reclaim killed/silent transports on a host monotonic deadline.
+		var now := Time.get_ticks_msec()
+		for key in members.keys():
+			var id := int(key)
+			if id == 1 or now-int(pose_times.get(id,now)) < PEER_IDLE_LIMIT_MSEC: continue
+			peer.disconnect_peer(id,true)
+			_peer_disconnected(id)
 	if mode == "client" and members.is_empty():
 		connect_elapsed += delta
 		if connect_elapsed > 12: _failed()

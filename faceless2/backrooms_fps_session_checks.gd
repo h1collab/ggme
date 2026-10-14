@@ -92,7 +92,7 @@ func _process(delta: float) -> bool:
     var data := {"mode":game.net.mode,"transport_connected":is_instance_valid(game.net.peer) and game.net.peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,"members":game.net.members.size(),
         "id":game.multiplayer.get_unique_id(),"active":game.fps.active,
         "arena":game.fps_arena.visible,"can_fire":game.fps.match_can_fire(),
-        "map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
+        "kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
         "hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
         "scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
         "room":game.rooms.room_code,"capacity":game.net.max_crew,

@@ -24,6 +24,18 @@ func run() -> void:
 		await physics_frame
 		await physics_frame
 		layouts.append(game.fps_arena.geometry_digest())
+		for body in game.fps_arena.map_roots[selected].find_children("*","StaticBody3D",true,false):
+			var bounds := AABB()
+			var first_mesh := true
+			for mesh in body.find_children("*","MeshInstance3D",true,false):
+				var actual: AABB = mesh.global_transform*mesh.get_aabb()
+				bounds = actual if first_mesh else bounds.merge(actual)
+				first_mesh = false
+			for collision in body.get_children():
+				if collision is CollisionShape3D and collision.shape is BoxShape3D:
+					var extent: Vector3 = collision.shape.size
+					var proxy: AABB = collision.global_transform*AABB(-extent*.5,extent)
+					check(bounds.position.distance_to(proxy.position) < .002 and bounds.end.distance_to(proxy.end) < .002,"Actual GLB bounds match collision: "+str(body.name))
 		for index in range(2):
 			check(game.fps_arena.map_roots[index].visible == (index == selected),"Exactly the selected map is visible")
 			for body in game.fps_arena.map_roots[index].find_children("*","StaticBody3D",true,false):
@@ -154,6 +166,7 @@ func run() -> void:
 	for i in range(4):
 		await create_timer(.22).timeout
 		check(fps.server_fire(1,direction),"Authorized damage shot after cooldown")
+	check(fps.kill_events.size() == 1 and fps.kill_events[0].killer == 1 and fps.kill_events[0].victim == 2,"Kill feed records actual host-authorized shooter/victim only")
 	check(int(fps.scores[1]) == 1 and int(fps.health_by_peer[2]) == 100,"Four hits yield one score and reset victim HP")
 	check(game.net.poses[2].p == game.fps_arena.spawn_for(2),"Authoritative respawn applies a bounded arena spawn")
 	check(not fps.server_fire(999,direction),"Unknown peer never acquires firing authority")

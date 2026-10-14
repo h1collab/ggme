@@ -36,6 +36,8 @@ on:
       - "faceless2/fetch_wakeup_assets.py"
       - "faceless2/ASSET_CREDITS.md"
       - "faceless2/backrooms_ui.gd"
+      - "faceless2/backrooms_fps_hud.gd"
+      - "faceless2/hud_icons/**"
       - ".github/workflows/faceless2-preview.yml"
 concurrency:
   group: faceless2-desktop-preview-${{ github.ref }}
@@ -85,6 +87,7 @@ jobs:
           Path("app/main.tscn").write_text((src/"main.tscn").read_text().replace("res://faceless2/","res://scripts/"))
           Path("app/ui").mkdir(parents=True,exist_ok=True)
           shutil.copy2(src/"branding/game_icon.png","app/ui/game_icon.png")
+          shutil.copytree(Path("faceless2/hud_icons"),Path("app/ui/hud"),dirs_exist_ok=True)
           shutil.copy2(src/"branding/team_logo.jpg","app/ui/team_logo.jpg")
           Image.open("app/ui/team_logo.jpg").save("app/ui/team_splash.png")
           p=Path("app/project.godot");s=p.read_text()

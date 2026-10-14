@@ -69,12 +69,24 @@ func run() -> void:
 	for index in range(5): touch(index,Vector2(1590,890),false)
 	check(not game.ui.fire_held and not game.ui.run_held and not game.fps.aiming and game.player.aim_pointer == -1,"Release outside buttons clears all held actions")
 	check(game.ui.joystick.value == Vector2.ZERO,"Joystick release outside rectangle stops movement input")
+	game.ui.refresh()
+	check(game.ui.fps_corner_hud.ammo_text.text == "%d / %d" % [game.fps.magazine,game.fps.reserve],"Ammo HUD follows real shots and authoritative reserve")
+	check(game.ui.fps_corner_hud.health_text.text == str(game.fps.health),"Health icon is bound to actual HP")
+	check(game.ui.shoot_button.icon != null and game.ui.jump_button.icon != null,"Original SVG touch icons are imported")
 	var stock: int = game.fps.reserve
 	touch(6,point(game.ui.reload_button),true)
 	touch(6,point(game.ui.reload_button),false)
 	check(game.fps.reload_time > 0.0,"Touch RELOAD starts host-timed reload")
 	await create_timer(1.9).timeout
 	check(game.fps.magazine == game.fps.MAGAZINE_CAPACITY and game.fps.reserve < stock,"Reload consumes reserve and refills after authoritative delay")
+	touch(7,point(game.ui.shoot_button),true)
+	await create_timer(3.8).timeout
+	game.ui.refresh()
+	check(game.fps.magazine <= 5 and game.ui.fps_corner_hud.ammo_hint.text == "LOW AMMO","Real held shots trigger low-ammo HUD")
+	await create_timer(1.0).timeout
+	touch(7,point(game.ui.shoot_button),false)
+	game.ui.refresh()
+	check(game.fps.magazine == 0 and game.ui.fps_corner_hud.ammo_hint.text == "RELOAD / R","Actually emptied magazine triggers reload prompt")
 	touch(0,joy,true)
 	touch(3,point(game.ui.shoot_button),true)
 	game.ui.open_pause()

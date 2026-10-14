@@ -1,6 +1,7 @@
 extends Control
 
 const Joystick = preload("virtual_joystick.gd")
+const CornerHud = preload("backrooms_fps_hud.gd")
 const TouchAction = preload("touch_action.gd")
 # Legible, low-glare typography against dark real-GLB interiors.
 const PAPER := Color(0.93, 0.94, 0.92)
@@ -52,6 +53,7 @@ var shoot_button: Button
 var reload_button: Button
 var aim_button: Button
 var fps_crosshair: Label
+var fps_corner_hud: Control
 var fps_status_label: Label
 var transient_hint: Label
 var hint_timer := 0.0
@@ -227,6 +229,15 @@ func _build_hud() -> void:
 	transient_hint = _label(hud, "", Vector2(365, 660), 870, 25, ACCENT)
 	transient_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	transient_hint.visible = false
+	fps_corner_hud = CornerHud.new()
+	hud.add_child(fps_corner_hud)
+	fps_corner_hud.build(self)
+	fps_corner_hud.visible = false
+	for binding in [[shoot_button,"weapon"],[aim_button,"aim"],[reload_button,"reload"],[jump_button,"jump"],[sprint_button,"run"],[pause_button,"pause"]]:
+		var button: Button = binding[0]
+		button.icon = load(fps_corner_hud.icon_file(binding[1]))
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width",32)
 	facility_goal_label = _label(hud,"",Vector2(42,48),760,22,ACCENT)
 	facility_goal_label.visible = false
 	run.button_down.connect(func(): run_held = true)
@@ -422,18 +433,22 @@ func prologue_finished() -> void:
 		var is_touch_action := child == joystick or child == jump_button or child == sprint_button or child == pause_button
 		if not fps_mode: is_touch_action = is_touch_action or child == light_button or (child is Button and (child as Button).text.contains("INTERACT"))
 		var fps_control := child == shoot_button or child == reload_button or child == aim_button
-		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and (is_touch_action or (fps_mode and fps_control))) or (fps_mode and (child == fps_status_label or child == fps_crosshair))
+		child.visible = child == transient_hint or child == facility_goal_label or (use_touch_controls and (is_touch_action or (fps_mode and fps_control))) or (fps_mode and (child == fps_status_label or child == fps_crosshair or child == fps_corner_hud))
 	# Keep virtual joystick / RUN / JUMP / LIGHT fully operational on mobile,
 	# but clear the desktop viewport for genuine mouse+keyboard exploration.
 	panels.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	facility_goal_phase = -1
 	_refresh_facility_goal()
+	if fps_mode:
+		facility_goal_label.visible = false
+		fps_status_label.visible = false
+		fps_corner_hud.refresh(0.0)
 	var line := _label(panels, "", Vector2(340,750),920,37,PAPER)
 	line.visible = false
 	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	line.add_theme_color_override("font_shadow_color",Color(0,0,0,0.85))
 	var movement_instruction := localized("WASD / FIRE LMB / AIM RMB / RELOAD R","移动 / 射击 / 瞄准 / 换弹") if fps_mode else localized("MOVE / EXPLORE THE DOORS","移动 / 探索周围的门")
-	if not use_touch_controls: _label(panels,movement_instruction,Vector2(40,820),750,16,MUTED)
+	if not use_touch_controls: _label(panels,movement_instruction,Vector2(40,745),750,16,MUTED)
 	var replay := _button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
 	var home := _button(panels, localized("MAIN MENU", "主菜单"), Rect2(1190,24,180,64), func(): game.net.leave(); game.running = false; menu())
 	replay.visible = use_touch_controls and not fps_mode
@@ -722,6 +737,8 @@ func refresh() -> void:
 	# Transient hint timer must be advanced exactly once per refresh.
 	if facility_hud_mode:
 		_refresh_facility_goal()
+		fps_corner_hud.refresh(get_process_delta_time())
+		if game.fps.active: facility_goal_label.visible = false
 		var fps_active: bool = is_instance_valid(game.fps) and game.fps.active
 		var mobile_fps: bool = fps_active and touch_controls_enabled()
 		if is_instance_valid(shoot_button): shoot_button.visible = mobile_fps
@@ -729,7 +746,7 @@ func refresh() -> void:
 		if is_instance_valid(aim_button): aim_button.visible = mobile_fps
 		if is_instance_valid(fps_crosshair): fps_crosshair.visible = fps_active and not game.fps.aiming
 		if is_instance_valid(fps_status_label):
-			fps_status_label.visible = fps_active
+			fps_status_label.visible = false
 			if fps_active:
 				var my_peer: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
 				fps_status_label.text = localized("HP %d  |  AMMO %d/%d  |  KILLS %d","生命 %d  |  弹药 %d/%d  |  击倒 %d") % [game.fps.health,game.fps.magazine,game.fps.reserve,int(game.fps.scores.get(my_peer,0))]
