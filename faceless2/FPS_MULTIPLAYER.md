@@ -57,3 +57,9 @@ The scope's original opaque lens caps are removed by a fixed-source-hash baker
 (12 original faces only), so ADS has an actual open sightline through the
 authored GLB tube. The original source remains packaged; derivative output
 hash is audited. ADS eye height follows the original optic center coordinate.
+
+Grip anchors are projected onto real original gun triangles, not just selected
+nearby coordinates. Runtime measures anchor-to-gun-surface distance as well as
+socket displacement and CPU-skinned contact: limits are 0.5mm / 2mm / 5mm.
+This closes the earlier roughly 10mm/17mm gaps between estimated anchors and
+the actual pistol-grip/fore-end surfaces. Native views still decide acceptance.

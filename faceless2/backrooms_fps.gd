@@ -33,14 +33,16 @@ var grip_skeleton: Skeleton3D
 var grip_ready := false
 var grip_error := 999.0
 var grip_mesh_error := 999.0
+var grip_surface_error := 999.0
 var grip_mounts: Array[Dictionary] = []
 # Measured in the original Kenney GLB coordinates: pistol grip and fore-end.
 const GUN_SCALE := .55
-const GRIP_POINTS := [Vector3(.042,-.077,.335),Vector3(0,-.042,-.22)]
+const GRIP_POINTS := [Vector3(.024115504,-.077,.335),Vector3(0,-.023255516,-.245)]
 var wall_retract := 0.0
 var wall_probe_seconds := 0.0
 var wall_clearance := 100.0
 var weapon_vertices := PackedVector3Array()
+var weapon_triangles := PackedVector3Array()
 var reload_visual_seconds := 0.0
 var sentries: Array[StaticBody3D] = []
 var health_by_peer: Dictionary = {}
@@ -72,7 +74,10 @@ func _ready() -> void:
             var local: Transform3D = weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
             for surface in range(mesh.mesh.get_surface_count()):
                 var arrays: Array = mesh.mesh.surface_get_arrays(surface)
-                for vertex in arrays[Mesh.ARRAY_VERTEX]: weapon_vertices.append(local*vertex)
+                var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+                for vertex in vertices: weapon_vertices.append(local*vertex)
+                var faces: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+                for index in faces: weapon_triangles.append(local*vertices[index])
     else:
         push_error("Source-verified Kenney Blaster GLB not packaged")
     # New, genuinely rigged WRAD ARMS CC0 authored GLB replaces the
@@ -124,7 +129,7 @@ func _ready() -> void:
             (part as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         mounted += 1
     measure_grip()
-    grip_ready = mounted == 2 and grip_error < .002 and grip_mesh_error < .045
+    grip_ready = mounted == 2 and grip_error < .002 and grip_mesh_error < .005 and grip_surface_error < .0005
     print("FPS_ORIGINAL_CC0_TWO_HAND_GRIP=",mounted)
     weapon_pivot.visible = false
     shot_audio = _audio("fps_shot.wav",-12)
@@ -157,12 +162,17 @@ func _curl_hand_fingers(skel: Skeleton3D, side: String) -> void:
 func measure_grip() -> void:
     grip_error = 0.0 if grip_mounts.size() == 2 else 999.0
     grip_mesh_error = 0.0 if grip_mounts.size() == 2 else 999.0
+    grip_surface_error = 0.0 if grip_mounts.size() == 2 else 999.0
     for mount in grip_mounts:
         var skel := mount.skeleton as Skeleton3D
         skel.force_update_all_bone_transforms()
         var target: Vector3 = weapon_pivot.to_global(mount.target)
         var socket: Vector3 = skel.to_global(skel.get_bone_global_pose(int(mount.socket)).origin)
         grip_error = maxf(grip_error,socket.distance_to(target))
+        var surface_error := 999.0
+        for i in range(0,weapon_triangles.size(),3):
+            surface_error = minf(surface_error,_distance_to_triangle(mount.target,weapon_triangles[i],weapon_triangles[i+1],weapon_triangles[i+2]))
+        grip_surface_error = maxf(grip_surface_error,surface_error)
         var closest := 999.0
         for part in (mount.hand as Node3D).find_children("*","MeshInstance3D",true,false):
             var mesh := part as MeshInstance3D
@@ -185,7 +195,17 @@ func measure_grip() -> void:
                         posed += (skel.get_bone_global_pose(bone) * mesh.skin.get_bind_pose(bind) * vertices[vertex])*weights[k]
                     closest = minf(closest,skel.to_global(posed).distance_to(target))
         grip_mesh_error = maxf(grip_mesh_error,closest)
-    print("FPS_GRIP_GEOMETRY socket_m=",grip_error," skin_contact_m=",grip_mesh_error)
+    print("FPS_GRIP_GEOMETRY socket_m=",grip_error," skin_contact_m=",grip_mesh_error," gun_surface_m=",grip_surface_error)
+
+func _distance_to_triangle(point: Vector3, a: Vector3, b: Vector3, c: Vector3) -> float:
+    var normal := (b-a).cross(c-a)
+    if normal.length_squared() > .000000000001:
+        normal = normal.normalized()
+        var signed_distance := (point-a).dot(normal)
+        var projected := point-normal*signed_distance
+        if normal.dot((b-a).cross(projected-a)) >= -.00000001 and normal.dot((c-b).cross(projected-b)) >= -.00000001 and normal.dot((a-c).cross(projected-c)) >= -.00000001:
+            return absf(signed_distance)
+    return minf(point.distance_to(Geometry3D.get_closest_point_to_segment(point,a,b)),minf(point.distance_to(Geometry3D.get_closest_point_to_segment(point,b,c)),point.distance_to(Geometry3D.get_closest_point_to_segment(point,c,a))))
 
 func _audio(filename: String, volume: float) -> AudioStreamPlayer:
     var sound := AudioStreamPlayer.new()
