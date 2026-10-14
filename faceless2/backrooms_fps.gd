@@ -32,6 +32,11 @@ var grip_hands: Node3D
 var grip_skeleton: Skeleton3D
 var grip_ready := false
 var grip_error := 999.0
+var grip_mesh_error := 999.0
+var grip_mounts: Array[Dictionary] = []
+# Measured in the original Kenney GLB coordinates: pistol grip and fore-end.
+const GUN_SCALE := .55
+const GRIP_POINTS := [Vector3(.042,-.077,.335),Vector3(0,-.042,-.22)]
 var wall_retract := 0.0
 var wall_probe_seconds := 0.0
 var reload_visual_seconds := 0.0
@@ -50,12 +55,12 @@ func _ready() -> void:
     weapon_pivot = Node3D.new()
     weapon_pivot.name = "CameraMounted_CertifiedKenneyBlasterGLB"
     game.player.camera.add_child(weapon_pivot)
-    weapon_pivot.position = Vector3(.30,-.34,-.72)
-    weapon_pivot.rotation = Vector3(-.055,PI-.065,.065)
+    weapon_pivot.position = Vector3(.24,-.22,-.64)
+    weapon_pivot.rotation = Vector3(-.04,-.08,-.025)
     if ResourceLoader.exists(Assets.path("vendor/fps_blaster_f.glb")):
-        weapon_model = Assets.fitted("vendor/fps_blaster_f.glb",.34)
+        weapon_model = load(Assets.path("vendor/fps_blaster_f.glb")).instantiate()
         weapon_model.name = "Original_Kenney_BlasterF_CC0_GLB"
-        weapon_model.scale = Vector3(.82,.82,.82)
+        weapon_model.scale = Vector3.ONE * GUN_SCALE
         weapon_pivot.add_child(weapon_model)
         for node in weapon_model.find_children("*","MeshInstance3D",true,false):
             (node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -79,23 +84,36 @@ func _ready() -> void:
         if not ResourceLoader.exists(path):
             push_error("Verified WRAD CC0 skinned %s hand GLB missing" % side)
             continue
-        var hand: Node3D = Assets.fitted("vendor/fps_wrad_grip_%s.glb" % side,.18)
+        var hand: Node3D = load(path).instantiate()
         hand.name = "WRAD_CC0_Skinned_%s_ActualGLBGrip" % side
-        hand.position = Vector3(.04,.045,-.08) if side == "r" else Vector3(.055,-.095,-.28)
-        hand.rotation = Vector3(.40,-1.10,.20) if side == "r" else Vector3(.49,1.05,-.38)
         grip_hands.add_child(hand)
         var skeletons: Array[Node] = hand.find_children("*","Skeleton3D",true,false)
         if skeletons.is_empty():
             push_error("Original WRAD %s hand has no skinned Skeleton3D" % side)
             continue
         var skel := skeletons[0] as Skeleton3D
+        var wrist := skel.find_bone("wrist."+side)
+        var socket := skel.find_bone("socket."+side)
+        if wrist < 0 or socket < 0:
+            push_error("WRAD authored wrist/socket missing")
+            continue
         if side == "r": grip_skeleton = skel
         _curl_hand_fingers(skel,side)
+        # Align the authored wrist frame, not an AABB of unused vertices.
+        # Y points along the palm; X is palm normal; Z is thumb side.
+        var palm := Basis(Vector3.RIGHT,Vector3(0,.60,-.80),Vector3(0,.80,.60)) if side == "r" else Basis(Vector3.UP,Vector3(.94,0,-.342).normalized(),Vector3(-.342,0,-.94).normalized())
+        var source_wrist: Transform3D = hand.global_transform.affine_inverse() * skel.global_transform * skel.get_bone_global_pose(wrist)
+        var aligned := Transform3D(palm.scaled(Vector3.ONE*.10),Vector3.ZERO) * source_wrist.affine_inverse()
+        hand.transform = aligned
+        var target: Vector3 = weapon_model.transform * GRIP_POINTS[0 if side == "r" else 1]
+        var actual: Vector3 = grip_hands.to_local(skel.to_global(skel.get_bone_global_pose(socket).origin))
+        hand.position += target-actual
+        grip_mounts.append({"hand":hand,"skeleton":skel,"socket":socket,"target":target})
         for part in hand.find_children("*","MeshInstance3D",true,false):
             (part as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         mounted += 1
-    grip_ready = mounted == 2
-    grip_error = 0.0 if grip_ready else 999.0
+    measure_grip()
+    grip_ready = mounted == 2 and grip_error < .002 and grip_mesh_error < .045
     print("FPS_ORIGINAL_CC0_TWO_HAND_GRIP=",mounted)
     weapon_pivot.visible = false
     shot_audio = _audio("fps_shot.wav",-12)
@@ -113,10 +131,50 @@ func _curl_hand_fingers(skel: Skeleton3D, side: String) -> void:
             if finger == "thumb": curl *= .58
             if finger == "index" and side == "r": curl *= .60
             var direction := 1.0 if side == "r" else -1.0
-            var axis := Vector3.RIGHT if finger != "thumb" else Vector3.FORWARD
+            # Finger local Y is its length; bend toward the palm about Z.
+            # Multiplication on the right retains each authored joint frame.
+            var axis := Vector3.BACK
+            if finger == "thumb":
+                axis = Vector3.RIGHT
+                direction = 1.0
             skel.set_bone_pose_rotation(bone,
-                Quaternion(axis,curl*direction)*skel.get_bone_pose_rotation(bone))
+                skel.get_bone_pose_rotation(bone)*Quaternion(axis,curl*direction))
     skel.force_update_all_bone_transforms()
+
+# Recompute from real imported bones and CPU-skinned source vertices.
+# A perturbed hand transform MUST increase this error; mounted count is not QA.
+func measure_grip() -> void:
+    grip_error = 0.0 if grip_mounts.size() == 2 else 999.0
+    grip_mesh_error = 0.0 if grip_mounts.size() == 2 else 999.0
+    for mount in grip_mounts:
+        var skel := mount.skeleton as Skeleton3D
+        skel.force_update_all_bone_transforms()
+        var target: Vector3 = weapon_pivot.to_global(mount.target)
+        var socket: Vector3 = skel.to_global(skel.get_bone_global_pose(int(mount.socket)).origin)
+        grip_error = maxf(grip_error,socket.distance_to(target))
+        var closest := 999.0
+        for part in (mount.hand as Node3D).find_children("*","MeshInstance3D",true,false):
+            var mesh := part as MeshInstance3D
+            if mesh.skin == null: continue
+            for surface in range(mesh.mesh.get_surface_count()):
+                var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+                var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+                var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+                var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+                var influences: int = bones.size()/maxi(1,vertices.size())
+                for vertex in range(vertices.size()):
+                    var posed := Vector3.ZERO
+                    for influence in range(influences):
+                        var k := vertex*influences+influence
+                        if weights[k] <= 0: continue
+                        var bind := bones[k]
+                        var bone := skel.find_bone(mesh.skin.get_bind_name(bind))
+                        if bone < 0: bone = mesh.skin.get_bind_bone(bind)
+                        if bone < 0: continue
+                        posed += (skel.get_bone_global_pose(bone) * mesh.skin.get_bind_pose(bind) * vertices[vertex])*weights[k]
+                    closest = minf(closest,skel.to_global(posed).distance_to(target))
+        grip_mesh_error = maxf(grip_mesh_error,closest)
+    print("FPS_GRIP_GEOMETRY socket_m=",grip_error," skin_contact_m=",grip_mesh_error)
 
 func _audio(filename: String, volume: float) -> AudioStreamPlayer:
     var sound := AudioStreamPlayer.new()
@@ -277,18 +335,19 @@ func advance(delta: float) -> void:
     if is_instance_valid(weapon_pivot):
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
         var walking: float = sin(game.player.motion_clock)
-        var base := Vector3(.30 + walking*.014*motion,
-            -.34 - absf(walking)*.012*motion,
-            -.72 + visual_recoil)
-        if aiming: base = Vector3(.02,-.27,-.63 + visual_recoil)
+        var base := Vector3(.24 + walking*.006*motion,
+            -.22 - absf(walking)*.006*motion + game.player.landing_dip*.35,
+            -.64 + visual_recoil*.45)
+        if aiming: base = Vector3(0,-.077,-.60 + visual_recoil*.35)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/.85,0.0,1.0))*PI)
         base.y -= reload_phase*.14 + wall_retract*.16
-        base.z += wall_retract*.40
+        base.z += wall_retract*.20
         base.x -= wall_retract*.035
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
-        var pitch := -.055+visual_recoil*.37+reload_phase*.40+wall_retract*.56
-        weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,delta*11.0)
-        weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,.065+wall_retract*.13,delta*9.0)
+        var pitch := (0.0 if aiming else -.04)+visual_recoil*.30+reload_phase*.36+wall_retract*.70
+        weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,minf(1.0,delta*11.0))
+        weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,0.0 if aiming else -.08,minf(1.0,delta*9.0))
+        weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,(0.0 if aiming else -.025)+wall_retract*.10,minf(1.0,delta*9.0))
     game.player.camera.fov = lerpf(game.player.camera.fov,59.0 if aiming and equipped else 76.0,minf(1.0,delta*9.0))
     if level_id != 2 or target_remaining <= 0 or game.ui.modal: return
     enemy_timer -= delta
@@ -446,7 +505,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         if int(health_by_peer[victim]) == 0:
             scores[shooter] = int(scores.get(shooter,0))+1
             health_by_peer[victim] = 100
-            game.net.send_fps_respawn(victim,game.fps_arena.spawn_for(victim))
+            game.net.send_fps_respawn(victim,game.fps_arena.spawn_for(int(game.net.seats.get(victim,1))))
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
     return true
 

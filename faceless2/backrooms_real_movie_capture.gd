@@ -19,6 +19,9 @@ func frame() -> void:
 	total += 1
 func move(start: Vector3, finish: Vector3, look_from: Vector3, look_to: Vector3, frames: int) -> void:
 	for i in range(frames):
+		var displacement: Vector3 = finish-start
+		game.player.velocity = displacement/float(frames)*20.0
+		game.player.motion_clock += .05*(10.0 if game.player.sprinting else 7.0)
 		var t: float = float(i) / float(maxi(1,frames-1))
 		t = t*t*(3.0-2.0*t)
 		game.player.global_position = start.lerp(finish,t)
@@ -48,8 +51,17 @@ func record() -> void:
 	game.fps.set_aim(false)
 	game.fps.fire()
 	await move(Vector3(-2,.12,0),Vector3(4,.12,-6),Vector3(-1,1.5,-16),Vector3(15,1.5,-15),84)
+	game.player.sprinting = true
 	await move(Vector3(4,.12,-6),Vector3(-4,.12,-8),Vector3(15,1.5,-15),Vector3(-16,1.5,-18),84)
+	game.player.sprinting = false
+	game.fps.reload()
 	await move(Vector3(-4,.12,-8),Vector3(0,.12,0),Vector3(-16,1.5,-18),Vector3(0,.35,-3),64)
+	game.fps.set_aim(false)
+	await move(Vector3(0,.12,0),Vector3(0,1.1,0),Vector3(0,1.6,-8),Vector3(0,1.6,-8),30)
+	game.player.landing_dip = .04
+	await move(Vector3(0,1.1,0),Vector3(0,.12,0),Vector3(0,1.6,-8),Vector3(0,1.6,-8),30)
+	game.player.landing_dip = 0
+	await move(Vector3(0,.12,-22.6),Vector3(0,.12,-23.6),Vector3(0,1.6,-26),Vector3(0,1.6,-26),40)
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame

@@ -1,6 +1,6 @@
-"""Bake ONLY authored WRAD CC0 wrist/hand/finger triangles out of the
+"""Bake ONLY authored WRAD CC0 forearm/wrist/hand/finger triangles out of the
 fixed-hash original skinned GLB. Preserve geometry, UV, normals, original
-material, full skeleton and bind data; discard disconnected upper-arm triangles.
+material, full skeleton and bind data; discard upper-arm triangles. Compact all attribute streams together.
 The new GLB is a LICENSED SUBSET, never synthesized visible geometry.
 """
 import json
@@ -23,7 +23,7 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
     def item(accessor_id: int, index: int):
         a = acc[accessor_id]
         v = bvs[a["bufferView"]]
-        width = {"SCALAR":1,"VEC4":4}[a["type"]]
+        width = {"SCALAR":1,"VEC2":2,"VEC3":3,"VEC4":4}[a["type"]]
         fmt,size = {5121:("B",1),5123:("H",2),5125:("I",4),5126:("f",4)}[a["componentType"]]
         off = v.get("byteOffset",0) + a.get("byteOffset",0) + index*v.get("byteStride",width*size)
         return struct.unpack_from("<"+fmt*width,raw,off)
@@ -37,7 +37,7 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
         ws = item(prim["attributes"]["WEIGHTS_0"],vertex)
         return sum(w for j,w in zip(js,ws)
                    if (side == "both" or names[j].endswith("." + side)) and (names[j].startswith("finger_") or names[j].startswith("wrist.")
-                   or names[j].startswith("socket.")))
+                   or names[j].startswith("socket.") or names[j].startswith("forearm")))
     weight = [hand_weight(i) for i in range(acc[prim["attributes"]["POSITION"]]["count"])]
     kept = []
     for t in range(0,len(all_indices),3):
@@ -46,6 +46,35 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
             kept.extend(triangle)
     if len(kept) < (2000 if side == "both" else 900) or len(kept) >= len(all_indices):
         raise ValueError("WRAD source unexpected grip triangle count: %d" % (len(kept)//3))
+    # Changing indices alone leaves unused upper-arm/other-hand POSITION
+    # vertices in the accessor. Importers then fit a single hand to the
+    # whole two-arm AABB. Compact every vertex stream with the SAME remap,
+    # preserving exact original attribute bytes (including skin and UV).
+    vertices = sorted(set(kept))
+    remap = {old:new for new,old in enumerate(vertices)}
+    for semantic, accessor_id in list(prim["attributes"].items()):
+        original = acc[accessor_id]
+        view = bvs[original["bufferView"]]
+        width = {"SCALAR":1,"VEC2":2,"VEC3":3,"VEC4":4}[original["type"]]
+        component_bytes = {5121:1,5123:2,5125:4,5126:4}[original["componentType"]]
+        row_bytes = width * component_bytes
+        start = view.get("byteOffset",0) + original.get("byteOffset",0)
+        stride = view.get("byteStride",row_bytes)
+        stream = b"".join(raw[start+i*stride:start+i*stride+row_bytes] for i in vertices)
+        while len(raw)%4: raw.append(0)
+        offset = len(raw)
+        raw.extend(stream)
+        bvs.append({"buffer":0,"byteOffset":offset,"byteLength":len(stream),"target":34962})
+        compact = {"bufferView":len(bvs)-1,"componentType":original["componentType"],
+                   "count":len(vertices),"type":original["type"]}
+        if original.get("normalized"): compact["normalized"] = True
+        if semantic == "POSITION":
+            points = [item(accessor_id,i) for i in vertices]
+            compact["min"] = [min(p[d] for p in points) for d in range(3)]
+            compact["max"] = [max(p[d] for p in points) for d in range(3)]
+        acc.append(compact)
+        prim["attributes"][semantic] = len(acc)-1
+    kept = [remap[i] for i in kept]
     while len(raw)%4: raw.append(0)
     off = len(raw)
     fmt = "H" if max(kept)<65536 else "I"
@@ -58,7 +87,7 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
     prim["indices"] = len(g["accessors"])-1
     g["buffers"][0]["byteLength"] = len(raw)
     g.setdefault("asset",{}).setdefault("extras",{})["attribution"] = (
-        "WRAD ARMS, wriks, CC0 1.0; subset of original hand/wrist triangles only, original rig/skin/UV")
+        "WRAD ARMS, wriks, CC0 1.0; subset of original forearm/hand/wrist triangles only, original rig/skin/UV")
     js = json.dumps(g,ensure_ascii=True,separators=(",",":")).encode()
     js += b" "*(-len(js)%4)
     target = (b"glTF" + struct.pack("<II",2,12+8+len(js)+8+len(raw))

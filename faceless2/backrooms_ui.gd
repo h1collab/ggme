@@ -708,7 +708,7 @@ func refresh() -> void:
 				var my_peer: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
 				fps_status_label.text = localized("HP %d  |  AMMO %d/%d  |  KILLS %d","生命 %d  |  弹药 %d/%d  |  击倒 %d") % [game.fps.health,game.fps.magazine,game.fps.reserve,int(game.fps.scores.get(my_peer,0))]
 				if game.net.mode != "solo" and not game.fps.match_can_fire():
-					fps_status_label.text = localized("WAITING FOR PLAYER 2 — MATCH STARTS AT 2/4","等待第 2 位玩家——2 人即可开始，最多 4 人")
+					fps_status_label.text = localized("WAITING FOR PLAYER 2 — MATCH STARTS AT 2/%d","等待第 2 位玩家——2 人即可开始，上限 %d 人") % game.net.max_crew
 		if hint_timer > 0:
 			hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
 			if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false

@@ -273,8 +273,8 @@ func start_fps_arena() -> void:
 	player.reset_to(fps_arena.spawn_for(1 if net.mode != "client" else multiplayer.get_unique_id()))
 	player.camera.make_current()
 	player.set_physics_process(true)
-	ui.prologue_finished()
 	fps.enter_arena()
+	ui.prologue_finished()
 
 func backrooms_return() -> void:
 	if is_instance_valid(fps): fps.leave_level()

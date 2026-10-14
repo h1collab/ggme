@@ -62,14 +62,25 @@ func build() -> void:
 			var tile: Node3D = Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
 			tile.name = "KenneyCC0_PhysicalArenaFloor_GLB"
 			var dims: Vector3 = tile.get_meta("dimensions",Vector3.ONE)
-			tile.scale = Vector3(TILE/maxf(dims.x,.01),1.0,TILE/maxf(dims.z,.01))
-			tile.position = Vector3((float(x)-1.5)*TILE,-.16,(float(z)-1.5)*TILE)
+			tile.scale = Vector3((TILE+.10)/maxf(dims.x,.01),1.0,(TILE+.10)/maxf(dims.z,.01))
+			tile.position = Vector3((float(x)-1.5)*TILE,-.16-float(x+z)*.0003,(float(z)-1.5)*TILE)
 			tile.set_meta("original_kenney_glb","wakeup_floor_panel.glb")
 			for surface in tile.find_children("*","MeshInstance3D",true,false):
 				(surface as MeshInstance3D).material_override = finish
 				(surface as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(tile)
 			floor_modules.append(tile)
+	# One original floor GLB extends the visual ground beyond the invisible
+	# 48m playable boundary. No exposed void at the edge or horizon.
+	var horizon: Node3D = Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
+	var horizon_dims: Vector3 = horizon.get_meta("dimensions",Vector3.ONE)
+	horizon.scale = Vector3(384.0/horizon_dims.x,1.0,384.0/horizon_dims.z)
+	horizon.position.y = -.19
+	horizon.name = "OriginalKenneyGLB_DistantGround"
+	for mesh in horizon.find_children("*","MeshInstance3D",true,false):
+		(mesh as MeshInstance3D).material_override = finish
+		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(horizon)
 	light = DirectionalLight3D.new()
 	light.name = "Daylight_FPS_Arena_No_Shadows_Mobile"
 	light.rotation_degrees = Vector3(-48,22,0)
@@ -82,6 +93,18 @@ func activate() -> void:
 	build()
 	visible = true
 	ground.collision_layer = 1
+	var world: WorldEnvironment = get_parent().environment
+	var sky_material := ProceduralSkyMaterial.new()
+	sky_material.sky_top_color = Color(.24,.42,.58)
+	sky_material.sky_horizon_color = Color(.71,.77,.78)
+	sky_material.ground_bottom_color = Color(.34,.32,.27)
+	sky_material.ground_horizon_color = Color(.71,.77,.78)
+	var sky := Sky.new()
+	sky.sky_material = sky_material
+	world.environment.sky = sky
+	world.environment.background_mode = Environment.BG_SKY
+	world.environment.fog_enabled = false
+	world.environment.ambient_light_energy = .38
 
 func deactivate() -> void:
 	visible = false

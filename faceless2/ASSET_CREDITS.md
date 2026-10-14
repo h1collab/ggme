@@ -138,3 +138,17 @@ A failed response is discarded and retried at most three times against the same
 record; persistent mismatch fails the build. Public source URL, status, MIME type,
 expected/actual size and MD5, and actual SHA-256 are recorded. No license, source
 URL or accepted digest was replaced to work around the vintage_day_bed failure.
+
+## WRAD grip alignment correction (2026-10-14)
+
+Source remains wriks / WRAD ARMS CC0 at f3987244176c33d2c20d4f9e139980af12684d87,
+SHA-256 580efbb0852bf0b41f82dd3e17eafec86b3d2a48f4a7acaa7e64d60e850f565d.
+Each side now retains 521 original forearm/wrist/finger triangles (1042 of
+1196 combined). Only existing original attribute rows are copied with a common
+index remap; original UV, normals, materials, skeleton and inverse binds remain.
+Runtime aligns authored wrist/socket frames to measured Kenney pistol-grip and
+fore-end coordinates, with additional local-Z finger curls. Bone/socket and
+CPU-skinned vertex distance checks replace the previous constant-zero error.
+Gun orientation is corrected using original geometry. This is still a stylized
+Kenney blaster, not a photorealistic modern pistol. Visual acceptance requires
+inspection of the SHA-matched native Godot screenshots and movie.

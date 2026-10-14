@@ -8,7 +8,7 @@ func _shot(name: String, position: Vector3, target: Vector3) -> void:
 	game.player.global_position = position
 	game.player.camera.look_at(target)
 	game.ui.refresh()
-	for i in range(5): await process_frame
+	for i in range(40): await process_frame
 	await RenderingServer.frame_post_draw
 	var image: Image = root.get_texture().get_image()
 	if image.is_empty() or image.save_png(output_dir.path_join(name + ".png")) != OK:
@@ -33,7 +33,7 @@ func run() -> void:
 	await _shot("00_empty_fps_arena_kenney_glb",Vector3(-7,.12,7),Vector3(7,1.6,-7))
 	await _shot("01_glb_blaster_hip_fov",Vector3(-4,.12,3),Vector3(0,1.6,-12))
 	game.fps.set_aim(true)
-	for i in range(25): await process_frame
+	for i in range(70): await process_frame
 	await _shot("02_glb_blaster_aim_down_sights",Vector3(-4,.12,3),Vector3(0,1.6,-12))
 	game.fps.set_aim(false)
 	game.fps.fire()
@@ -43,6 +43,24 @@ func run() -> void:
 	await _shot("06_weapon_left_sweep",Vector3(0,.12,2),Vector3(-17,1.6,-5))
 	await _shot("07_weapon_right_sweep",Vector3(0,.12,2),Vector3(17,1.6,-5))
 	await _shot("08_interior_gun_at_low_view",Vector3(0,.12,0),Vector3(0,.15,-3))
+	game.fps.set_aim(false)
+	game.player.velocity = Vector3(0,0,-2.6)
+	game.player.motion_clock += 1.2
+	await _shot("09_walk_grip_contact",Vector3(0,.12,0),Vector3(0,1.6,-12))
+	game.player.sprinting = true
+	game.player.velocity = Vector3(0,0,-4.3)
+	game.player.motion_clock += 1.2
+	await _shot("10_run_grip_contact",Vector3(0,.12,0),Vector3(0,1.6,-12))
+	game.player.velocity = Vector3.ZERO
+	game.player.sprinting = false
+	game.player.landing_dip = .04
+	await _shot("11_landing_grip_contact",Vector3(0,.12,0),Vector3(0,1.6,-12))
+	game.player.landing_dip = 0
+	game.fps.reload_visual_seconds = .8
+	await _shot("12_reload_grip_contact",Vector3(0,.12,0),Vector3(0,1.6,-12))
+	await _shot("13_near_boundary_retraction",Vector3(0,.12,-23.6),Vector3(0,1.6,-26))
+	game.fps.measure_grip()
+	print("PREVIEW_GRIP socket=",game.fps.grip_error," skin=",game.fps.grip_mesh_error)
 	game.net.leave()
 	game.queue_free()
 	for i in range(8): await process_frame

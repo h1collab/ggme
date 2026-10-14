@@ -11,6 +11,7 @@ var status := "Offline / solo"
 var port := 24711
 var members: Dictionary = {}
 var poses: Dictionary = {}
+var seats: Dictionary = {}
 var pose_elapsed := 0.0
 var state_elapsed := 0.0
 var connect_elapsed := 0.0
@@ -50,6 +51,7 @@ func host(selected_port: int, key: String, map_router: bool, slots: int = 4) -> 
 	multiplayer.multiplayer_peer = peer
 	mode = "host"
 	members = {1:true}
+	seats = {1:1}
 	status = "Hosting / 1 of %d" % max_crew
 	if map_router and upnp_thread == null:
 		upnp_thread = Thread.new()
@@ -84,6 +86,7 @@ func leave() -> void:
 	mode = "solo"
 	members.clear()
 	poses.clear()
+	seats.clear()
 	monitor_flags.clear()
 	action_times.clear()
 	pose_times.clear()
@@ -136,12 +139,17 @@ func _peer_connected(id: int) -> void:
 func _peer_disconnected(id: int) -> void:
 	members.erase(id)
 	poses.erase(id)
+	seats.erase(id)
 	monitor_flags.erase(id)
 	pose_times.erase(id)
 	action_times.erase(id)
 	disconnected_count += 1
 	game.remove_crew(id)
-	if is_instance_valid(game.fps): game.fps.remove_peer(id)
+	if is_instance_valid(game.fps):
+		game.fps.remove_peer(id)
+		if mode == "host" and game.fps_arena.visible:
+			broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
+	status = "Room / %d of %d" % [members.size(),max_crew] if mode == "host" else status
 
 func _connected() -> void:
 	peer.get_peer(1).set_timeout(32, 5000, 15000)
@@ -154,12 +162,19 @@ func _hello(version: int, key: String) -> void:
 	if version != PROTOCOL or key != password or members.size() >= max_crew:
 		_reject.rpc_id(id, "Version or room key mismatch, or room full.")
 		return
+	# A repeated handshake must never reset a living player's HP/ammo.
+	if members.has(id): return
+	var seat := 2
+	while seats.values().has(seat): seat += 1
+	if seat > max_crew: return
+	seats[id] = seat
 	members[id] = true
-	poses[id] = {"p":game.fps_arena.spawn_for(members.size()) if game.fps_arena.visible else game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0}
+	poses[id] = {"p":game.fps_arena.spawn_for(seat) if game.fps_arena.visible else game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0}
 	if game.fps_arena.visible: game.fps.register_peer(id)
 	pose_times[id] = Time.get_ticks_msec()
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
 	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
+	if game.fps_arena.visible: broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
 	status = "Room / %d of %d" % [members.size(), max_crew]
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -207,10 +222,10 @@ func _process(delta: float) -> void:
 		if mode == "client": _submit_pose.rpc_id(1, p, game.player.yaw, game.ui.monitoring)
 		else:
 			poses[1] = {"p":p, "y":game.player.yaw}
-			_pose_bundle.rpc(poses)
+			send_members("_pose_bundle",[poses])
 	if mode == "host" and state_elapsed >= 0.2:
 		state_elapsed = 0
-		_shared_state.rpc(game.snapshot())
+		send_members("_shared_state",[game.snapshot()])
 
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
 func _submit_pose(pos: Vector3, yaw: float, monitoring: bool) -> void:
@@ -239,6 +254,20 @@ func _pose_bundle(bundle: Dictionary) -> void:
 func _shared_state(state: Dictionary) -> void:
 	game.receive_state(state)
 
+# SceneMultiplayer broadcasts include unauthenticated and closing peers.
+# Only send game state to authenticated, live ENet transports; a recently
+# disconnected transport can remain in the scene peer list with 0 channels.
+func can_send(id: int) -> bool:
+	if not is_instance_valid(peer) or not multiplayer.get_peers().has(id): return false
+	var transport := peer.get_peer(id)
+	return transport != null and transport.is_active() and transport.get_state() == ENetPacketPeer.STATE_CONNECTED and transport.get_channels() > 2
+
+func send_members(method: String, arguments: Array) -> void:
+	if mode != "host": return
+	for id in members:
+		if int(id) == 1 or not can_send(int(id)): continue
+		callv("rpc_id",[int(id),StringName(method)]+arguments)
+
 func request(action: String, index: int = 0) -> void:
 	if authoritative(): game.apply_action(action, index, game.player.position, game.ui.monitoring)
 	elif not members.is_empty(): _submit_action.rpc_id(1, action, index, game.ui.monitoring)
@@ -255,7 +284,7 @@ func _submit_action(action: String, index: int, monitoring: bool) -> void:
 	# arrive after an action on channel 0 when the monitor is first raised.
 	# The host still checks the authoritative position before every action.
 	game.apply_action(action, index, poses[id].p, monitoring)
-	_shared_state.rpc(game.snapshot())
+	send_members("_shared_state",[game.snapshot()])
 
 # FPS is a separate arena session. ENet room/password/version handshake and
 # real UDP movement stay intact; actions are authenticated and host-authoritative.
@@ -288,7 +317,7 @@ func _fps_reload() -> void:
 func broadcast_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
 	if not authoritative() or not game.fps_arena.visible: return
 	game.fps.receive_fps_state(hp,ammo,points)
-	if mode == "host": _fps_state.rpc(hp,ammo,points)
+	if mode == "host": send_members("_fps_state",[hp,ammo,points])
 
 @rpc("authority","call_remote","reliable",2)
 func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
@@ -305,7 +334,7 @@ func _fps_join(spawn: Vector3, hp: Dictionary, ammo: Dictionary, points: Diction
 func send_fps_respawn(id: int, pos: Vector3) -> void:
 	if not authoritative() or not game.fps_arena.visible: return
 	if id == 1: game.player.reset_to(pos)
-	elif mode == "host": _fps_respawn.rpc_id(id,pos)
+	elif mode == "host" and can_send(id): _fps_respawn.rpc_id(id,pos)
 	poses[id] = {"p":pos,"y":0.0}
 
 @rpc("authority","call_remote","reliable",0)
