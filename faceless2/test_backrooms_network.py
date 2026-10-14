@@ -27,7 +27,7 @@ sync_dir = str(Path(sync_workspace.name).resolve())
 def start(role):
     handle = (out / ('p2p-' + role + '.log')).open('w')
     handles.append(handle)
-    processes[role] = subprocess.Popen([args.godot, '--headless', '--path', args.project, '--script', script, '--', '--role=' + role, '--port=' + str(port), '--sync-dir=' + sync_dir], stdout=handle, stderr=subprocess.STDOUT)
+    processes[role] = subprocess.Popen([args.godot, '--headless', '--verbose', '--path', args.project, '--script', script, '--', '--role=' + role, '--port=' + str(port), '--sync-dir=' + sync_dir], stdout=handle, stderr=subprocess.STDOUT)
 
 def wait_marker(role, marker, seconds):
     deadline = time.monotonic() + seconds

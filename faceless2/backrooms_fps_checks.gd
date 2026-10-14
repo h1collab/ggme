@@ -194,10 +194,11 @@ func run() -> void:
 	game.queue_free()
 	# Return from the fixture coroutine before exit: its local Shape3D and
 	# physics-query references must be released before ResourceDB shutdown.
-	call_deferred("finish")
+	call_deferred("_finish_fixture")
 
-func finish() -> void:
+func _finish_fixture() -> void:
 	game = null
-	for i in range(12): await process_frame
+	var drain_until := Time.get_ticks_msec()+200
+	while Time.get_ticks_msec() < drain_until: await process_frame
 	if not failed: print("FACELESS2_FPS_CHECKS_PASS")
 	call_deferred("quit",1 if failed else 0)

@@ -39,13 +39,16 @@ func run() -> void:
 		check(game.net.host(port, "faceless16", false) == OK, "Host opened")
 		game.start_shift(0)
 		print("HOST_READY")
-		await wait_seconds(3)
+		# Startup/import scheduling must not substitute for a received UDP pose.
+		var moved := false
+		var movement_deadline := Time.get_ticks_msec()+8000
+		while not moved and Time.get_ticks_msec() < movement_deadline:
+			for id in game.net.poses:
+				if id != 1 and game.net.poses[id].p.z < 8.8: moved = true
+			if not moved: await process_frame
 		check(game.net.members.size() >= 2, "Authenticated client joined")
 		check(not game.repaired[0], "Unauthorized distant client collection rejected")
 		check(game.crew.size() >= 1, "Remote crew GLB populated")
-		var moved := false
-		for id in game.net.poses:
-			if id != 1 and game.net.poses[id].p.z < 8.8: moved = true
 		check(moved, "Real client motion replicated")
 		game.apply_action("collect", 0, game.level.relays[0] + Vector3(0,0,1), false)
 		check(game.repaired[0], "Host collects real story clue")
@@ -81,7 +84,10 @@ func run() -> void:
 		key.physical_keycode = KEY_W
 		key.pressed = true
 		Input.parse_input_event(key)
-		await wait_seconds(0.85)
+		var start_z: float = game.player.position.z
+		var input_deadline := Time.get_ticks_msec()+4000
+		while start_z-game.player.position.z < 1.2 and Time.get_ticks_msec() < input_deadline: await physics_frame
+		check(start_z-game.player.position.z >= 1.2,"Actual held W moves the CharacterBody before releasing input")
 		key = key.duplicate()
 		key.pressed = false
 		Input.parse_input_event(key)
@@ -151,7 +157,15 @@ func run() -> void:
 	else:
 		check(false, "Unknown network test role")
 	game.net.leave()
+	for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:
+		for sound in game.find_children("*",kind,true,false): sound.stop(); sound.set("stream",null)
+	print("NETWORK_FIXTURE_RELEASE ",role)
 	game.queue_free()
-	await wait_seconds(0.15)
+	call_deferred("_finish_fixture")
+
+func _finish_fixture() -> void:
+	game = null
+	var drain_until := Time.get_ticks_msec()+200
+	while Time.get_ticks_msec() < drain_until: await process_frame
 	if not failure: print("P2P " + role + ": PASS")
-	quit(1 if failure else 0)
+	call_deferred("quit",1 if failure else 0)
