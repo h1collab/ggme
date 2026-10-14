@@ -192,8 +192,12 @@ func run() -> void:
 			sound.stop()
 			sound.set("stream",null)
 	game.queue_free()
+	# Return from the fixture coroutine before exit: its local Shape3D and
+	# physics-query references must be released before ResourceDB shutdown.
+	call_deferred("finish")
+
+func finish() -> void:
+	game = null
 	for i in range(12): await process_frame
-	if failed: quit(1)
-	else:
-		print("FACELESS2_FPS_CHECKS_PASS")
-		quit(0)
+	if not failed: print("FACELESS2_FPS_CHECKS_PASS")
+	call_deferred("quit",1 if failed else 0)

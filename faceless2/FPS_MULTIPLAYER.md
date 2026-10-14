@@ -85,3 +85,5 @@ Headless regressions measure actual accelerated movement, rapid mouse taps, five
 Native screenshot settling uses 20 frames at fixed 30Hz (~0.67s); bounded capture/video timeouts account for native-resolution MSAA on the CI software renderer. Recording FPS is not an Android performance measurement.
 
 Exhausted FPS sprint has 5%/25% hysteresis: exhaustion locks sprint until meaningful recovery instead of alternating walk/run at the 5% boundary. Respawn resets the lock. A real input/physics regression reproduces the previous jitter and verifies recovery/resume; historical exploration behavior remains unchanged.
+
+FPS fixture shutdown returns its physics-query/Shape3D locals before a separately deferred cleanup/quit phase. Verbose CI logs identify any resource lifetime failures; strict ERROR/FAIL checks remain mandatory.
