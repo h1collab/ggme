@@ -14,6 +14,8 @@ on:
       - "faceless2/backrooms_extra_levels_checks.gd"
       - "faceless2/backrooms_extra_levels.gd"
       - "faceless2/backrooms_fps.gd"
+      - "faceless2/fps_weapon_finish.gdshader"
+      - "faceless2/fetch_fps_surface.py"
       - "faceless2/backrooms_fps_arena.gd"
       - "faceless2/backrooms_network.gd"
       - "faceless2/backrooms_rooms.gd"
@@ -70,7 +72,7 @@ jobs:
                   if p.is_file():p.unlink()
           for p in src.glob("backrooms*.gd"):
               shutil.copy2(p,Path("app/scripts")/p.name)
-          for name in ["virtual_joystick.gd","touch_action.gd","backrooms_gui_preview.gd"]:
+          for name in ["virtual_joystick.gd","touch_action.gd","backrooms_gui_preview.gd","fps_weapon_finish.gdshader"]:
               shutil.copy2(src/name,Path("app/scripts")/name)
           shutil.copy2(src/"assets/entity.glb","app/assets/entity.glb")
           Path("app/assets/vendor").mkdir(parents=True,exist_ok=True)
@@ -108,6 +110,7 @@ jobs:
           # v0.28 retired the old experimental lab; only keep the sourced corridor.
           rm app/assets/vendor/laboratory_shell_cc0.glb app/assets/vendor/observation_wing_cc0.glb
           python faceless2/fetch_real_backrooms_assets.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/real-backrooms-assets.json
+          python faceless2/fetch_fps_surface.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/weapon-surfaces.json
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
           python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
           python faceless2/generate_sound.py app/audio

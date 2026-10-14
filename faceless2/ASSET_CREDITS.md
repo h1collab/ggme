@@ -173,3 +173,14 @@ Open-optic derivative pinned SHA-256:
 `6256615dc836e0d51a4a082c70892988608469b82f47c5937aec5099b584a2fb`.
 This is the locally reproduced lawful derivative hash, never an accepted
 replacement for the original publisher file's unchanged SHA-256.
+
+## FPS recoil/material/lighting polish (2026-10-14)
+
+Weapon PBR detail: Metal Plate 02 by Rob Tuytel, Poly Haven, CC0 1.0; official source https://polyhaven.com/a/metal_plate_02. Original 1K JPG diffuse/GL-normal/roughness/metallic maps are unmodified. `fetch_fps_surface.py` pins official URL, byte length, publisher MD5 and independently verified SHA-256; a publisher change fails instead of rewriting expected hashes. The original Kenney atlas defines material regions; local-space shader shading adds graphite/alloy finish and restrained scanned surface detail without replacing original gun geometry.
+
+- diffuse: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_diff_1k.jpg; 625917 bytes; MD5 531b7e067dc537e0b3c7962175e04ffd; SHA-256 6e80877d0e9d5973d96298c6091df7ace906b0a6760afc4f3592e4855f3f1d4c.
+- normal: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_nor_gl_1k.jpg; 183264 bytes; MD5 ce8198004fd9409f592a7f024be0c01e; SHA-256 58736fbb8aa4fc6690cf8152b174db65caf22a766375b625fb0087e1bc955bc7.
+- rough: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_rough_1k.jpg; 911772 bytes; MD5 1fa97d5031aa575656a316bfd404ca4d; SHA-256 73a6bd6393f6de7be42058584c2d382f2a3e9148ceabc2d02e748e2c860e74d1.
+- metal: https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_metal_1k.jpg; 551170 bytes; MD5 6ecfe9cdb7e0147c3dd7b49776d4a7d6; SHA-256 fb1b120a2be5887dfeebed7a198a8151b292e963713d914b74ed7669434afb41.
+
+Arena floor uses previously verified Poly Haven Large Grey Tiles CC0 diffuse/GL-normal/roughness on the original Kenney floor GLB, with world-metric projection. Hands retain the original WRAD albedo and skin; only material roughness/specular settings change. The local ground-shadow caster is original licensed crew.glb, rendered shadow-only. Sun/sky/reflections and short muzzle illumination are native lighting, not generated visible geometry. No external asset licensing or hash checks are removed.

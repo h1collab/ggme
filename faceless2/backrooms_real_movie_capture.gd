@@ -28,6 +28,15 @@ func move(start: Vector3, finish: Vector3, look_from: Vector3, look_to: Vector3,
 		game.player.global_position = start.lerp(finish,t)
 		camera.look_at(look_from.lerp(look_to,t))
 		await frame()
+func firing_sequence(ads: bool) -> void:
+	game.player.global_position = Vector3(0,.12,0)
+	game.player.velocity = Vector3.ZERO
+	camera.look_at(Vector3(0,1.6,-12))
+	game.fps.set_aim(ads)
+	for i in range(12): await frame()
+	for i in range(36):
+		if i % 6 == 0: game.fps.fire()
+		await frame()
 func record() -> void:
 	output_dir = OS.get_environment("F2_CAPTURE_DIR")
 	if output_dir.is_empty():
@@ -77,6 +86,8 @@ func record() -> void:
 	game.add_child(wall)
 	var wall_front := -10+dimensions.z*.5
 	await move(Vector3(0,.12,wall_front+1.5),Vector3(0,.12,wall_front+.34),Vector3(0,1.6,-12),Vector3(0,1.6,-12),40)
+	await firing_sequence(false)
+	await firing_sequence(true)
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame

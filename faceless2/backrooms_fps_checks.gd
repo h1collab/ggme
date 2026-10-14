@@ -32,6 +32,44 @@ func run() -> void:
 	check(fps.grip_hands.get_parent() == fps.weapon_pivot, "Rifle and rigged hands share one animated parent")
 	check(fps.grip_hands.get_child_count() == 2, "Two independent authored WRAD skinned hand GLBs grip one weapon, no loose elbows")
 	check(fps.weapon_model != null and fps.weapon_model.find_children("*","MeshInstance3D",true,false).size() >= 2, "Licensed original multi-mesh firearm")
+	check(fps.weapon_finish_ready,"Original atlas and verified PBR finish loaded")
+	for mesh in fps.weapon_model.find_children("*","MeshInstance3D",true,false):
+		for surface in range(mesh.mesh.get_surface_count()):
+			var finish: ShaderMaterial = mesh.get_active_material(surface)
+			for parameter in ["source_atlas","detail_albedo","detail_normal","detail_roughness","detail_metallic"]:
+				check(finish.get_shader_parameter(parameter) is Texture2D,"Real texture binding: "+parameter)
+	check(game.fps_arena.local_shadow != null,"Original licensed avatar supplies ground shadow")
+	game.fps_arena.apply_quality(0)
+	check(not game.fps_arena.light.shadow_enabled,"Low quality disables costly directional shadows")
+	game.fps_arena.apply_quality(1)
+	check(game.fps_arena.light.shadow_enabled,"Standard quality enables real sun shadows")
+	# Measure actual rig displacement, settling and stable aim at two frame rates.
+	var recoil_metrics: Array[Dictionary] = []
+	for ads in [false,true]:
+		for frequency in [30.0,120.0]:
+			fps.set_aim(ads)
+			fps.visual_recoil = 0.0
+			for i in range(90): fps.advance(1.0/frequency)
+			var rest: Transform3D = fps.weapon_pivot.transform
+			var camera_before: Basis = game.player.camera.global_basis
+			fps.shot_cooldown = 0.0
+			check(fps.fire() == "REQUESTED","Actual training shot triggers gentle rig recoil")
+			var peak := 0.0
+			var angular_peak := 0.0
+			for frame in range(int(frequency*.5)):
+				fps.advance(1.0/frequency)
+				peak = maxf(peak,fps.weapon_pivot.position.distance_to(rest.origin))
+				angular_peak = maxf(angular_peak,rest.basis.get_rotation_quaternion().angle_to(fps.weapon_pivot.basis.get_rotation_quaternion()))
+			check(peak < (.007 if ads else .015),"Hip/ADS actual recoil translation remains bounded")
+			check(angular_peak < deg_to_rad(.60),"Recoil angular movement below 0.6 degrees")
+			check(fps.weapon_pivot.position.distance_to(rest.origin) < .0005,"Rig returns smoothly within 0.5 seconds")
+			check(game.player.camera.global_basis.is_equal_approx(camera_before),"Shot never snaps camera or host firing direction")
+			recoil_metrics.append({"ads":ads,"fps":frequency,"peak_m":peak,"peak_rad":angular_peak})
+	fps.set_aim(false)
+	fps.magazine = fps.MAGAZINE_CAPACITY
+	fps.ammo_by_peer[1] = fps.MAGAZINE_CAPACITY
+	fps.shot_ticks.clear()
+	print("FPS_GENTLE_RECOIL_METRICS ",JSON.stringify(recoil_metrics))
 	check(fps.sentries.is_empty(), "Arena has no scripted Level 2 enemies or Backrooms narrative targets")
 	check(fps.health_by_peer.has(1) and fps.ammo_by_peer.has(1), "Authoritative host initializes HP and ammo")
 	check(fps.match_can_fire(), "Solo training remains playable")

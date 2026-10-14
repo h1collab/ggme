@@ -672,6 +672,7 @@ func set_quality(value: int) -> void:
 	player.torch.shadow_enabled = quality == 2 and not OS.has_feature("android")
 	player.torch.spot_range = [9.0, 11.5, 14.0][quality]
 	player.torch.light_energy = [1.45,1.9,2.15][quality]
+	if is_instance_valid(fps_arena): fps_arena.apply_quality(quality)
 	save_settings()
 
 func save_settings() -> void:

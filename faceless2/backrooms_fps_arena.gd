@@ -9,16 +9,20 @@ var ground: StaticBody3D
 var light: DirectionalLight3D
 var floor_modules: Array[Node3D] = []
 var built := false
+var local_shadow: Node3D
+var shadow_animations: Array[Node] = []
 
 func _ready() -> void:
 	name = "SingleEmpty_FPS_Arena_NoLevels"
 	visible = false
+	set_process(false)
 
 func _floor_material() -> Material:
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(.81,.82,.79)
+	material.albedo_color = Color(.92,.95,.98)
 	material.roughness = .88
-	var prefix := "vendor/pbr_concrete_floor_"
+	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	var prefix := "vendor/pbr_large_grey_tiles_"
 	for suffix in [".jpg",".png",".jpeg"]:
 		var diffuse := Assets.path(prefix + "diffuse" + suffix)
 		if ResourceLoader.exists(diffuse):
@@ -29,14 +33,14 @@ func _floor_material() -> Material:
 		if ResourceLoader.exists(normal):
 			material.normal_enabled = true
 			material.normal_texture = load(normal)
-			material.normal_scale = .52
+			material.normal_scale = .70
 			break
 	for suffix in [".jpg",".png",".jpeg"]:
 		var rough := Assets.path(prefix + "rough" + suffix)
 		if ResourceLoader.exists(rough):
 			material.roughness_texture = load(rough)
 			break
-	return Assets.projected_pbr(material,.58)
+	return Assets.projected_pbr(material,.32)
 
 func _collider(at: Vector3, size: Vector3) -> void:
 	var shape := CollisionShape3D.new()
@@ -82,32 +86,65 @@ func build() -> void:
 		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(horizon)
 	light = DirectionalLight3D.new()
-	light.name = "Daylight_FPS_Arena_No_Shadows_Mobile"
-	light.rotation_degrees = Vector3(-48,22,0)
-	light.light_energy = 1.15
-	light.light_color = Color(1,.96,.88)
-	light.shadow_enabled = false
+	light.name = "WarmSun_FPS_Arena_QualityShadows"
+	light.rotation_degrees = Vector3(-38,-32,0)
+	light.light_energy = 1.05
+	light.light_color = Color(1,.93,.82)
+	light.shadow_bias = .035
+	light.shadow_normal_bias = .8
+	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	light.directional_shadow_blend_splits = true
 	add_child(light)
+	# An original licensed character casts the local player's ground shadow.
+	# It never appears in first person, adds no primitive visible geometry,
+	# and uses the same authored animation skin as network avatars.
+	local_shadow = Assets.fitted("vendor/crew.glb",1.75)
+	local_shadow.name = "OriginalLicensedCrew_LocalShadowOnly"
+	for mesh in local_shadow.find_children("*","MeshInstance3D",true,false):
+		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	shadow_animations = local_shadow.find_children("*","AnimationPlayer",true,false)
+	add_child(local_shadow)
+	apply_quality(get_parent().quality)
+
+func apply_quality(quality: int) -> void:
+	if not is_instance_valid(light): return
+	light.shadow_enabled = quality > 0
+	light.directional_shadow_max_distance = 24.0 if OS.has_feature("android") else 60.0
+
+func _process(_delta: float) -> void:
+	if not is_instance_valid(local_shadow): return
+	var player: Node3D = get_parent().player
+	local_shadow.global_position = player.global_position
+	local_shadow.rotation.y = player.rotation.y
+	var speed: float = Vector2(player.velocity.x,player.velocity.z).length()
+	for animation in shadow_animations:
+		(animation as AnimationPlayer).speed_scale = clampf(speed/2.6,0.0,1.5)
 
 func activate() -> void:
 	build()
 	visible = true
+	set_process(true)
+	apply_quality(get_parent().quality)
 	ground.collision_layer = 1
 	var world: WorldEnvironment = get_parent().environment
 	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color(.24,.42,.58)
-	sky_material.sky_horizon_color = Color(.71,.77,.78)
-	sky_material.ground_bottom_color = Color(.34,.32,.27)
-	sky_material.ground_horizon_color = Color(.71,.77,.78)
+	sky_material.sky_top_color = Color(.18,.34,.52)
+	sky_material.sky_horizon_color = Color(.72,.79,.85)
+	sky_material.ground_bottom_color = Color(.23,.27,.30)
+	sky_material.ground_horizon_color = Color(.72,.79,.85)
 	var sky := Sky.new()
 	sky.sky_material = sky_material
 	world.environment.sky = sky
 	world.environment.background_mode = Environment.BG_SKY
 	world.environment.fog_enabled = false
-	world.environment.ambient_light_energy = .38
+	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	world.environment.ambient_light_energy = .42
+	world.environment.tonemap_exposure = 1.0
 
 func deactivate() -> void:
 	visible = false
+	set_process(false)
 	if is_instance_valid(ground): ground.collision_layer = 0
 
 func spawn_for(slot: int) -> Vector3:

@@ -3,10 +3,14 @@ extends Node3D
 # physics-ray hitscan, magazine/reload, ADS, recoil, health and responsive
 # non-humanoid security targets. No visible primitive weapon/enemy meshes.
 const Assets = preload("backrooms_assets.gd")
+const WeaponFinish = preload("fps_weapon_finish.gdshader")
 const MAGAZINE_CAPACITY := 24
 const MAX_RANGE := 37.0
 const RATE_SECONDS := 0.19
 const RELOAD_SECONDS := 1.65
+const HIP_RECOIL_IMPULSE := .040
+const ADS_RECOIL_IMPULSE := .024
+const RECOIL_RETURN_SPEED := 14.0
 
 var game: Node
 var active := false
@@ -54,6 +58,9 @@ var shot_ticks: Dictionary = {}
 var shot_audio: AudioStreamPlayer
 var reload_audio: AudioStreamPlayer
 var impact_audio: AudioStreamPlayer
+var weapon_finish_ready := false
+var muzzle_light: OmniLight3D
+var muzzle_flash_time := 0.0
 
 func _ready() -> void:
     name = "Faceless2_KenneyCC0_FPS"
@@ -71,6 +78,7 @@ func _ready() -> void:
         for node in weapon_model.find_children("*","MeshInstance3D",true,false):
             var mesh := node as MeshInstance3D
             mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            _finish_weapon(mesh)
             var local: Transform3D = weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
             for surface in range(mesh.mesh.get_surface_count()):
                 var arrays: Array = mesh.mesh.surface_get_arrays(surface)
@@ -126,7 +134,16 @@ func _ready() -> void:
         hand.position += target-actual
         grip_mounts.append({"hand":hand,"skeleton":skel,"socket":socket,"target":target})
         for part in hand.find_children("*","MeshInstance3D",true,false):
-            (part as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            var skin_mesh := part as MeshInstance3D
+            skin_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            for surface in range(skin_mesh.mesh.get_surface_count()):
+                var source_material := skin_mesh.get_active_material(surface) as StandardMaterial3D
+                if source_material == null: continue
+                var skin_finish := source_material.duplicate() as StandardMaterial3D
+                skin_finish.roughness = .78
+                skin_finish.metallic = 0.0
+                skin_finish.metallic_specular = .28
+                skin_mesh.set_surface_override_material(surface,skin_finish)
         mounted += 1
     measure_grip()
     grip_ready = mounted == 2 and grip_error < .002 and grip_mesh_error < .005 and grip_surface_error < .0005
@@ -135,6 +152,40 @@ func _ready() -> void:
     shot_audio = _audio("fps_shot.wav",-12)
     reload_audio = _audio("fps_reload.wav",-15)
     impact_audio = _audio("fps_impact.wav",-12)
+    muzzle_light = OmniLight3D.new()
+    muzzle_light.name = "ShortShotIllumination_NoFakeMuzzleMesh"
+    muzzle_light.position = Vector3(0,.025,-.31)
+    muzzle_light.light_color = Color(1,.72,.38)
+    muzzle_light.light_energy = 1.1
+    muzzle_light.omni_range = 1.3
+    muzzle_light.shadow_enabled = false
+    muzzle_light.visible = false
+    weapon_pivot.add_child(muzzle_light)
+
+func _finish_weapon(mesh: MeshInstance3D) -> void:
+    for surface in range(mesh.mesh.get_surface_count()):
+        var original := mesh.get_active_material(surface) as StandardMaterial3D
+        if original == null or original.albedo_texture == null:
+            push_error("Authored Kenney atlas missing from GLB material")
+            continue
+        var finish := ShaderMaterial.new()
+        finish.shader = WeaponFinish
+        finish.set_shader_parameter("source_atlas",original.albedo_texture)
+        for binding in {"detail_albedo":"diffuse","detail_normal":"normal","detail_roughness":"rough","detail_metallic":"metal"}:
+            var path := Assets.path("vendor/pbr_weapon_metal_%s.jpg" % {"detail_albedo":"diffuse","detail_normal":"normal","detail_roughness":"rough","detail_metallic":"metal"}[binding])
+            if not ResourceLoader.exists(path):
+                push_error("Verified weapon PBR texture missing: "+path)
+                continue
+            finish.set_shader_parameter(binding,load(path))
+        mesh.set_surface_override_material(surface,finish)
+        weapon_finish_ready = true
+
+func trigger_recoil() -> void:
+    # Bounded rig-only impulse; aiming/shot authority are never rotated.
+    var impulse := ADS_RECOIL_IMPULSE if aiming else HIP_RECOIL_IMPULSE
+    visual_recoil = minf(visual_recoil+impulse,impulse*1.15)
+    muzzle_flash_time = .075
+    if is_instance_valid(muzzle_light): muzzle_light.visible = true
 
 # Posing fingers uses authored WRAD skeleton bones only. No full-arm
 # shoulder/elbow IK, which visibly bent the source upper arms across the gun.
@@ -307,6 +358,9 @@ func leave_level() -> void:
     reserve_by_peer.clear()
     reload_ends.clear()
     shot_ticks.clear()
+    visual_recoil = 0.0
+    muzzle_flash_time = 0.0
+    if is_instance_valid(muzzle_light): muzzle_light.visible = false
 
 func _spawn_sentry(at: Vector3, hitpoints: int, index: int) -> void:
     if not ResourceLoader.exists(Assets.path("vendor/fps_target_large.glb")):
@@ -356,7 +410,9 @@ func advance(delta: float) -> void:
             magazine += transfer
             reserve -= transfer
             reload_time = 0.0
-    visual_recoil = move_toward(visual_recoil,0.0,delta*4.2)
+    visual_recoil *= exp(-delta*RECOIL_RETURN_SPEED)
+    muzzle_flash_time = maxf(0.0,muzzle_flash_time-delta)
+    if is_instance_valid(muzzle_light): muzzle_light.visible = muzzle_flash_time > 0.0
     reload_visual_seconds = maxf(0.0,reload_visual_seconds-delta)
     # A conservative camera-to-wall ray keeps the entire rig (not just
     # the rifle) inside the capsule envelope at close surfaces.
@@ -376,14 +432,14 @@ func advance(delta: float) -> void:
         var walking: float = sin(game.player.motion_clock)
         var base := Vector3(.24 + walking*.006*motion,
             -.22 - absf(walking)*.006*motion + game.player.landing_dip*.35,
-            -.64 + visual_recoil*.45)
-        if aiming: base = Vector3(0,-.100375,-.60 + visual_recoil*.35)
+            -.64 + visual_recoil*.30)
+        if aiming: base = Vector3(0,-.100375,-.60 + visual_recoil*.22)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
         base.y -= reload_phase*.14 + wall_retract*.16
         base.z += wall_retract*.20
         base.x -= wall_retract*.035
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
-        var pitch := (0.0 if aiming else -.04)+visual_recoil*.30+reload_phase*.36-wall_retract*1.35
+        var pitch := (0.0 if aiming else -.04)+visual_recoil*.20+reload_phase*.36-wall_retract*1.35
         weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,minf(1.0,delta*11.0))
         weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,0.0 if aiming else -.08,minf(1.0,delta*9.0))
         weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,(0.0 if aiming else -.025)+wall_retract*.10,minf(1.0,delta*9.0))
@@ -459,7 +515,7 @@ func fire() -> String:
         if reload_time > 0: return "RELOADING"
         if shot_cooldown > 0.0 or magazine <= 0: return "COOLDOWN"
         shot_cooldown = RATE_SECONDS
-        visual_recoil = .10
+        trigger_recoil()
         if shot_audio.stream != null: shot_audio.play()
         game.net.request_fps_fire(-game.player.camera.global_transform.basis.z)
         return "REQUESTED"
@@ -471,7 +527,7 @@ func fire() -> String:
         return "EMPTY"
     magazine -= 1
     shot_cooldown = RATE_SECONDS
-    visual_recoil = .11
+    trigger_recoil()
     if shot_audio.stream != null: shot_audio.play()
     var eye: Vector3 = game.player.camera.global_position
     var direction: Vector3 = -game.player.camera.global_transform.basis.z
