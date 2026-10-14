@@ -40,9 +40,10 @@ func run() -> void:
 		game.rooms.create_room(true, 2, "Black Corridor")
 		check(await wait_for(func(): return game.rooms.room_code.length() == 8), "HTTP JS registration returns room code")
 		check(game.net.mode == "host" and game.net.max_crew == 2, "host imposes 2-person limit")
+		check(not game.fps.match_can_fire(), "One connected host must wait for second player")
 		print("ROOM_READY ", game.rooms.room_code)
 		check(await wait_for(func(): return game.net.members.size() == 2, 12.0), "real ENet peer joined by room code")
-		check(game.fps_arena.visible and game.fps.active, "Host created a real dedicated FPS arena")
+		check(game.fps_arena.visible and game.fps.active and game.fps.match_can_fire(), "Two players can start immediately, no need to wait for four")
 		check(await wait_for(func(): return game.fps.ammo_by_peer.values().has(23),7.0), "Remote FPS fire reaches authoritative host via actual ENet UDP")
 		await create_timer(1.0).timeout
 	elif role == "client":
@@ -50,6 +51,7 @@ func run() -> void:
 		check(await wait_for(func(): return game.net.mode == "client" and game.net.members.has(1), 12.0), "no-IP code resolves JS room into native UDP connection")
 		check(game.net.mode == "client" and game.rooms.room_code == code, "joined exact room")
 		check(await wait_for(func(): return game.fps_arena.visible and game.fps.active, 7.0), "Actual FPS arena state synchronized over ENet")
+		check(game.fps.match_can_fire(), "Client sees match available at two players")
 		game.net.request_fps_fire(Vector3.FORWARD)
 		check(await wait_for(func(): return game.fps.magazine == 23,7.0), "Authoritative host ammo update replicated to client")
 	else:

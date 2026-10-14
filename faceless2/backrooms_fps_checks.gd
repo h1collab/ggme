@@ -25,6 +25,7 @@ func run() -> void:
 	check(fps.weapon_model != null and fps.weapon_model.find_children("*","MeshInstance3D",true,false).size() >= 2, "Licensed original multi-mesh firearm")
 	check(fps.sentries.is_empty(), "Arena has no scripted Level 2 enemies or Backrooms narrative targets")
 	check(fps.health_by_peer.has(1) and fps.ammo_by_peer.has(1), "Authoritative host initializes HP and ammo")
+	check(fps.match_can_fire(), "Solo training remains playable")
 	check(not fps.server_fire(1,Vector3(100,0,0)), "Invalid arbitrary firing vector rejected")
 	var ammo: int = fps.ammo_by_peer[1]
 	check(fps.server_fire(1,Vector3.FORWARD), "Host accepts normalized authoritative shot")

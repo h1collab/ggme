@@ -81,8 +81,8 @@ func _ready() -> void:
             continue
         var hand: Node3D = Assets.fitted("vendor/fps_wrad_grip_%s.glb" % side,.18)
         hand.name = "WRAD_CC0_Skinned_%s_ActualGLBGrip" % side
-        hand.position = Vector3(.07,.075,-.04) if side == "r" else Vector3(.12,-.055,-.30)
-        hand.rotation = Vector3(.48,-1.10,.36) if side == "r" else Vector3(.66,1.05,-.53)
+        hand.position = Vector3(.04,.045,-.08) if side == "r" else Vector3(.055,-.095,-.28)
+        hand.rotation = Vector3(.40,-1.10,.20) if side == "r" else Vector3(.49,1.05,-.38)
         grip_hands.add_child(hand)
         var skeletons: Array[Node] = hand.find_children("*","Skeleton3D",true,false)
         if skeletons.is_empty():
@@ -129,6 +129,13 @@ func _audio(filename: String, volume: float) -> AudioStreamPlayer:
 
 func is_equipped() -> bool:
     return active and equipped
+
+# Competitive matches start with two connected players, not four.
+func match_can_fire() -> bool:
+    if not active or not game.fps_arena.visible: return false
+    if game.net.mode == "solo": return true
+    if game.net.mode == "host": return game.net.members.size() >= 2
+    return game.net.mode == "client" and health_by_peer.size() >= 2
 
 func enter_arena() -> void:
     leave_level()
@@ -338,7 +345,7 @@ func remaining_targets() -> int:
 
 func fire() -> String:
     if active and level_id == -2:
-        if not game.running or game.ui.modal or not equipped: return "LOCKED"
+        if not game.running or game.ui.modal or not equipped or not match_can_fire(): return "LOCKED"
         if shot_cooldown > 0.0 or magazine <= 0: return "COOLDOWN"
         shot_cooldown = RATE_SECONDS
         visual_recoil = .10
@@ -401,7 +408,7 @@ func damage_player(amount: int) -> void:
 
 # Validated on the host, not by the shooting client.
 func server_fire(shooter: int, direction: Vector3) -> bool:
-    if not active or level_id != -2 or not game.net.authoritative(): return false
+    if not active or level_id != -2 or not game.net.authoritative() or not match_can_fire(): return false
     if not health_by_peer.has(shooter) or int(health_by_peer[shooter]) <= 0: return false
     if not direction.is_finite() or absf(direction.length()-1.0) > .05: return false
     if shooter != 1 and not game.net.poses.has(shooter): return false
@@ -444,7 +451,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
     return true
 
 func server_reload(shooter: int) -> bool:
-    if not active or not game.net.authoritative() or not ammo_by_peer.has(shooter): return false
+    if not active or not game.net.authoritative() or not ammo_by_peer.has(shooter) or not match_can_fire(): return false
     if int(ammo_by_peer[shooter]) >= MAGAZINE_CAPACITY: return false
     ammo_by_peer[shooter] = MAGAZINE_CAPACITY
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)

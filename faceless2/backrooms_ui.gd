@@ -280,7 +280,7 @@ func menu() -> void:
 	_label(panels, localized("FPS ARENA", "独立 FPS 竞技场"), Vector2(73, 323), 640, 27, ACCENT)
 	_label(panels, localized("ONE ROOM. ONE UNANSWERED CALL.\nThe number has no name.", "一个房间，一通没有名字的来电。\n接通之后，事情开始失控。"), Vector2(72, 411), 600, 26, MUTED)
 	_button(panels, localized("PLAY FPS / EMPTY ARENA", "开始 FPS / 空白场地"), Rect2(72, 538, 600, 76), func(): game.net.leave(); game.start_fps_arena())
-	_button(panels, localized("FPS MATCH / 2–4 PLAYERS", "FPS 匹配 / 2–4 人"), Rect2(72, 631, 600, 74), open_lobby)
+	_button(panels, localized("FPS MATCH / MIN 2 MAX 4", "FPS 匹配 / 最低 2 人，最多 4 人"), Rect2(72, 631, 600, 74), open_lobby)
 	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
 	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
 	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
@@ -541,7 +541,7 @@ func open_lobby() -> void:
 	room_visibility.add_item(localized("PUBLIC / Listed", "公开 / 显示在列表"), 0)
 	room_visibility.add_item(localized("PRIVATE / Code only", "私人 / 只通过房间号"), 1)
 	panels.add_child(room_visibility)
-	_label(panels, localized("MAX PLAYERS", "人数上限"), Vector2(455, 373), 240, 19, MUTED)
+	_label(panels, localized("MIN 2 TO START / MAX PLAYERS", "2 人开局 / 人数上限"), Vector2(455, 373), 240, 19, MUTED)
 	slot_limit = SpinBox.new()
 	slot_limit.position = Vector2(458, 409)
 	slot_limit.size = Vector2(244, 56)
@@ -707,6 +707,8 @@ func refresh() -> void:
 			if fps_active:
 				var my_peer: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
 				fps_status_label.text = localized("HP %d  |  AMMO %d/%d  |  KILLS %d","生命 %d  |  弹药 %d/%d  |  击倒 %d") % [game.fps.health,game.fps.magazine,game.fps.reserve,int(game.fps.scores.get(my_peer,0))]
+				if game.net.mode != "solo" and not game.fps.match_can_fire():
+					fps_status_label.text = localized("WAITING FOR PLAYER 2 — MATCH STARTS AT 2/4","等待第 2 位玩家——2 人即可开始，最多 4 人")
 		if hint_timer > 0:
 			hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
 			if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
