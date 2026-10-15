@@ -106,7 +106,7 @@ func _process(delta: float) -> bool:
     var data := {"mode":game.net.mode,"transport_connected":is_instance_valid(game.net.peer) and game.net.peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,"members":game.net.members.size(),
         "id":game.multiplayer.get_unique_id(),"active":game.fps.active,
         "arena":game.fps_arena.visible,"can_fire":game.fps.match_can_fire(),
-        "hit_serials":game.fps.hit_serials,"hit_marker":game.fps.last_confirmed_serial,"match_attempts":game.rooms.match_attempts,"matching":game.rooms.matching,"kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
+        "impact_serial":game.fps.last_impact_serial,"impact_marks":game.fps.impact_sprites.size(),"impact_authority":game.fps.impact_serial,"hit_serials":game.fps.hit_serials,"hit_marker":game.fps.last_confirmed_serial,"match_attempts":game.rooms.match_attempts,"matching":game.rooms.matching,"kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
         "hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
         "scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
         "directory":game.rooms.directory_url,"room":game.rooms.room_code,"capacity":game.net.max_crew,

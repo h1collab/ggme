@@ -93,7 +93,7 @@ def main():
         for _ in range(100):
             try:
                 with urlopen(url+'/health', timeout=.5) as response:
-                    assert json.load(response)['protocol'] == 19
+                    assert json.load(response)['protocol'] == 20
                 break
             except OSError:
                 time.sleep(.05)
@@ -211,6 +211,11 @@ def main():
                     wait('c1', lambda x: x.get('ammo', {}).get(shooter) == 23,
                          'one accepted shot despite duplicate flood')
                     assert state('host')['ammo'][shooter] == 23
+                    mark = wait('c1',lambda x: x.get('impact_serial',0) > 0 and x.get('impact_marks',0) > 0,
+                                'host raycast surface mark replicated')
+                    assert mark['impact_serial'] == state('host')['impact_authority']
+                    time.sleep(.35)
+                    assert state('c1')['impact_marks'] == mark['impact_marks'], 'periodic snapshots must not duplicate impact marks'
                     command('c1', 'handshake')
                     time.sleep(.3)
                     assert state('host')['ammo'][shooter] == 23

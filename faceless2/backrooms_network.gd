@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 19
+const PROTOCOL := 20
 const MAX_CREW := 4
 const PEER_IDLE_LIMIT_MSEC := 15000
 var game: Node

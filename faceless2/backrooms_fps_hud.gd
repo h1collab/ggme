@@ -18,6 +18,7 @@ var scoreboard_open := false
 var score_toggle: Button
 var last_kill_serial := 0
 var feed_seconds := 0.0
+var kill_rows: Array[Dictionary] = []
 func icon_file(key: String) -> String:
 	var file := "res://ui/hud/"+key+".svg"
 	return file if ResourceLoader.exists(file) else "res://faceless2/hud_icons/"+key+".svg"
@@ -49,6 +50,16 @@ func build(owner_ui: Control) -> void:
 	feed = ui._label(self,"",Vector2(1100,178),452,16)
 	feed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	feed.size.y = 140
+	for index in range(4):
+		var row := card(Rect2(1240,178+index*27,312,24))
+		var killer: Label = ui._label(row,"",Vector2(0,0),119,16)
+		killer.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		killer.size.y = 24
+		icon(row,"weapon",Vector2(133,3),Vector2(32,18))
+		var victim: Label = ui._label(row,"",Vector2(180,0),125,16)
+		victim.size.y = 24
+		row.visible = false
+		kill_rows.append({"row":row,"killer":killer,"victim":victim})
 	health_card = card(Rect2(28,817,205,56))
 	icon(health_card,"health",Vector2(12,10),Vector2(26,26))
 	health_text = ui._label(health_card,"",Vector2(50,4),130,28)
@@ -135,7 +146,14 @@ func refresh(delta: float) -> void:
 		last_kill_serial = 0
 		feed.text = ""
 	feed_seconds = maxf(0,feed_seconds-delta)
-	feed.visible = feed_seconds > 0 and not feed.text.is_empty()
+	feed.visible = false
+	for index in range(kill_rows.size()):
+		var show_row: bool = feed_seconds > 0 and index < fps.kill_events.size()
+		kill_rows[index].row.visible = show_row
+		if show_row:
+			var event: Dictionary = fps.kill_events[fps.kill_events.size()-1-index]
+			kill_rows[index].killer.text = "P%d" % int(game.net.seats.get(event.killer,event.killer))
+			kill_rows[index].victim.text = "P%d" % int(game.net.seats.get(event.victim,event.victim))
 
 func _style_bar(bar: ProgressBar) -> void:
 	var back := StyleBoxFlat.new()

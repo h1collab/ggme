@@ -164,6 +164,16 @@ jobs:
           test "$(find preview_frames -maxdepth 1 -name '*.png' | wc -l)" -ge 8
           ! grep -E "ERROR:|FAIL:" preview_frames/preview.log
           echo "GODOT_PREVIEW_PASS independent desktop viewport screenshots, no APK"
+      - name: Publish native stills for review while continuous video records
+        uses: actions/upload-artifact@v4
+        with:
+          name: faceless2-native-stills
+          path: |
+            preview_frames/map*.png
+            preview_frames/commit-sha.txt
+            preview_frames/preview.log
+          if-no-files-found: error
+          retention-days: 7
       - name: Record actual continuous Godot gameplay into H.264 MP4
         shell: bash
         run: |

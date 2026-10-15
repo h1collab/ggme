@@ -8,7 +8,7 @@ PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, mouse to look. A
 
 ## Network version and authority
 
-Native ENet/UDP gameplay protocol is **19** (default UDP 24711), room discovery protocol version **19** (LAN multicast/broadcast + optional HTTPS Node room directory). The explicit version change is mandatory because validated pose RPCs include camera pitch and combat-state RPCs include host-owned reload/reserve state. v18 clients must not join v19 rooms. The join RPC now carries the host-selected map ID; combat and world snapshots also carry that ID.
+Native ENet/UDP gameplay protocol is **20** (default UDP 24711), room discovery protocol version **20** (LAN multicast/broadcast + optional HTTPS Node room directory). The v0.34 version increase is mandatory because both map collision layouts changed: older clients must not join and simulate different walls. Validated pose RPCs include camera pitch and combat-state RPCs include host-owned reload/reserve state. v19 and older clients must not join v20 rooms. The join RPC now carries the host-selected map ID; combat and world snapshots also carry that ID.
 
 A room can hold 2-4 connected players. One player waits; combat starts at two, even in a room with three or four seats. Losing the second player returns to waiting. Late joins and disconnects broadcast the current combat roster to all authenticated live peers. Seat numbers are allocated separately from ENet IDs, reclaimed on disconnect and used for respawns. Repeated handshakes cannot refill health/ammo. The host owns health, ammo, kills, respawn location and accepted fire rate, validates membership on every firing/reload RPC and checks ray LOS/shot yaw/pitch against the last validated peer location. Clients cannot submit direct target damage or scores. Snapshots for joining clients contain their actual assigned spawn and current combat state. Hit positions are only approximated from host-validated player movement; full lag compensation and full adversarial anti-cheat remain future work.
 
@@ -25,7 +25,7 @@ detaches a hand by 10cm to verify the measurement detects displacement. Both
 hands and gun inherit ADS/recoil/movement together. Native captures include
 walking, running, landing, reload and boundary retraction.
 
-Protocol 19 synchronizes authoritative reserve ammo and reload countdown. Reload
+Protocol 20 synchronizes authoritative reserve ammo and reload countdown. Reload
 takes 1.65 seconds, cannot be spammed to instantly refill, and blocks host-side
 fire until completion. Direction must agree with the last validated yaw/pitch;
 full client trust, transport security and lag compensation remain out of scope.
@@ -74,7 +74,7 @@ Central source-GLB cover islands retain diagonal spawn sightlines and a clear ce
 
 FPS-only walk/sprint is 3.8/6.2m/s; historical exploration remains 2.6/4.3. Host movement bounds follow the actual FPS sprint limit with bounded packet allowance. Local and host fire cadence uses the same 120ms interval (host tolerance 2ms). A 160ms single pending tap buffer prevents near-cooldown presses from disappearing. Holding desktop LMB and mobile FIRE repeats; opening a menu cancels pending taps. Hits remain instantaneous physics hitscan, not slow projectile flight. Gentle rig recoil is retained.
 
-Host-only hit serials are optional protocol-19 combat snapshot fields; only accepted damage yields a hit marker. HP loss gives a short screen-edge flash. Read-only live kills/HP scoreboard uses host-assigned seat numbers, desktop TAB or mobile score-card tap. Compact map/room card, centered dynamic reticle and actual stamina bar preserve separate mobile look and action zones.
+Host-only hit serials are optional protocol-20 combat snapshot fields; only accepted damage yields a hit marker. HP loss gives a short screen-edge flash. Read-only live kills/HP scoreboard uses host-assigned seat numbers, desktop TAB or mobile score-card tap. Compact map/room card, centered dynamic reticle and actual stamina bar preserve separate mobile look and action zones.
 
 Quick match is single-flight and cancellable, awaits actual HTTP discovery, prioritizes occupied joinable rooms with random ties, resolves the published code, retries up to three endpoints with bounded lookup/UDP deadlines, then registers a host. Search cancellation prevents delayed room creation. Listings show map/capacity/code. This improves direct-room selection and error recovery; it is not a UDP relay or public NAT traversal service.
 
@@ -99,7 +99,7 @@ Replace the active stylized firearm with the source-authored CC0 M4A1 and origin
 
 Add numbered high range partitions, narrow GLB uprights and low approach covers, retaining all original spawn pockets and central training lane. Use warm mineral walls, a stronger directional key and brighter hangar ambient fill. Reduce the four corner HUD cards and mobile button opacity; preserve the independently captured move/look/action touch regions and actual ammo/HP/stamina bindings.
 
-Each accepted server shot raycasts the real solid world and publishes bounded optional `impacts` combat snapshot data (protocol 19, unchanged RPC signature). Clients render each serial once, at the host's point/normal. At most 32 events are transmitted and 48 2D marks exist locally, fading after 23 seconds and removed by 25 seconds or leaving. Marks are cosmetic and cannot authorize damage. The kill feed maps IDs to actual roster seats.
+Each accepted server shot raycasts the real solid world and publishes bounded optional `impacts` combat snapshot data (protocol 20, unchanged RPC signature). Clients render each serial once, at the host's point/normal. At most 32 events are transmitted and 48 2D marks exist locally, fading after 23 seconds and removed by 25 seconds or leaving. Marks are cosmetic and cannot authorize damage. The kill feed maps IDs to actual roster seats.
 
 Solo players may explicitly toggle **TARGET DRILL / T** from pause or the T key. Three genuine Kenney GLB targets use ray-only collision, world occlusion and the existing host firing cooldown/ammo rules; actual hits are counted in HUD. Targets are absent by default and cannot be enabled in multiplayer. Both two-player-start maps and the existing real six-scenario UDP matrix remain mandatory.
 
