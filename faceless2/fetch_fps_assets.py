@@ -74,13 +74,13 @@ def fetch_wrad_arms(folder: Path) -> None:
     from bake_fps_grip_hands import bake
     subset = folder / "fps_wrad_grip_hands.glb"
     triangles, original = bake(dest,subset)
-    if not (triangles == 1042 and original == 1196):
+    if not (triangles == 1178 and original == 1196):
         raise ValueError("CC0 hand/wrist GLB subset count invalid")
     print("FPS_WRAD_CC0_SKINNED_GRIP_PASS",triangles,original)
     for side in ("r", "l"):
         target = folder / ("fps_wrad_grip_" + side + ".glb")
         hand_triangles,_ = bake(dest,target,side)
-        if hand_triangles != 521:
+        if hand_triangles != 589:
             raise ValueError("Original WRAD authored hand subset has unexpected count: "+side)
         print("FPS_WRAD_HAND_SIDE_PASS",side,hand_triangles)
 

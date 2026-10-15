@@ -7,6 +7,7 @@ func check(ok: bool, msg: String) -> void:
 		push_error("FAIL: "+msg)
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
+	root.size = Vector2i(1600,900)
 	game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -95,6 +96,10 @@ func run() -> void:
 	check(not game.player.viewmodel_root.visible, "Original floating Sketchfab hands hidden while holding FPS weapon")
 	check(fps.grip_hands.get_parent() == fps.weapon_pivot, "Rifle and rigged hands share one animated parent")
 	check(fps.grip_hands.get_child_count() == 2, "Two independent authored WRAD skinned hand GLBs grip one weapon, no loose elbows")
+	for ads in [false,true]:
+		fps.set_aim(ads)
+		for i in range(100): fps.advance(1.0/60.0)
+		check_arm_boundaries(fps)
 	check(fps.weapon_model != null and fps.weapon_model.find_children("*","MeshInstance3D",true,false).size() >= 2, "Licensed original multi-mesh firearm")
 	check(fps.weapon_finish_ready,"Original atlas and verified PBR finish loaded")
 	var rifle_triangles := 0
@@ -294,6 +299,41 @@ func run() -> void:
 	# Return from the fixture coroutine before exit: its local Shape3D and
 	# physics-query references must be released before ResourceDB shutdown.
 	call_deferred("_finish_fixture")
+
+func check_arm_boundaries(fps: Node3D) -> void:
+	for mount in fps.grip_mounts:
+		var skel: Skeleton3D = mount.skeleton
+		var side := "r" if str(mount.hand.name).contains("_r_") else "l"
+		var wrist := skel.to_global(skel.get_bone_global_pose(skel.find_bone("wrist."+side)).origin)
+		var tested := 0
+		var visible := 0
+		for mesh in mount.hand.find_children("*","MeshInstance3D",true,false):
+			for surface in range(mesh.mesh.get_surface_count()):
+				var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+				var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+				var posed: PackedVector3Array = fps.skinned_surface_points(mesh,skel,surface)
+				var keys: Array[String] = []
+				for v in vertices: keys.append("%.4f,%.4f,%.4f" % [v.x,v.y,v.z])
+				# Merge coincident UV/normal seam positions before finding real
+				# open source-mesh edges. Inspect the posed arm end, not palm seams.
+				var edges := {}
+				for i in range(0,indices.size(),3):
+					for j in range(3):
+						var a: int = indices[i+j]
+						var b: int = indices[i+(j+1)%3]
+						var key: String = keys[a]+"|"+keys[b] if keys[a]<keys[b] else keys[b]+"|"+keys[a]
+						if not edges.has(key): edges[key] = {"count":0,"a":a,"b":b}
+						edges[key].count += 1
+				for edge in edges.values():
+					if edge.count != 1: continue
+					for v in [edge.a,edge.b]:
+						if posed[v].distance_to(wrist) < .15: continue
+						tested += 1
+						var screen: Vector2 = game.player.camera.unproject_position(posed[v])
+						if not game.player.camera.is_position_behind(posed[v]) and Rect2(Vector2.ZERO,Vector2(root.size)).has_point(screen): visible += 1
+		check(tested > 0 and visible == 0,"Actual CPU-skinned open arm boundary lies outside the hip/ADS viewport")
+		print("FPS_ARM_BOUNDARY ads=",fps.aiming," side=",side," samples=",tested," visible=",visible)
 
 func _finish_fixture() -> void:
 	game = null

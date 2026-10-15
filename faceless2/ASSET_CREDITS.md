@@ -143,7 +143,7 @@ URL or accepted digest was replaced to work around the vintage_day_bed failure.
 
 Source remains wriks / WRAD ARMS CC0 at f3987244176c33d2c20d4f9e139980af12684d87,
 SHA-256 580efbb0852bf0b41f82dd3e17eafec86b3d2a48f4a7acaa7e64d60e850f565d.
-Each side now retains 521 original forearm/wrist/finger triangles (1042 of
+Each side now retains 589 original bicep/forearm/wrist/finger triangles (1178 of
 1196 combined). Only existing original attribute rows are copied with a common
 index remap; original UV, normals, materials, skeleton and inverse binds remain.
 Runtime aligns authored wrist/socket frames to measured Kenney pistol-grip and
@@ -153,9 +153,11 @@ Gun orientation is corrected using original geometry. This is still a stylized
 Kenney blaster, not a photorealistic modern pistol. Visual acceptance requires
 inspection of the SHA-matched native Godot screenshots and movie.
 
-The current subset keeps 521 original forearm/wrist/finger triangles per side
-(1042/1196 combined), excluding bicep/shoulder faces; the forearm cut is beyond
-the wrist while preserving the original complete forearms. No triangles are added; the author, CC0 license, source SHA, bind data, normals and UVs remain unchanged.
+The current subset keeps 589 original bicep/forearm/wrist/finger triangles per side
+(1178/1196 combined), excluding only shoulder-end faces. Runtime rigid forearm
+articulation places the original shoulder ends beyond the bottom of the view;
+cutting at the elbow exposed visible open forearm ends and is not retained.
+No triangles are added; the author, CC0 license, source SHA, bind data, normals and UVs remain unchanged.
 
 ## Functional original-geometry ADS optic
 
@@ -216,4 +218,4 @@ Kloppenheim 06 Pure Sky — Greg Zaal (original) and Jarod Guest (pure sky edits
 
 - Legacy huuxloc source is retained at SHA-256 `948d80d419152b82cdedd03ce92cace39fbcd69d6801330cd3021995456c984c`. `decode_backroom_glb.py` replaces a failing npm CLI with build-only **DracoPy 1.5.0**, an Apache-2.0 wrapper for Google's Draco (https://github.com/seung-lab/DracoPy). Strict source hash, 26 meshes, 3,912 triangles, attribute/index counts and finite values are verified. Original node/material/texture/UV/normal data remain; no geometry is synthesized. Decoded output SHA-256 `99d5f83a419919a51f5f692095dae0f80f432b0376a90c2d595e64a28ddca84c`.
 
-- v0.34 native screenshots exposed the retained bicep strips crossing the new stock even after the palm and trigger-finger pose were corrected. The licensed subset now excludes those original bicep triangles while preserving **all original forearm, wrist, palm and finger streams** (521 triangles per side; 1,042 of the 1,196 source triangles total). Counts are checked exactly; the untouched original remains hash-verified. No face/UV/normal/bind data is synthesized or relabeled.
+- v0.34 native review exposed stock intersections; an intermediate 521-face elbow crop then exposed open forearm ends. The final source subset preserves **589 original bicep/forearm/wrist/palm/finger triangles per side** (1,178/1,196 total). Rigid forearm articulation and opposite wrist articulation preserve the calibrated grasp and original segment length, moving the original shoulder cut outside the view. Counts remain exact and the untouched source hash is unchanged. No face/UV/normal/bind data is synthesized or relabeled. Native review remains required.

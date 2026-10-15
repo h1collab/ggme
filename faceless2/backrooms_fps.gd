@@ -370,24 +370,32 @@ func measure_grip() -> void:
             var mesh := part as MeshInstance3D
             if mesh.skin == null: continue
             for surface in range(mesh.mesh.get_surface_count()):
-                var arrays: Array = mesh.mesh.surface_get_arrays(surface)
-                var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-                var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
-                var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
-                var influences: int = bones.size()/maxi(1,vertices.size())
-                for vertex in range(vertices.size()):
-                    var posed := Vector3.ZERO
-                    for influence in range(influences):
-                        var k := vertex*influences+influence
-                        if weights[k] <= 0: continue
-                        var bind := bones[k]
-                        var bone := skel.find_bone(mesh.skin.get_bind_name(bind))
-                        if bone < 0: bone = mesh.skin.get_bind_bone(bind)
-                        if bone < 0: continue
-                        posed += (skel.get_bone_global_pose(bone) * mesh.skin.get_bind_pose(bind) * vertices[vertex])*weights[k]
-                    closest = minf(closest,skel.to_global(posed).distance_to(target))
+                for posed in skinned_surface_points(mesh,skel,surface):
+                    closest = minf(closest,posed.distance_to(target))
         grip_mesh_error = maxf(grip_mesh_error,closest)
     print("FPS_GRIP_GEOMETRY socket_m=",grip_error," skin_contact_m=",grip_mesh_error," gun_surface_m=",grip_surface_error)
+
+# Inspection path only, never the per-frame animation path. Original skin
+# indices/inverse binds determine each point, rather than unposed mesh bounds.
+func skinned_surface_points(mesh: MeshInstance3D, skel: Skeleton3D, surface: int) -> PackedVector3Array:
+    var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+    var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+    var bones: PackedInt32Array = arrays[Mesh.ARRAY_BONES]
+    var weights: PackedFloat32Array = arrays[Mesh.ARRAY_WEIGHTS]
+    var influences: int = bones.size()/maxi(1,vertices.size())
+    var points := PackedVector3Array()
+    for vertex in range(vertices.size()):
+        var posed := Vector3.ZERO
+        for influence in range(influences):
+            var k := vertex*influences+influence
+            if weights[k] <= 0: continue
+            var bind := bones[k]
+            var bone := skel.find_bone(mesh.skin.get_bind_name(bind))
+            if bone < 0: bone = mesh.skin.get_bind_bone(bind)
+            if bone < 0: continue
+            posed += (skel.get_bone_global_pose(bone)*mesh.skin.get_bind_pose(bind)*vertices[vertex])*weights[k]
+        points.append(skel.to_global(posed))
+    return points
 
 func _distance_to_triangle(point: Vector3, a: Vector3, b: Vector3, c: Vector3) -> float:
     var normal := (b-a).cross(c-a)

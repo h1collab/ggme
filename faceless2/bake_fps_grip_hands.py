@@ -1,6 +1,7 @@
 """Bake ONLY authored WRAD CC0 arm/wrist/hand/finger triangles out of the
 fixed-hash original skinned GLB. Preserve geometry, UV, normals, original
-material, full skeleton and bind data; discard shoulder-end triangles. Compact all attribute streams together.
+material, full skeleton and bind data; retain the complete original forearm
+and bicep, discarding only shoulder-end triangles. Compact all streams together.
 The new GLB is a LICENSED SUBSET, never synthesized visible geometry.
 """
 import json
@@ -37,7 +38,7 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
         ws = item(prim["attributes"]["WEIGHTS_0"],vertex)
         return sum(w for j,w in zip(js,ws)
                    if (side == "both" or names[j].endswith("." + side)) and (names[j].startswith("finger_") or names[j].startswith("wrist.")
-                   or names[j].startswith("socket.") or names[j].startswith("forearm")))
+                   or names[j].startswith("socket.") or names[j].startswith("forearm") or names[j].startswith("bicep.")))
     weight = [hand_weight(i) for i in range(acc[prim["attributes"]["POSITION"]]["count"])]
     kept = []
     for t in range(0,len(all_indices),3):
