@@ -570,7 +570,7 @@ func advance(delta: float) -> void:
         var base := Vector3(.23 + walking*.004*motion,
             -.19 - absf(walking)*.006*motion + game.player.landing_dip*.35,
             -.48 + visual_recoil*.30)
-        if aiming: base = Vector3(.0008,-.068728,-.48 + visual_recoil*.22)
+        if aiming: base = Vector3(.000824,-.0773845,-.48 + visual_recoil*.22)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
         base.y -= reload_phase*.045 + wall_retract*.10
         base.z += wall_retract*.16

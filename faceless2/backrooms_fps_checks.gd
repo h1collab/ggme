@@ -137,8 +137,16 @@ func run() -> void:
 			recoil_metrics.append({"ads":ads,"fps":frequency,"peak_m":peak,"peak_rad":angular_peak})
 	fps.set_aim(true)
 	for i in range(60): fps.advance(1.0/60.0)
-	var peep: Vector3 = fps.weapon_pivot.transform*Vector3(-.000824,.068728,.069268)
-	check(absf(peep.x) < .001 and absf(peep.y) < .001,"Original rear peep reference aligns within 1mm of camera sight axis")
+	var peep: Vector3 = fps.weapon_pivot.transform*Vector3(-.000824,.0773845,.066138)
+	check(absf(peep.x) < .001 and absf(peep.y) < .001,"Actual rear aperture rim center aligns within 1mm of camera sight axis")
+	var blocked_aperture := 0
+	for triangle in range(0,fps.weapon_triangles.size(),3):
+		var a: Vector3 = fps.weapon_pivot.transform*fps.weapon_triangles[triangle]
+		var b: Vector3 = fps.weapon_pivot.transform*fps.weapon_triangles[triangle+1]
+		var c: Vector3 = fps.weapon_pivot.transform*fps.weapon_triangles[triangle+2]
+		var intersection: Variant = Geometry3D.segment_intersects_triangle(Vector3.ZERO,Vector3(0,0,-.60),a,b,c)
+		if intersection != null: blocked_aperture += 1
+	check(blocked_aperture == 0,"Actual imported rear sight triangles leave the camera aim ray unobstructed")
 	fps.set_aim(false)
 	fps.magazine = fps.MAGAZINE_CAPACITY
 	fps.ammo_by_peer[1] = fps.MAGAZINE_CAPACITY
