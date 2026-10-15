@@ -156,6 +156,7 @@ func refresh(delta: float) -> void:
 			kill_rows[index].victim.text = "P%d" % int(game.net.seats.get(event.victim,event.victim))
 
 func _style_bar(bar: ProgressBar) -> void:
+	bar.add_theme_font_size_override("font_size",1)
 	var back := StyleBoxFlat.new()
 	back.bg_color = Color(1,1,1,.12)
 	var fill := StyleBoxFlat.new()

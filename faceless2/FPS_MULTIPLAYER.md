@@ -104,3 +104,5 @@ Each accepted server shot raycasts the real solid world and publishes bounded op
 Solo players may explicitly toggle **TARGET DRILL / T** from pause or the T key. Three genuine Kenney GLB targets use ray-only collision, world occlusion and the existing host firing cooldown/ammo rules; actual hits are counted in HUD. Targets are absent by default and cannot be enabled in multiplayer. Both two-player-start maps and the existing real six-scenario UDP matrix remain mandatory.
 
 Still requires native visual inspection on every latest SHA. Encoding FPS is not a device-performance claim. No Android install, sustained device FPS, physical-Wi-Fi or public NAT/relay verification.
+
+The native v0.34 image review found the old right-palm orientation still aimed along the fore-end instead of up the M4A1 pistol grip. Rotate that authored wrist frame toward the actual upright grip, preserving source bones/skin and shared-parent motion. Align the original rear peep reference at source `(-0.000824, 0.068728, 0.069268)` to the camera sight axis; assert less than 1mm offset after ADS settles. Native screenshots must independently confirm the result.

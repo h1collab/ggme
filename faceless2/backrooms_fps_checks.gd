@@ -114,6 +114,10 @@ func run() -> void:
 			check(fps.weapon_pivot.position.distance_to(rest.origin) < .0005,"Rig returns smoothly within 0.5 seconds")
 			check(game.player.camera.global_basis.is_equal_approx(camera_before),"Shot never snaps camera or host firing direction")
 			recoil_metrics.append({"ads":ads,"fps":frequency,"peak_m":peak,"peak_rad":angular_peak})
+	fps.set_aim(true)
+	for i in range(60): fps.advance(1.0/60.0)
+	var peep: Vector3 = fps.weapon_pivot.transform*Vector3(-.000824,.068728,.069268)
+	check(absf(peep.x) < .001 and absf(peep.y) < .001,"Original rear peep reference aligns within 1mm of camera sight axis")
 	fps.set_aim(false)
 	fps.magazine = fps.MAGAZINE_CAPACITY
 	fps.ammo_by_peer[1] = fps.MAGAZINE_CAPACITY

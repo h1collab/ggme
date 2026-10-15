@@ -143,7 +143,7 @@ func _ready() -> void:
         # Y points along the palm; X is palm normal; Z is thumb side.
         var left_forward := Vector3(.35,.25,-.90).normalized()
         var left_normal := (Vector3.UP-left_forward*left_forward.y).normalized()
-        var right_forward := Vector3(-.35,.32,-.88).normalized()
+        var right_forward := Vector3(-.18,.80,-.57).normalized()
         var right_normal := (Vector3.RIGHT-right_forward*right_forward.x).normalized()
         var palm := Basis(right_normal,right_forward,right_normal.cross(right_forward)) if side == "r" else Basis(left_normal,left_forward,left_normal.cross(left_forward))
         var source_wrist: Transform3D = hand.global_transform.affine_inverse() * skel.global_transform * skel.get_bone_global_pose(wrist)
@@ -170,6 +170,7 @@ func _ready() -> void:
                 skin_mesh.set_surface_override_material(surface,skin_finish)
         mounted += 1
     _calibrate_grip_surfaces()
+    _pose_trigger_finger()
     measure_grip()
     grip_ready = mounted == 2 and grip_error < .002 and grip_mesh_error < .005 and grip_surface_error < .0005
     print("FPS_ORIGINAL_CC0_TWO_HAND_GRIP=",mounted)
@@ -191,6 +192,28 @@ func _ready() -> void:
     muzzle_light.shadow_enabled = false
     muzzle_light.visible = false
     weapon_pivot.add_child(muzzle_light)
+
+# Pose only the authored right index joints toward the real trigger guard.
+# Work in skeleton space and recover the local pose through parent/rest bases;
+# neither skin weights nor mesh vertices are replaced or stretched.
+func _pose_trigger_finger() -> void:
+    if not is_instance_valid(grip_skeleton): return
+    var goals := [Vector3(.005,-.045,.028),Vector3(-.001,-.043,.022),Vector3(.003,-.054,.021)]
+    for index in range(3):
+        var bone := grip_skeleton.find_bone("finger_index%d.r" % (index+1))
+        var child := grip_skeleton.find_bone("finger_index%d.r" % (index+2)) if index < 2 else -1
+        if bone < 0: continue
+        grip_skeleton.force_update_all_bone_transforms()
+        var current: Transform3D = grip_skeleton.get_bone_global_pose(bone)
+        var along := (grip_skeleton.get_bone_global_pose(child).origin-current.origin).normalized() if child >= 0 else current.basis.y.normalized()
+        var goal: Vector3 = grip_skeleton.to_local(weapon_pivot.to_global(goals[index]))
+        var target := (goal-current.origin).normalized()
+        var rotated := Basis(Quaternion(along,target))*current.basis
+        var parent := grip_skeleton.get_bone_parent(bone)
+        var parent_basis := grip_skeleton.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
+        var pose := grip_skeleton.get_bone_rest(bone).basis.inverse()*parent_basis.inverse()*rotated
+        grip_skeleton.set_bone_pose_rotation(bone,pose.orthonormalized().get_rotation_quaternion())
+    grip_skeleton.force_update_all_bone_transforms()
 
 func _finish_rifle(mesh: MeshInstance3D) -> void:
     for surface in range(mesh.mesh.get_surface_count()):
@@ -535,7 +558,7 @@ func advance(delta: float) -> void:
         var base := Vector3(.23 + walking*.004*motion,
             -.19 - absf(walking)*.006*motion + game.player.landing_dip*.35,
             -.48 + visual_recoil*.30)
-        if aiming: base = Vector3(.0008,-.081,-.48 + visual_recoil*.22)
+        if aiming: base = Vector3(.0008,-.068728,-.48 + visual_recoil*.22)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
         base.y -= reload_phase*.045 + wall_retract*.10
         base.z += wall_retract*.16

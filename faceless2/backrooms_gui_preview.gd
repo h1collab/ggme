@@ -12,7 +12,10 @@ func shot(label: String, at: Vector3, target: Vector3, fire: bool = false) -> vo
 	game.player.yaw = atan2(-direction.x,-direction.z)
 	game.player.pitch = asin(direction.y)
 	game.ui.refresh()
-	for i in range(20): await process_frame
+	# Settle the real rig through its normal advance function before rendering
+	# static review poses. The MP4 separately renders every consecutive frame.
+	for i in range(60): game.fps.advance(1.0/60.0)
+	for i in range(8): await process_frame
 	if fire:
 		game.fps.fire()
 		for i in range(2): await process_frame
