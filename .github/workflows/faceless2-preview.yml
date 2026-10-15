@@ -27,6 +27,7 @@ on:
       - "faceless2/generate_sound.py"
       - "faceless2/fetch_fps_assets.py"
       - "faceless2/fetch_fps_rifle.py"
+      - "faceless2/decode_backroom_glb.py"
       - "faceless2/backrooms_bake_rifle.gd"
       - "faceless2/bake_fps_grip_hands.py"
       - "faceless2/bake_fps_optic.py"
@@ -65,7 +66,7 @@ jobs:
           echo "054a7037bebddd6a4be9e697f495c5577756bc7b4c075681d2fb3226a74f65ea  upgrade.zip" | sha256sum -c -
           mkdir app
           unzip -q upgrade.zip -d app
-          python -m pip install -q Pillow==11.3.0 fonttools==4.61.1 trimesh==4.7.4 numpy==2.2.6 cairosvg==2.8.2
+          python -m pip install -q Pillow==11.3.0 fonttools==4.61.1 trimesh==4.7.4 numpy==2.2.6 cairosvg==2.8.2 DracoPy==1.5.0
           python - <<'PYCODE'
           from pathlib import Path
           import shutil,re
@@ -123,7 +124,7 @@ jobs:
           python faceless2/generate_sound.py app/audio
           curl -fLsS --retry 3 -o app/assets/vendor/iphone17_pro.glb "https://raw.githubusercontent.com/quentin-pla/phone-mockup-studio/9908f2c321787779b6e028cba1ab67cd29a6a6dd/source/iphone_17_pro.glb"
           test "$(git hash-object app/assets/vendor/iphone17_pro.glb)" = "31d6a04caabcca2fb717738079ca66da59347647"
-          npx --yes @gltf-transform/cli@4.5.1 cp app/assets/vendor/huuxloc_backroom.draco.glb app/assets/vendor/huuxloc_backroom.glb
+          python faceless2/decode_backroom_glb.py app/assets/vendor/huuxloc_backroom.draco.glb app/assets/vendor/huuxloc_backroom.glb
           rm app/assets/vendor/huuxloc_backroom.draco.glb
       - name: Install Godot 4.7.2 native Linux desktop preview runtime
         shell: bash
