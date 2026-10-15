@@ -205,3 +205,12 @@ Kloppenheim 06 Pure Sky — Greg Zaal (original) and Jarod Guest (pure sky edits
 - faceless2/hud_icons/run.svg: SHA-256 `bed3f6458b0250c5a048b4f1ac40bf31b4a2bcecbf9b55cf17a77cd5dd2541d7`.
 - faceless2/hud_icons/score.svg: SHA-256 `053eebf7a44fea1ccaccddf1ff901e66b6309fa2a8ac30080a410292633c403d`.
 - faceless2/hud_icons/weapon.svg: SHA-256 `d35a2421ef02e1aa99ff6dd95e426b45c98939c042feefbfb3106940489f53f2`.
+
+
+## v0.34 source-authored M4A1 reference rifle
+
+- **M4A1 Assault Rifle**, nisu / 3DModelsCC0; **CC0 1.0**. Publisher's dated release and license: https://opengameart.org/content/m4a1-assault-rifle (24 April 2022). Its linked original 3dmodelscc0.com page is currently unavailable; use the publisher-hosted archive, not that domain. This is an authored 2022 FBX and texture release, not a model extracted from the screenshot or another game.
+- Publisher ZIP: https://opengameart.org/sites/default/files/m4a1_0.zip ; SHA-256 `ed5779ec82718861964227e2aad2a900978ea087081154365d6d86246be62f0d`. Full six-file source byte lengths and SHA-256 values are pinned and verified in `fetch_fps_rifle.py`. Base color, normal, metallic and roughness are original supplied 2048px maps; height source is retained. No source texture is relabeled as another author's.
+- `backrooms_bake_rifle.gd` uses **Godot 4.7.2 native ufbx + GLTFDocument** in headless mode to preserve the original meshes/UVs and embed original PBR maps into `fps_m4a1.glb`. Actual importer inventory: **9,258 triangles**, 14 source mesh parts, including Magazine, Charging_Handle, Trigger, Barrel and Stock. Conversion changes material channel bindings only; no generated visible gun geometry. Runtime animates original magazine/handle transforms.
+- The existing Kenney original/optic GLBs, WRAD source and licensed skinned subsets remain preserved and verified. WRAD wrist/socket alignment is recalibrated to measured points on the M4A1's actual triangles; both hands remain source skinned GLBs. This does not imply the grasp is free of all intersections.
+- `hud_icons/impact.svg` is original repository-authored 2D vector art for temporary surface marks. It is a small transparent Sprite3D decal, never a substitute for the gun, hands or architecture. Authored GLB panels/pillars form added range partitions; numbered Label3D signage is original text. No reference screenshot content is shipped as a game texture or model.

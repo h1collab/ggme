@@ -8,6 +8,9 @@ func shot(label: String, at: Vector3, target: Vector3, fire: bool = false) -> vo
 	game.player.velocity = Vector3.ZERO
 	game.player.global_position = at
 	game.player.camera.look_at(target)
+	var direction: Vector3 = -game.player.camera.global_basis.z
+	game.player.yaw = atan2(-direction.x,-direction.z)
+	game.player.pitch = asin(direction.y)
 	game.ui.refresh()
 	for i in range(20): await process_frame
 	if fire:
@@ -49,6 +52,14 @@ func run() -> void:
 		game.ui.fps_corner_hud.scoreboard_open = true
 		await shot(prefix+"08_scoreboard",Vector3(-7,.12,7),Vector3(8,1.6,-13))
 		game.ui.fps_corner_hud.scoreboard_open = false
+		game.ui.touch_preview = false
+		game.ui.prologue_finished()
+		await shot(prefix+"09_reference_lane_impact",Vector3(-10.5,.12,-6.5),Vector3(-10.5,1.6,-11.5),true)
+		game.fps.reload()
+		await shot(prefix+"10_reload_authored_magazine",Vector3(0,.12,0),Vector3(0,1.6,-18))
+		game.fps.toggle_training()
+		await shot(prefix+"11_optional_drill",Vector3(0,.12,0),Vector3(0,1.6,-9),true)
+		game.fps.toggle_training()
 		game.fps.measure_grip()
 		print("PREVIEW_MAP ",map_id," GEOMETRY ",game.fps_arena.geometry_digest())
 	game.net.leave()

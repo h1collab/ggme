@@ -1,5 +1,5 @@
 extends Node3D
-# Faceless 2's first playable FPS loop: actual CC0 Kenney GLB blaster,
+# Source-authored CC0 M4A1, original PBR, WRAD skinned hands,
 # physics-ray hitscan, magazine/reload, ADS, recoil, health and responsive
 # non-humanoid security targets. No visible primitive weapon/enemy meshes.
 const Assets = preload("backrooms_assets.gd")
@@ -40,8 +40,8 @@ var grip_mesh_error := 999.0
 var grip_surface_error := 999.0
 var grip_mounts: Array[Dictionary] = []
 # Measured in the original Kenney GLB coordinates: pistol grip and fore-end.
-const GUN_SCALE := .55
-const GRIP_POINTS := [Vector3(.024115504,-.077,.335),Vector3(0,-.023255516,-.245)]
+const GUN_SCALE := 1.0
+const GRIP_POINTS := [Vector3(.013,-.085,.072),Vector3(0,-.006,-.235)]
 var wall_retract := 0.0
 var wall_probe_seconds := 0.0
 var wall_clearance := 100.0
@@ -66,24 +66,37 @@ var impact_audio: AudioStreamPlayer
 var weapon_finish_ready := false
 var muzzle_light: OmniLight3D
 var muzzle_flash_time := 0.0
+var rifle_magazine: Node3D
+var rifle_handle: Node3D
+var magazine_rest := Vector3.ZERO
+var handle_rest := Vector3.ZERO
+var left_hand_rest := Transform3D.IDENTITY
+var impacts: Array[Dictionary] = []
+var impact_serial := 0
+var last_impact_serial := 0
+var impact_sprites: Array[Sprite3D] = []
+var impact_ages: Array[float] = []
+var training_enabled := false
+var training_hits := 0
+var training_targets: Array[StaticBody3D] = []
 
 func _ready() -> void:
     name = "Faceless2_KenneyCC0_FPS"
     set_process(false)
     weapon_pivot = Node3D.new()
-    weapon_pivot.name = "CameraMounted_CertifiedKenneyBlasterGLB"
+    weapon_pivot.name = "CameraMounted_LicensedCC0M4A1GLB"
     game.player.camera.add_child(weapon_pivot)
     weapon_pivot.position = Vector3(.24,-.22,-.64)
     weapon_pivot.rotation = Vector3(-.04,-.08,-.025)
-    if ResourceLoader.exists(Assets.path("vendor/fps_blaster_f_open_optic.glb")):
-        weapon_model = load(Assets.path("vendor/fps_blaster_f_open_optic.glb")).instantiate()
-        weapon_model.name = "Kenney_BlasterF_CC0_AuthoredOpenOpticSubset"
+    if ResourceLoader.exists(Assets.path("vendor/fps_m4a1.glb")):
+        weapon_model = load(Assets.path("vendor/fps_m4a1.glb")).instantiate()
+        weapon_model.name = "Nisu_CC0_M4A1_OriginalAuthoredParts"
         weapon_model.scale = Vector3.ONE * GUN_SCALE
         weapon_pivot.add_child(weapon_model)
         for node in weapon_model.find_children("*","MeshInstance3D",true,false):
             var mesh := node as MeshInstance3D
             mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-            _finish_weapon(mesh)
+            _finish_rifle(mesh)
             var local: Transform3D = weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
             for surface in range(mesh.mesh.get_surface_count()):
                 var arrays: Array = mesh.mesh.surface_get_arrays(surface)
@@ -92,7 +105,7 @@ func _ready() -> void:
                 var faces: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
                 for index in faces: weapon_triangles.append(local*vertices[index])
     else:
-        push_error("Source-verified Kenney Blaster GLB not packaged")
+        push_error("Source-verified CC0 M4A1 GLB not packaged")
     # New, genuinely rigged WRAD ARMS CC0 authored GLB replaces the
     # separated Sketchfab hands ONLY in FPS mode. The mesh, source skin,
     # texture, fingers and wrist joints remain from the original GLB.
@@ -156,22 +169,66 @@ func _ready() -> void:
                 skin_finish.disable_receive_shadows = true
                 skin_mesh.set_surface_override_material(surface,skin_finish)
         mounted += 1
+    _calibrate_grip_surfaces()
     measure_grip()
     grip_ready = mounted == 2 and grip_error < .002 and grip_mesh_error < .005 and grip_surface_error < .0005
     print("FPS_ORIGINAL_CC0_TWO_HAND_GRIP=",mounted)
+    rifle_magazine = weapon_model.find_child("Magazine",true,false)
+    rifle_handle = weapon_model.find_child("Charging_Handle",true,false)
+    if is_instance_valid(rifle_magazine): magazine_rest = rifle_magazine.position
+    if is_instance_valid(rifle_handle): handle_rest = rifle_handle.position
+    if grip_hands.get_child_count() == 2: left_hand_rest = grip_hands.get_child(1).transform
     weapon_pivot.visible = false
     shot_audio = _audio("fps_shot.wav",-12)
     reload_audio = _audio("fps_reload.wav",-15)
     impact_audio = _audio("fps_impact.wav",-12)
     muzzle_light = OmniLight3D.new()
     muzzle_light.name = "ShortShotIllumination_NoFakeMuzzleMesh"
-    muzzle_light.position = Vector3(0,.025,-.31)
+    muzzle_light.position = Vector3(0,.04,-.53)
     muzzle_light.light_color = Color(1,.72,.38)
     muzzle_light.light_energy = 1.1
     muzzle_light.omni_range = 1.3
     muzzle_light.shadow_enabled = false
     muzzle_light.visible = false
     weapon_pivot.add_child(muzzle_light)
+
+func _finish_rifle(mesh: MeshInstance3D) -> void:
+    for surface in range(mesh.mesh.get_surface_count()):
+        var material := mesh.get_active_material(surface) as StandardMaterial3D
+        if material == null or material.albedo_texture == null or material.normal_texture == null or material.roughness_texture == null or material.metallic_texture == null:
+            push_error("Original CC0 M4A1 PBR channels not embedded")
+            continue
+        var finish := material.duplicate() as StandardMaterial3D
+        finish.disable_receive_shadows = true
+        finish.roughness = .85
+        finish.normal_scale = .5
+        mesh.set_surface_override_material(surface,finish)
+        weapon_finish_ready = true
+
+# Project nominal grasp sockets onto actual imported rifle triangles. Keep
+# nominal distance bounded; changing a model cannot silently move sockets far.
+func _calibrate_grip_surfaces() -> void:
+    for mount in grip_mounts:
+        var desired: Vector3 = mount.target
+        var closest := desired
+        var distance := INF
+        for i in range(0,weapon_triangles.size(),3):
+            var a: Vector3 = weapon_triangles[i]
+            var b: Vector3 = weapon_triangles[i+1]
+            var c: Vector3 = weapon_triangles[i+2]
+            var normal := (b-a).cross(c-a).normalized()
+            var projected := desired-normal*(desired-a).dot(normal)
+            var point: Vector3 = projected
+            if _distance_to_triangle(projected,a,b,c) > .00001:
+                var edges := [Geometry3D.get_closest_point_to_segment(desired,a,b),Geometry3D.get_closest_point_to_segment(desired,b,c),Geometry3D.get_closest_point_to_segment(desired,c,a)]
+                point = edges[0]
+                for edge in edges:
+                    if desired.distance_squared_to(edge) < desired.distance_squared_to(point): point = edge
+            var error := desired.distance_to(point)
+            if error < distance: distance = error; closest = point
+        if distance > .035: push_error("Rifle nominal grip lies too far from authored surface")
+        (mount.hand as Node3D).position += closest-desired
+        mount.target = closest
 
 func _finish_weapon(mesh: MeshInstance3D) -> void:
     for surface in range(mesh.mesh.get_surface_count()):
@@ -295,6 +352,9 @@ func match_can_fire() -> bool:
 func enter_arena() -> void:
     leave_level()
     kill_events.clear()
+    impacts.clear()
+    impact_serial = 0
+    last_impact_serial = 0
     kill_serial = 0
     last_confirmed_serial = 0
     damage_feedback_time = 0.0
@@ -373,6 +433,15 @@ func leave_level() -> void:
     for target in sentries:
         if is_instance_valid(target): target.queue_free()
     sentries.clear()
+    for target in training_targets:
+        if is_instance_valid(target): target.queue_free()
+    training_targets.clear()
+    training_enabled = false
+    training_hits = 0
+    for sprite in impact_sprites:
+        if is_instance_valid(sprite): sprite.queue_free()
+    impact_sprites.clear()
+    impact_ages.clear()
     target_remaining = 0
     health_by_peer.clear()
     ammo_by_peer.clear()
@@ -427,6 +496,13 @@ func advance(delta: float) -> void:
     hit_feedback_time = maxf(0.0,hit_feedback_time-delta)
     damage_feedback_time = maxf(0.0,damage_feedback_time-delta)
     combat_clock += delta
+    for i in range(impact_sprites.size()-1,-1,-1):
+        impact_ages[i] += delta
+        if impact_ages[i] > 25.0:
+            impact_sprites[i].queue_free()
+            impact_sprites.remove_at(i)
+            impact_ages.remove_at(i)
+        elif impact_ages[i] > 23.0: impact_sprites[i].modulate.a = (25.0-impact_ages[i])*.5
     if level_id == -2 and game.net.authoritative():
         finish_server_reloads()
     if reload_time > 0.0 and level_id != -2:
@@ -456,16 +532,16 @@ func advance(delta: float) -> void:
     if is_instance_valid(weapon_pivot):
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
         var walking: float = sin(game.player.motion_clock)
-        var base := Vector3(.24 + walking*.006*motion,
-            -.22 - absf(walking)*.006*motion + game.player.landing_dip*.35,
-            -.64 + visual_recoil*.30)
-        if aiming: base = Vector3(0,-.100375,-.60 + visual_recoil*.22)
+        var base := Vector3(.23 + walking*.004*motion,
+            -.19 - absf(walking)*.006*motion + game.player.landing_dip*.35,
+            -.48 + visual_recoil*.30)
+        if aiming: base = Vector3(.0008,-.081,-.48 + visual_recoil*.22)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
-        base.y -= reload_phase*.14 + wall_retract*.16
-        base.z += wall_retract*.20
+        base.y -= reload_phase*.045 + wall_retract*.10
+        base.z += wall_retract*.16
         base.x -= wall_retract*.035
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
-        var pitch := (0.0 if aiming else -.04)+visual_recoil*.20+reload_phase*.36-wall_retract*1.35
+        var pitch := (0.0 if aiming else -.04)+visual_recoil*.20+reload_phase*.20-wall_retract*.75
         weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,minf(1.0,delta*11.0))
         weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,0.0 if aiming else -.08,minf(1.0,delta*9.0))
         weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,(0.0 if aiming else -.025)+wall_retract*.10,minf(1.0,delta*9.0))
@@ -477,6 +553,16 @@ func advance(delta: float) -> void:
             for vertex in weapon_vertices:
                 forward_extent = maxf(forward_extent,-(weapon_pivot.basis*vertex).z)
             weapon_pivot.position.z = maxf(weapon_pivot.position.z,-wall_clearance+forward_extent+.025)
+    if is_instance_valid(rifle_magazine):
+        var phase := 1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0)
+        var travel := sin(clampf((phase-.08)/.76,0.0,1.0)*PI) if reload_visual_seconds > 0 else 0.0
+        rifle_magazine.position = magazine_rest+Vector3(-.015,-.16,.025)*travel
+        if grip_hands.get_child_count() == 2:
+            var left: Node3D = grip_hands.get_child(1)
+            left.transform = left_hand_rest
+            left.position += Vector3(-.015,-.16,.18)*travel
+        if is_instance_valid(rifle_handle):
+            rifle_handle.position = handle_rest+Vector3(0,0,.045)*sin(clampf((phase-.80)/.18,0.0,1.0)*PI) if reload_visual_seconds > 0 else handle_rest
     game.player.camera.fov = lerpf(game.player.camera.fov,59.0 if aiming and equipped else 76.0,minf(1.0,delta*9.0))
     if level_id != 2 or target_remaining <= 0 or game.ui.modal: return
     enemy_timer -= delta
@@ -618,6 +704,22 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
     shot_ticks[shooter] = now
     ammo_by_peer[shooter] = int(ammo_by_peer[shooter])-1
     var origin: Vector3 = game.player.camera.global_position if shooter == 1 else game.net.poses[shooter].p + Vector3(0,1.58,0)
+    var world_query := PhysicsRayQueryParameters3D.create(origin,origin+direction*MAX_RANGE,1)
+    world_query.exclude = [game.player.get_rid()]
+    var world_hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(world_query)
+    if not world_hit.is_empty():
+        impact_serial += 1
+        impacts.append({"serial":impact_serial,"p":world_hit.position,"n":world_hit.normal})
+        if impacts.size() > 32: impacts.pop_front()
+    if game.net.mode == "solo" and training_enabled:
+        var target_query := PhysicsRayQueryParameters3D.create(origin,origin+direction*MAX_RANGE,2)
+        var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(target_query)
+        if not hit.is_empty() and (world_hit.is_empty() or origin.distance_to(hit.position) < origin.distance_to(world_hit.position)):
+            var target: StaticBody3D = hit.collider
+            if target in training_targets:
+                training_hits += 1
+                hit_serials[shooter] = int(hit_serials.get(shooter,0))+1
+                target.set_meta("last_hit",Time.get_ticks_msec())
     var nearest := 1000.0
     var victim := -1
     for id in health_by_peer:
@@ -660,7 +762,7 @@ func combat_state() -> Dictionary:
     var remaining := {}
     for id in reload_ends:
         remaining[id] = maxf(0.0,float(int(reload_ends[id])-Time.get_ticks_msec())/1000.0)
-    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true),"hits":hit_serials.duplicate(),"seats":game.net.seats.duplicate()}
+    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true),"impacts":impacts.duplicate(true),"hits":hit_serials.duplicate(),"seats":game.net.seats.duplicate()}
 
 func finish_server_reloads() -> void:
     var changed := false
@@ -675,6 +777,10 @@ func finish_server_reloads() -> void:
 
 func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
     if int(combat.get("map_id",game.fps_arena.map_id)) != game.fps_arena.map_id: return
+    for event in combat.get("impacts",[]):
+        if event is Dictionary and int(event.get("serial",0)) > last_impact_serial:
+            last_impact_serial = int(event.serial)
+            _show_impact(event.p,event.n)
     kill_events.clear()
     for event in combat.get("kills",[]):
         if event is Dictionary: kill_events.append(event.duplicate())
@@ -691,3 +797,49 @@ func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, com
     magazine = int(ammo.get(id,MAGAZINE_CAPACITY))
     reserve = int(combat.get("reserve",{}).get(id,120))
     reload_time = float(combat.get("reload",{}).get(id,0.0))
+
+func _show_impact(at: Vector3, normal: Vector3) -> void:
+    if not at.is_finite() or not normal.is_finite() or normal.length_squared() < .5: return
+    var sprite := Sprite3D.new()
+    sprite.name = "Original_2D_BallisticSurfaceMark"
+    var path := "res://ui/hud/impact.svg"
+    if not ResourceLoader.exists(path): path = "res://faceless2/hud_icons/impact.svg"
+    sprite.texture = load(path)
+    sprite.pixel_size = .0018
+    sprite.shaded = true
+    sprite.no_depth_test = false
+    sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    game.fps_arena.add_child(sprite)
+    sprite.global_position = at+normal.normalized()*.006
+    sprite.look_at(sprite.global_position+normal,Vector3.RIGHT if absf(normal.y)>.95 else Vector3.UP)
+    sprite.rotate_object_local(Vector3.BACK,float(last_impact_serial)*2.399)
+    impact_sprites.append(sprite)
+    impact_ages.append(0.0)
+    if impact_sprites.size() > 48:
+        impact_sprites.pop_front().queue_free()
+        impact_ages.pop_front()
+
+func toggle_training() -> void:
+    if not active or level_id != -2 or game.net.mode != "solo": return
+    training_enabled = not training_enabled
+    training_hits = 0
+    for target in training_targets:
+        if is_instance_valid(target): target.queue_free()
+    training_targets.clear()
+    if not training_enabled: return
+    for x in [-2.0,0.0,2.0]:
+        var target := StaticBody3D.new()
+        target.name = "OptionalSoloOriginalKenneyTarget"
+        target.position = Vector3(x,1.6,-9)
+        target.collision_layer = 2
+        target.collision_mask = 0
+        var model := Assets.fitted("vendor/fps_target_large.glb",.75)
+        model.position.y = -.375
+        target.add_child(model)
+        var shape := CollisionShape3D.new()
+        var capsule := SphereShape3D.new()
+        capsule.radius = .38
+        shape.shape = capsule
+        target.add_child(shape)
+        game.fps_arena.add_child(target)
+        training_targets.append(target)

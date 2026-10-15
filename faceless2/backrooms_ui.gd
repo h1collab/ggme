@@ -240,6 +240,10 @@ func _build_hud() -> void:
 		button.expand_icon = true
 		button.add_theme_constant_override("icon_max_width",32)
 		if button == pause_button: button.text = ""
+		var normal := _style(Color(.025,.035,.045,.24),Color(1,1,1,.32))
+		normal.set_corner_radius_all(38)
+		button.add_theme_stylebox_override("normal",normal)
+		button.add_theme_font_size_override("font_size",16)
 	facility_goal_label = _label(hud,"",Vector2(42,48),760,22,ACCENT)
 	facility_goal_label.visible = false
 	run.button_down.connect(func(): run_held = true)
@@ -458,7 +462,7 @@ func prologue_finished() -> void:
 	var replay := _button(panels, localized("REPLAY", "重播"), Rect2(1190,24,176,64), func(): game.start_prologue())
 	var home := _button(panels, localized("MAIN MENU", "主菜单"), Rect2(1190,24,180,64), func(): game.net.leave(); game.running = false; menu())
 	replay.visible = use_touch_controls and not fps_mode
-	home.visible = use_touch_controls
+	home.visible = use_touch_controls and not fps_mode
 
 func open_briefing() -> void:
 	_page(game.story.chapter_title(game.stage), "briefing")
@@ -539,7 +543,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / FPS ARENA\nTwo authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.33.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.34.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -566,6 +570,8 @@ func open_pause() -> void:
 	_button(panels, "SETTINGS", Rect2(825, 445, 620, 78), open_settings)
 	_button(panels, "ASSET CREDITS", Rect2(825, 565, 620, 78), open_credits)
 	_button(panels, "LEAVE", Rect2(75, 565, 620, 78), func(): game.net.leave(); game.running = false; menu())
+	if game.fps.active and game.net.mode == "solo":
+		_button(panels,localized("TARGET DRILL / T","标靶训练 / T"),Rect2(75,683,620,70),func(): game.fps.toggle_training(); close_panels())
 
 func open_lobby() -> void:
 	_page(localized("MULTIPLAYER / ROOMS", "联机房间 / 创建 · 公开列表 · 房间码"), "lobby")

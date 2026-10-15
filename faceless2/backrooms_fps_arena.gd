@@ -107,8 +107,8 @@ func _build_map(index: int) -> void:
 	layout.name = "CargoCourtyard" if index == 0 else "MaintenanceHangar"
 	add_child(layout)
 	map_roots.append(layout)
-	var plaster := _pbr("worn_plaster_wall",Color(.62,.65,.67),.55)
-	var metal := _pbr("rusty_metal_sheet",Color(.54,.58,.61),1.0,.45)
+	var plaster := _pbr("concrete_floor",Color(.95,.86,.70),.32)
+	var metal := _pbr("rusty_metal_sheet",Color(.30,.34,.37),.72,.45)
 	var wall_height := 3.4 if index == 0 else 6.0
 	for side in [-1.0,1.0]:
 		_panel(layout,"Perimeter_X_%s" % side,Vector3(side*23.9,wall_height*.5,0),Vector3(.28,wall_height,48.2),plaster,true)
@@ -127,6 +127,26 @@ func _build_map(index: int) -> void:
 			var pocket := Vector3(side*6,0,depth*3)
 			_prop(layout,"MidCover_%s_%s" % [side,depth],"wakeup_wall.glb",pocket,1.15,0,metal,Vector2(3.2,.35))
 			_prop(layout,"MidBarrel_%s_%s" % [side,depth],"scan_barrel_02.glb",pocket+Vector3(side*1.25,0,.8),.95)
+	# Authored GLB lane dividers create depth and separate long/short sightlines.
+	# Keep the central 0..-9 training lane and all existing spawn pockets clear.
+	for side in [-1.0,1.0]:
+		for depth in [-1.0,1.0]:
+			var x: float = side*(10.5 if index == 0 else 12.0)
+			var z: float = depth*(11.5 if index == 0 else 12.8)
+			_panel(layout,"RangeBoard_%s_%s" % [side,depth],Vector3(x,1.30,z),Vector3(4.0,2.6,.24),plaster)
+			for dx in [-2.18,2.18]:
+				_prop(layout,"RangePost_%s_%s_%s" % [side,depth,dx],"wakeup_wall_pillar.glb",Vector3(x+dx,0,z),2.95,0,metal,Vector2(.18,.3))
+			var number := Label3D.new()
+			number.text = "%02d" % (1+(1 if side>0 else 0)+(2 if depth>0 else 0))
+			number.font_size = 90
+			number.pixel_size = .006
+			number.modulate = Color(.32,.12,.07)
+			number.outline_size = 0
+			number.no_depth_test = false
+			number.position = Vector3(x,1.85,z-depth*.132)
+			number.rotation.y = PI if depth>0 else 0.0
+			layout.add_child(number)
+			_prop(layout,"LaneLowCover_%s_%s" % [side,depth],"wakeup_wall.glb",Vector3(side*3.2,0,depth*13.5),.95,PI*.5,plaster,Vector2(.34,3.2))
 	if index == 0:
 		for depth in [-1.0,1.0]:
 			_panel(layout,"LoadingBay_%s" % depth,Vector3(0,1.6,depth*18),Vector3(10,3.2,.30),metal)
@@ -182,7 +202,7 @@ func build() -> void:
 	_build_map(1)
 	light = DirectionalLight3D.new()
 	light.name = "Sun_QualityShadows"
-	light.rotation_degrees = Vector3(-28,-32,0)
+	light.rotation_degrees = Vector3(-38,-32,0)
 	light.light_color = Color(1,.93,.82)
 	light.shadow_bias = .04
 	light.light_angular_distance = .65
@@ -224,7 +244,7 @@ func activate(selected: int = 0) -> void:
 	var finish := _pbr("concrete_floor" if map_id==0 else "large_grey_tiles",Color(.73,.77,.8),.55 if map_id==0 else .32)
 	for tile in floor_modules+[horizon]:
 		for mesh in tile.find_children("*","MeshInstance3D",true,false): (mesh as MeshInstance3D).material_override = finish
-	light.light_energy = .70 if map_id == 0 else .48
+	light.light_energy = .90 if map_id == 0 else .65
 	apply_quality(get_parent().quality)
 	var world: WorldEnvironment = get_parent().environment
 	var sky_material := PanoramaSkyMaterial.new()
@@ -240,7 +260,7 @@ func activate(selected: int = 0) -> void:
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	world.environment.ambient_light_color = Color(.62,.70,.80)
 	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	world.environment.ambient_light_energy = .38 if map_id == 0 else .58
+	world.environment.ambient_light_energy = .44 if map_id == 0 else .67
 	world.environment.tonemap_exposure = .90
 	layout_digest = geometry_digest()
 

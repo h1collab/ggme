@@ -26,6 +26,8 @@ on:
       - "faceless2/test_fps_sessions.py"
       - "faceless2/generate_sound.py"
       - "faceless2/fetch_fps_assets.py"
+      - "faceless2/fetch_fps_rifle.py"
+      - "faceless2/backrooms_bake_rifle.gd"
       - "faceless2/bake_fps_grip_hands.py"
       - "faceless2/bake_fps_optic.py"
       - "faceless2/backrooms_extra_transport.gd"
@@ -106,6 +108,7 @@ jobs:
           python faceless2/fetch_backrooms_assets.py app/assets/vendor
           python faceless2/fetch_wakeup_assets.py app/assets/vendor
           python faceless2/fetch_fps_assets.py app/assets/vendor
+          python faceless2/fetch_fps_rifle.py app/assets/vendor
           python faceless2/fetch_flashlight.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/flashlight-assets.log
           python faceless2/fetch_sketchfab_cast.py app/assets/vendor
           python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
@@ -133,6 +136,8 @@ jobs:
           sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
           godot --headless --path app --import
+          godot --headless --path app --script scripts/backrooms_bake_rifle.gd
+          godot --headless --path app --import
       - name: Preserve reproducible authored-asset project for headless QA
         shell: bash
         run: |
@@ -154,7 +159,7 @@ jobs:
           cp app/assets/vendor/sketchfab_smiler_face.png preview_frames/smiler_baked_source_review.png
           export FACELESS_PREVIEW_DIR="$GITHUB_WORKSPACE/preview_frames"
           export LIBGL_ALWAYS_SOFTWARE=1
-          timeout 420 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 30 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
+          timeout 600 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 30 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
           test "$(find preview_frames -maxdepth 1 -name '*.png' | wc -l)" -ge 8
           ! grep -E "ERROR:|FAIL:" preview_frames/preview.log
           echo "GODOT_PREVIEW_PASS independent desktop viewport screenshots, no APK"
@@ -170,11 +175,11 @@ jobs:
           timeout 600 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1
           grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
           ! grep -E "ERROR:|FAIL:" preview_frames/video.log
-          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v033-godot-real-gameplay.mp4
+          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v034-godot-real-gameplay.mp4
           python - <<'VERIFY'
           from pathlib import Path
           import json,subprocess
-          p=Path("preview_frames/faceless2-v033-godot-real-gameplay.mp4")
+          p=Path("preview_frames/faceless2-v034-godot-real-gameplay.mp4")
           assert p.stat().st_size>120000,"MP4 missing or tiny"
           d=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=codec_name,nb_frames,width,height","-of","json",str(p)]))
           stream=d["streams"][0]

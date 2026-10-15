@@ -1,4 +1,4 @@
-# Faceless 2 standalone FPS / headless network notes (v0.33)
+# Faceless 2 standalone FPS / headless network notes (v0.34)
 
 The FPS playfield is **two independent 48m x 48m FPS maps**, Cargo Courtyard and Maintenance Hangar. Both use 16 licensed Kenney CC0 floor GLBs, authored Kenney structural/cover GLBs, original Poly Haven scanned props and source-verified PBR textures. Courtyard is open with loading bays; Hangar has original GLB roof wings, an open skylight, pillars, service consoles and warm source lamp fixtures. Invisible collision proxies match visible structures. It is not Level 2 and does not contain elevators, story objectives or passive Backrooms entities. Legacy source is kept for regression but is not a prerequisite to playing an FPS match.
 
@@ -91,3 +91,16 @@ FPS fixture shutdown returns its physics-query/Shape3D locals before a separatel
 Quick match covers a complete 2-second LAN announcement cycle (2.25s minimum), publishes new hosts immediately, and waits only 0.5s minimum when an HTTP directory is configured. An extra real headless pair verifies UDP discovery -> room code -> authenticated ENet without HTTP, including identical map/geometry/seats. CI routes announcement datagrams to loopback and closes the host discovery listener to avoid a single-machine port conflict; physical Wi-Fi and public NAT remain unverified.
 
 Retained legacy UDP regression waits for an actual accepted remote pose under an 8s monotonic deadline; client holds real W until the CharacterBody advances 1.2m under a 4s deadline. This replaces load-sensitive fixed sleeps while preserving the original host movement threshold, wrong-key/graceful disconnect, late snapshot and strong-kill assertions. Test fixture resources return before deferred shutdown.
+
+
+## v0.34 reference-directed range and rifle
+
+Replace the active stylized firearm with the source-authored CC0 M4A1 and original PBR maps; preserve the previous Kenney assets. Headless native FBX conversion and source hashes are mandatory in both build workflows. Original magazine and charging handle animate during reload, while WRAD hands share the gun pivot and return to their calibrated grasp.
+
+Add numbered high range partitions, narrow GLB uprights and low approach covers, retaining all original spawn pockets and central training lane. Use warm mineral walls, a stronger directional key and brighter hangar ambient fill. Reduce the four corner HUD cards and mobile button opacity; preserve the independently captured move/look/action touch regions and actual ammo/HP/stamina bindings.
+
+Each accepted server shot raycasts the real solid world and publishes bounded optional `impacts` combat snapshot data (protocol 19, unchanged RPC signature). Clients render each serial once, at the host's point/normal. At most 32 events are transmitted and 48 2D marks exist locally, fading after 23 seconds and removed by 25 seconds or leaving. Marks are cosmetic and cannot authorize damage. The kill feed maps IDs to actual roster seats.
+
+Solo players may explicitly toggle **TARGET DRILL / T** from pause or the T key. Three genuine Kenney GLB targets use ray-only collision, world occlusion and the existing host firing cooldown/ammo rules; actual hits are counted in HUD. Targets are absent by default and cannot be enabled in multiplayer. Both two-player-start maps and the existing real six-scenario UDP matrix remain mandatory.
+
+Still requires native visual inspection on every latest SHA. Encoding FPS is not a device-performance claim. No Android install, sustained device FPS, physical-Wi-Fi or public NAT/relay verification.

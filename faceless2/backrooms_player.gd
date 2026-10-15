@@ -207,6 +207,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					if not game.fps.is_equipped(): toggle_torch()
 				else: toggle_torch()
 			KEY_R: if is_instance_valid(game.fps): game.fps.reload()
+			KEY_T: if is_instance_valid(game.fps): game.fps.toggle_training()
 			KEY_1: if is_instance_valid(game.fps): game.fps.select_blaster()
 			KEY_2: if is_instance_valid(game.fps): game.fps.select_flashlight()
 			KEY_ESCAPE: game.ui.open_pause()

@@ -31,42 +31,44 @@ func icon(parent: Control, key: String, at: Vector2, extent: Vector2) -> void:
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(picture)
 func card(rect: Rect2) -> Panel:
-	var panel: Panel = ui._card(self,rect,Color(.014,.022,.030,.60))
+	var panel: Panel = ui._card(self,rect,Color(.012,.018,.024,.20))
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return panel
 func build(owner_ui: Control) -> void:
 	ui = owner_ui
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = Vector2(1600,900)
-	var left := card(Rect2(26,24,500,106))
-	icon(left,"map",Vector2(16,18),Vector2(34,34))
-	map_text = ui._label(left,"",Vector2(62,16),426,21)
-	icon(left,"people",Vector2(16,62),Vector2(32,32))
-	room_text = ui._label(left,"",Vector2(62,62),426,18)
-	var right := card(Rect2(1212,110,340,64))
-	icon(right,"score",Vector2(16,14),Vector2(30,30))
-	score_text = ui._label(right,"",Vector2(60,17),262,20)
-	feed = ui._label(self,"",Vector2(1050,190),480,20)
+	var left := card(Rect2(26,24,370,78))
+	icon(left,"map",Vector2(12,10),Vector2(25,25))
+	map_text = ui._label(left,"",Vector2(48,8),310,17)
+	icon(left,"people",Vector2(12,43),Vector2(23,23))
+	room_text = ui._label(left,"",Vector2(48,44),310,14)
+	var right := card(Rect2(1270,112,282,48))
+	icon(right,"score",Vector2(12,10),Vector2(25,25))
+	score_text = ui._label(right,"",Vector2(47,12),225,16)
+	feed = ui._label(self,"",Vector2(1100,178),452,16)
 	feed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	feed.size.y = 140
-	health_card = card(Rect2(26,790,262,76))
-	icon(health_card,"health",Vector2(18,21),Vector2(34,34))
-	health_text = ui._label(health_card,"",Vector2(68,12),180,34)
-	ammo_card = card(Rect2(1260,744,292,122))
-	icon(ammo_card,"weapon",Vector2(18,9),Vector2(77,42))
-	icon(ammo_card,"bullet",Vector2(252,19),Vector2(20,28))
-	ammo_text = ui._label(ammo_card,"",Vector2(108,10),139,34)
-	ammo_hint = ui._label(ammo_card,"",Vector2(18,65),254,19)
+	health_card = card(Rect2(28,817,205,56))
+	icon(health_card,"health",Vector2(12,10),Vector2(26,26))
+	health_text = ui._label(health_card,"",Vector2(50,4),130,28)
+	ammo_card = card(Rect2(1324,786,228,88))
+	icon(ammo_card,"weapon",Vector2(12,7),Vector2(68,25))
+	icon(ammo_card,"bullet",Vector2(197,10),Vector2(14,21))
+	ammo_text = ui._label(ammo_card,"",Vector2(85,3),109,28)
+	ammo_hint = ui._label(ammo_card,"",Vector2(12,44),204,14)
 	reload_bar = ProgressBar.new()
-	reload_bar.position = Vector2(18,105)
-	reload_bar.size = Vector2(256,5)
+	reload_bar.position = Vector2(12,74)
+	reload_bar.size = Vector2(204,3)
 	reload_bar.show_percentage = false
+	_style_bar(reload_bar)
 	reload_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ammo_card.add_child(reload_bar)
 	stamina_bar = ProgressBar.new()
-	stamina_bar.position = Vector2(18,65)
-	stamina_bar.size = Vector2(226,4)
+	stamina_bar.position = Vector2(12,45)
+	stamina_bar.size = Vector2(180,3)
 	stamina_bar.show_percentage = false
+	_style_bar(stamina_bar)
 	stamina_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	health_card.add_child(stamina_bar)
 	score_toggle = Button.new()
@@ -100,8 +102,8 @@ func refresh(delta: float) -> void:
 			rows.append("P%d   ·   %d / %d" % [number,int(fps.scores.get(peer_id,0)),int(fps.health_by_peer[peer_id])])
 		scoreboard_text.text = "\n".join(rows)
 	queue_redraw()
-	health_card.position.y = 557 if mobile else 790
-	ammo_card.position.y = 510 if mobile else 744
+	health_card.position.y = 596 if mobile else 817
+	ammo_card.position.y = 553 if mobile else 786
 	map_text.text = game.fps_arena.map_title(game.language == "zh")
 	var count: int = fps.health_by_peer.size()
 	var cap: int = game.net.max_crew
@@ -109,6 +111,7 @@ func refresh(delta: float) -> void:
 	if game.net.mode != "solo" and not fps.match_can_fire(): room_text.text += "  ·  "+ui.localized("WAITING FOR P2","等待第 2 人")
 	var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
 	score_text.text = ui.localized("KILLS %d  ·  PLAYERS %d","击倒 %d  ·  玩家 %d") % [int(fps.scores.get(id,0)),count]
+	if fps.training_enabled: score_text.text = ui.localized("DRILL HITS %d","训练命中 %d") % fps.training_hits
 	health_text.text = str(fps.health)
 	health_text.modulate = Color(1,.37,.29) if fps.health <= 25 else Color.WHITE
 	ammo_text.text = "%d / %d" % [fps.magazine,fps.reserve]
@@ -118,7 +121,7 @@ func refresh(delta: float) -> void:
 	if fps.reload_time > 0: ammo_hint.text = ui.localized("RELOADING %.1fs","装弹中 %.1f 秒") % fps.reload_time
 	elif fps.magazine == 0: ammo_hint.text = ui.localized("RELOAD / R","请装弹") if fps.reserve > 0 else ui.localized("NO AMMO","弹药耗尽")
 	elif fps.magazine <= 5: ammo_hint.text = ui.localized("LOW AMMO","弹匣将空")
-	else: ammo_hint.text = ui.localized("MAGAZINE %d","枪械  ·  弹匣容量 %d") % fps.MAGAZINE_CAPACITY
+	else: ammo_hint.text = "M4A1  ·  5.56  ·  AUTO"
 	if not fps.kill_events.is_empty():
 		var newest: int = int(fps.kill_events.back().get("serial",0))
 		if newest < last_kill_serial: last_kill_serial = 0
@@ -126,13 +129,21 @@ func refresh(delta: float) -> void:
 			last_kill_serial = newest
 			feed_seconds = 8.0
 			var lines: PackedStringArray = []
-			for event in fps.kill_events: lines.append("P%d   ›   P%d" % [int(event.killer),int(event.victim)])
+			for event in fps.kill_events: lines.append("P%d   ▸   P%d" % [int(game.net.seats.get(event.killer,event.killer)),int(game.net.seats.get(event.victim,event.victim))])
 			feed.text = "\n".join(lines)
 	else:
 		last_kill_serial = 0
 		feed.text = ""
 	feed_seconds = maxf(0,feed_seconds-delta)
 	feed.visible = feed_seconds > 0 and not feed.text.is_empty()
+
+func _style_bar(bar: ProgressBar) -> void:
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(1,1,1,.12)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(.78,.87,.89,.8)
+	bar.add_theme_stylebox_override("background",back)
+	bar.add_theme_stylebox_override("fill",fill)
 
 func _draw() -> void:
 	if not is_instance_valid(ui) or not is_instance_valid(ui.game.fps): return

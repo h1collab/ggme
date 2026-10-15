@@ -23,6 +23,9 @@ func move(start: Vector3, finish: Vector3, look_from: Vector3, look_to: Vector3,
 		t = t*t*(3.0-2.0*t)
 		game.player.global_position = start.lerp(finish,t)
 		camera.look_at(look_from.lerp(look_to,t))
+		var direction: Vector3 = -camera.global_basis.z
+		game.player.yaw = atan2(-direction.x,-direction.z)
+		game.player.pitch = asin(direction.y)
 		await frame()
 func fire(ads: bool) -> void:
 	game.player.global_position = Vector3(0,.12,0)

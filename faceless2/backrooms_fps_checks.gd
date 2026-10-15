@@ -76,11 +76,17 @@ func run() -> void:
 	check(fps.grip_hands.get_child_count() == 2, "Two independent authored WRAD skinned hand GLBs grip one weapon, no loose elbows")
 	check(fps.weapon_model != null and fps.weapon_model.find_children("*","MeshInstance3D",true,false).size() >= 2, "Licensed original multi-mesh firearm")
 	check(fps.weapon_finish_ready,"Original atlas and verified PBR finish loaded")
+	var rifle_triangles := 0
 	for mesh in fps.weapon_model.find_children("*","MeshInstance3D",true,false):
 		for surface in range(mesh.mesh.get_surface_count()):
-			var finish: ShaderMaterial = mesh.get_active_material(surface)
-			for parameter in ["source_atlas","detail_albedo","detail_normal","detail_roughness","detail_metallic"]:
-				check(finish.get_shader_parameter(parameter) is Texture2D,"Real texture binding: "+parameter)
+			var finish: StandardMaterial3D = mesh.get_active_material(surface)
+			check(finish.albedo_texture != null and finish.normal_texture != null and finish.roughness_texture != null and finish.metallic_texture != null,"Original M4A1 embeds all four real publisher PBR maps")
+			var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+			rifle_triangles += (arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size()/3
+	check(rifle_triangles == 9258 and fps.rifle_magazine != null and fps.rifle_handle != null,"Actual source M4A1 inventory and separate moving parts")
+	var preserved_kenney: Node3D = load("res://assets/vendor/fps_blaster_f.glb").instantiate()
+	check(preserved_kenney.find_children("*","MeshInstance3D",true,false).size() >= 2,"Original licensed Kenney rifle retained as historical source")
+	preserved_kenney.free()
 	check(game.fps_arena.local_shadow != null,"Original licensed avatar supplies ground shadow")
 	game.fps_arena.apply_quality(0)
 	check(not game.fps_arena.light.shadow_enabled,"Low quality disables costly directional shadows")
@@ -132,6 +138,13 @@ func run() -> void:
 	check(int(fps.ammo_by_peer[1]) == ammo-1,"Reload does not instantly refill the magazine")
 	check(not fps.server_reload(1),"Repeated reload requests rejected")
 	check(not fps.server_fire(1,Vector3.FORWARD),"Host rejects firing during reload")
+	fps.reload_visual_seconds = fps.RELOAD_SECONDS*.5
+	fps.advance(0.01)
+	check(fps.rifle_magazine.position.distance_to(fps.magazine_rest) > .12,"Real authored magazine moves out during reload")
+	check(fps.grip_hands.get_child(1).position.distance_to(fps.left_hand_rest.origin) > .1,"Support hand releases fore-end for reload")
+	fps.reload_visual_seconds = 0.0
+	fps.advance(0.01)
+	check(fps.rifle_magazine.position.is_equal_approx(fps.magazine_rest) and fps.grip_hands.get_child(1).transform.is_equal_approx(fps.left_hand_rest),"Reload restores source magazine and calibrated support-hand grip")
 	var reload_started := Time.get_ticks_msec()
 	var reload_deadline := reload_started+5000
 	while int(fps.ammo_by_peer[1]) != fps.MAGAZINE_CAPACITY and Time.get_ticks_msec() < reload_deadline:
@@ -159,6 +172,10 @@ func run() -> void:
 	await physics_frame
 	check(fps.server_fire(1,direction),"Valid shot against real occluding collision is processed")
 	check(int(fps.health_by_peer[2]) == 100,"Real physics wall prevents damage through it")
+	check(fps.impact_serial > 0 and fps.impact_sprites.size() > 0,"Accepted shot produces a real physics surface mark")
+	var impact_count: int = fps.impact_sprites.size()
+	fps.receive_fps_state(fps.health_by_peer,fps.ammo_by_peer,fps.scores,fps.combat_state())
+	check(fps.impact_sprites.size() == impact_count,"Repeated host state never duplicates ballistic marks")
 	# Move the real physics fixture close to the camera and test the actual
 	# imported gun vertex clearance; screenshots separately check appearance.
 	wall.position.z = game.player.position.z-.4
@@ -184,6 +201,20 @@ func run() -> void:
 	game.net.seats.erase(2)
 	game.player.pitch = 0
 	check(game.fps_arena.spawn_for(1).distance_to(game.fps_arena.spawn_for(2)) > 5,"Players spawn in separate positions")
+	game.player.reset_to(Vector3(0,.12,0))
+	game.player.yaw = 0
+	game.player.rotation.y = 0
+	fps.toggle_training()
+	await physics_frame
+	await physics_frame
+	check(fps.training_enabled and fps.training_targets.size() == 3,"Solo drill spawns only explicit original GLB targets")
+	var target_direction: Vector3 = (fps.training_targets[1].global_position-game.player.camera.global_position).normalized()
+	game.player.pitch = asin(target_direction.y)
+	await create_timer(.2).timeout
+	check(fps.server_fire(1,target_direction) and fps.training_hits == 1,"Actual host raycast registers optional drill hit")
+	fps.toggle_training()
+	check(not fps.training_enabled and fps.training_targets.is_empty(),"Drill target toggle cleans its physics bodies")
+	print("FPS_REFERENCE_COMBAT_PASS original M4A1/PBR, moving magazine/handle, physics marks, idempotent state and optional raycast drill")
 	game.show_title_room()
 	check(not fps.active and not game.fps_arena.visible,"Leaving arena unloads combat and collision")
 	game.net.leave()
