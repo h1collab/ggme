@@ -58,7 +58,7 @@ try:
         text=(output/f'room-{role}.log').read_text()
         assert proc.returncode == 0 and f'Faceless 2 room directory {role}: PASS' in text, role+'\n'+text
         assert 'ERROR:' not in text and 'FAIL:' not in text,role+'\n'+text
-    print('Faceless 2 room directory: PASS / Node.js public room code + two real Godot headless ENet peers, no IP input, host cap 2, authenticated pickup synchronization')
+    print('Faceless 2 room directory: PASS / Node.js public room code + two real Godot headless ENet peers, no IP input, host cap 2, two-player start and authoritative shot synchronization')
 finally:
     for proc in procs + [service]:
         if proc.poll() is None:

@@ -54,6 +54,10 @@ func run() -> void:
 		check(game.fps.match_can_fire(), "Client sees match available at two players")
 		game.net.request_fps_fire(Vector3.FORWARD)
 		check(await wait_for(func(): return game.fps.magazine == 23,7.0), "Authoritative host ammo update replicated to client")
+		# The client must retain its real roster/ammo state until the host
+		# has observed it. Immediate leave can erase the 23-round entry
+		# between the host's 100ms polls, despite successful UDP replication.
+		check(await wait_for(func(): return game.net.mode == "solo",12.0), "Host completes authoritative shot verification before closing the real ENet session")
 	else:
 		check(false, "unknown test role")
 	game.net.leave()
