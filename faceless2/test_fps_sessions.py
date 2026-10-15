@@ -250,14 +250,14 @@ def main():
                     assert state('c1')['hit_marker'] == 4, 'authoritative four-hit confirmation reaches shooter'
                     for source in ('host','c1'):
                         wait(source, lambda x: bool(x.get('kills')) and x['kills'][-1]['killer'] == int(shooter) and x['kills'][-1]['victim'] == 1, 'host-authorized kill feed replicated')
-                    command('c1', 'reload')
-                    time.sleep(.25)
-                    assert state('host')['ammo'][shooter] == 19
-                    command('c1', 'fire', direction=direction, count=10)
-                    time.sleep(.25)
-                    assert state('host')['ammo'][shooter] == 19
+                    command('c1', 'reload_flood', direction=direction)
+                    blocked = wait('host',lambda x: x.get('reload_blocks',{}).get(shooter,0) == 10,
+                                   'all ten real fire RPCs rejected during reload')
+                    assert blocked['reload_block_ammo'][shooter] == 19, 'host rejection captures unchanged magazine before reload completes'
                     wait('c1', lambda x: x.get('ammo', {}).get(shooter) == 24,
                          'delayed authoritative reload replicated')
+                    wait('host',lambda x: x.get('reload_durations',{}).get(shooter,0) >= 1600,
+                         'host monotonic reload completion recorded')
                     assert state('host')['stock'][shooter] == 115
                     command('c1', 'aim', direction=[0,0,-1])
                     for seat in range(2, slots):

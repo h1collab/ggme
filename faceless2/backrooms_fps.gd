@@ -59,6 +59,9 @@ var last_confirmed_serial := 0
 var damage_feedback_time := 0.0
 var reserve_by_peer: Dictionary = {}
 var reload_ends: Dictionary = {}
+var reload_blocks: Dictionary = {}
+var reload_block_ammo: Dictionary = {}
+var reload_durations: Dictionary = {}
 var shot_ticks: Dictionary = {}
 var shot_audio: AudioStreamPlayer
 var reload_audio: AudioStreamPlayer
@@ -404,6 +407,9 @@ func register_peer(id: int) -> void:
     scores[id] = 0
     reserve_by_peer[id] = 120
     hit_serials[id] = 0
+    reload_blocks[id] = 0
+    reload_block_ammo[id] = -1
+    reload_durations[id] = 0
 
 func remove_peer(id: int) -> void:
     health_by_peer.erase(id)
@@ -411,6 +417,9 @@ func remove_peer(id: int) -> void:
     scores.erase(id)
     reserve_by_peer.erase(id)
     reload_ends.erase(id)
+    reload_blocks.erase(id)
+    reload_block_ammo.erase(id)
+    reload_durations.erase(id)
     shot_ticks.erase(id)
     hit_serials.erase(id)
 
@@ -471,6 +480,9 @@ func leave_level() -> void:
     scores.clear()
     reserve_by_peer.clear()
     reload_ends.clear()
+    reload_blocks.clear()
+    reload_block_ammo.clear()
+    reload_durations.clear()
     shot_ticks.clear()
     hit_serials.clear()
     hit_feedback_time = 0.0
@@ -713,7 +725,11 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
     if not active or level_id != -2 or not game.net.authoritative() or not match_can_fire(): return false
     if not health_by_peer.has(shooter) or int(health_by_peer[shooter]) <= 0: return false
     if not direction.is_finite() or absf(direction.length()-1.0) > .05: return false
-    if reload_ends.has(shooter): return false
+    direction = direction.normalized()
+    if reload_ends.has(shooter):
+        reload_blocks[shooter] = int(reload_blocks.get(shooter,0))+1
+        reload_block_ammo[shooter] = int(ammo_by_peer.get(shooter,0))
+        return false
     if shooter != 1 and not game.net.poses.has(shooter): return false
     # The server has the last validated body yaw. Arbitrary client-provided
     # 180-degree backshots are rejected, independently of claimed hits.
@@ -789,6 +805,7 @@ func finish_server_reloads() -> void:
     var changed := false
     for id in reload_ends.keys():
         if Time.get_ticks_msec() < int(reload_ends[id]): continue
+        reload_durations[id] = Time.get_ticks_msec()-(int(reload_ends[id])-int(RELOAD_SECONDS*1000))
         var transfer := mini(MAGAZINE_CAPACITY-int(ammo_by_peer.get(id,0)),int(reserve_by_peer.get(id,0)))
         ammo_by_peer[id] = int(ammo_by_peer.get(id,0))+transfer
         reserve_by_peer[id] = int(reserve_by_peer.get(id,0))-transfer
