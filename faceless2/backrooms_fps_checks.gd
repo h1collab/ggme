@@ -56,6 +56,27 @@ func run() -> void:
 	check(layouts[0] != layouts[1],"Two maps have genuinely different collision layouts")
 	game.start_fps_arena(0)
 	print("FPS_TWO_MAP_PHYSICS_PASS both layouts, 8 spawn capsules, cover LOS, inactive geometry and random picker")
+	var physical_capsule := StaticBody3D.new()
+	physical_capsule.collision_layer = 8
+	physical_capsule.position = Vector3(0,.12,-5)
+	var capsule_shape := CollisionShape3D.new()
+	capsule_shape.shape = game.player.get_child(0).shape.duplicate()
+	capsule_shape.position.y = game.player.COLLISION_CENTER_Y
+	physical_capsule.add_child(capsule_shape)
+	game.add_child(physical_capsule)
+	await physics_frame
+	await physics_frame
+	for height in [.10,.50,1.0,1.60,1.80]:
+		for lateral in [-.40,0.0,.28]:
+			var eye := Vector3(lateral,height,0)
+			var actual_ray := PhysicsRayQueryParameters3D.create(eye,eye+Vector3.FORWARD*10,8)
+			var physical_hit: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(actual_ray)
+			var distance: float = game.fps._capsule_entry(eye,Vector3.FORWARD,physical_capsule.position)
+			check(is_finite(distance) == not physical_hit.is_empty(),"Authoritative hit volume matches real physics capsule at head/torso/leg/miss height")
+			if not physical_hit.is_empty(): check(absf(distance-eye.distance_to(physical_hit.position)) < .005,"Capsule entry matches actual physics surface within 5mm")
+	physical_capsule.queue_free()
+	await physics_frame
+	print("FPS_CAPSULE_RAY_PARITY_PASS 15 real head/torso/leg/lateral rays, rifle range 70m")
 
 	var fps: Node3D = game.fps
 	check(game.fps_arena.visible and game.fps_arena.floor_modules.size() == 16, "One open arena of sixteen real imported CC0 GLB tiles")

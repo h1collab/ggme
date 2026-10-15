@@ -40,6 +40,9 @@ var jump_count := 0
 var last_near_door: Node3D
 var frowner_camera_active := false
 var frowner_camera_seconds := 0.0
+const COLLISION_RADIUS := .32
+const COLLISION_HEIGHT := 1.72
+const COLLISION_CENTER_Y := .88
 var player_look_override := false
 var flash_smiler_exposure := 0.0
 
@@ -47,10 +50,10 @@ func _ready() -> void:
 	name = "LocalCrew"
 	var collision := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
-	capsule.radius = 0.32
-	capsule.height = 1.72
+	capsule.radius = COLLISION_RADIUS
+	capsule.height = COLLISION_HEIGHT
 	collision.shape = capsule
-	collision.position.y = 0.88
+	collision.position.y = COLLISION_CENTER_Y
 	add_child(collision)
 	camera = Camera3D.new()
 	camera.position.y = 1.58

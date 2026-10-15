@@ -5,7 +5,7 @@ extends Node3D
 const Assets = preload("backrooms_assets.gd")
 const WeaponFinish = preload("fps_weapon_finish.gdshader")
 const MAGAZINE_CAPACITY := 24
-const MAX_RANGE := 37.0
+const MAX_RANGE := 70.0
 const RATE_SECONDS := 0.12
 const RELOAD_SECONDS := 1.65
 const HIP_RECOIL_IMPULSE := .040
@@ -750,10 +750,8 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         if candidate == shooter or int(health_by_peer[candidate]) <= 0: continue
         if candidate != 1 and not game.net.poses.has(candidate): continue
         var pos: Vector3 = game.player.position if candidate == 1 else game.net.poses[candidate].p
-        var offset: Vector3 = pos + Vector3(0,1.0,0)-origin
-        var t: float = offset.dot(direction)
+        var t: float = _capsule_entry(origin,direction,pos)
         if t < .2 or t > MAX_RANGE or t >= nearest: continue
-        if (offset-direction*t).length() > .55: continue
         var ray := PhysicsRayQueryParameters3D.create(origin,origin+direction*t)
         ray.collision_mask = 1
         ray.exclude = [game.player.get_rid()]
@@ -866,3 +864,26 @@ func toggle_training() -> void:
         target.add_child(shape)
         game.fps_arena.add_child(target)
         training_targets.append(target)
+
+# Exact ray entry into the SAME upright capsule used by CharacterBody3D.
+# A torso-only sphere silently missed eye-height and lower-leg shots.
+func _capsule_entry(origin: Vector3, direction: Vector3, body_position: Vector3) -> float:
+    var radius: float = game.player.COLLISION_RADIUS
+    var half_axis: float = game.player.COLLISION_HEIGHT*.5-radius
+    var offset := origin-body_position-Vector3(0,game.player.COLLISION_CENTER_Y,0)
+    var nearest := INF
+    var a := direction.x*direction.x+direction.z*direction.z
+    var b := 2.0*(offset.x*direction.x+offset.z*direction.z)
+    var c := offset.x*offset.x+offset.z*offset.z-radius*radius
+    var disc := b*b-4.0*a*c
+    if a > .00000001 and disc >= 0:
+        for t in [(-b-sqrt(disc))/(2*a),(-b+sqrt(disc))/(2*a)]:
+            if t >= 0 and absf(offset.y+direction.y*t) <= half_axis: nearest = minf(nearest,t)
+    for side in [-1.0,1.0]:
+        var cap := offset-Vector3(0,side*half_axis,0)
+        var projection := cap.dot(direction)
+        var discriminant := projection*projection-cap.length_squared()+radius*radius
+        if discriminant < 0: continue
+        for t in [-projection-sqrt(discriminant),-projection+sqrt(discriminant)]:
+            if t >= 0: nearest = minf(nearest,t)
+    return nearest

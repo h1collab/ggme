@@ -4,7 +4,7 @@ The FPS playfield is **two independent 48m x 48m FPS maps**, Cargo Courtyard and
 
 ## Controls and source
 
-PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, mouse to look. Android: movement joystick, RUN, immediate touch-down JUMP, held FIRE, held ADS, RELOAD, PAUSE and swipe-to-look. Separate pointer capture supports movement/look/aim/fire/sprint together. Releasing outside or opening a menu clears held input. Real headless viewport touch tests check three landscape aspect ratios; this is not Android device execution. The held first-person rifle is the source-verified **Kenney Blaster Kit blaster_f.glb**, not a runtime-created visible primitive. Recoil and walking sway apply to its camera pivot. Headless checks do not measure Android frame rate or cinematic quality.
+PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, T optional solo target drill, TAB scoreboard, mouse to look. Android: movement joystick, RUN, immediate touch-down JUMP, held FIRE, held ADS, RELOAD, PAUSE and swipe-to-look. Separate pointer capture supports movement/look/aim/fire/sprint together. Releasing outside or opening a menu clears held input. Real headless viewport touch tests check three landscape aspect ratios; this is not Android device execution. The held first-person rifle is the source-verified **nisu / 3DModelsCC0 M4A1**, converted from the original publisher FBX to GLB with its original PBR maps; previous Kenney weapons remain preserved. Recoil and walking sway apply to its camera pivot. Headless checks do not measure Android frame rate or cinematic quality.
 
 ## Network version and authority
 
@@ -106,3 +106,5 @@ Solo players may explicitly toggle **TARGET DRILL / T** from pause or the T key.
 Still requires native visual inspection on every latest SHA. Encoding FPS is not a device-performance claim. No Android install, sustained device FPS, physical-Wi-Fi or public NAT/relay verification.
 
 The native v0.34 image review found the old right-palm orientation still aimed along the fore-end instead of up the M4A1 pistol grip. Rotate that authored wrist frame toward the actual upright grip, preserving source bones/skin and shared-parent motion. Align the original rear peep reference at source `(-0.000824, 0.068728, 0.069268)` to the camera sight axis; assert less than 1mm offset after ADS settles. Native screenshots must independently confirm the result.
+
+Authoritative damage now uses the same upright 0.32m-radius, 1.72m-height, 0.88m-center capsule as the actual CharacterBody3D. The old torso sphere could miss eye-height/leg rays. A headless fixture compares 15 actual physics rays against the analytical capsule entry (head, torso, legs and lateral misses) within 5mm, retaining world occlusion and host-only 25 damage. The 70m virtual hitscan range covers both 48m arenas; this is a gameplay distance, not a firearm ballistics claim.

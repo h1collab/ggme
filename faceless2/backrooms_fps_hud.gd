@@ -163,6 +163,8 @@ func _style_bar(bar: ProgressBar) -> void:
 	fill.bg_color = Color(.78,.87,.89,.8)
 	bar.add_theme_stylebox_override("background",back)
 	bar.add_theme_stylebox_override("fill",fill)
+	# Initial Control.size was clamped by the default 28px theme minimum.
+	bar.set_deferred("size",Vector2(bar.size.x,3))
 
 func _draw() -> void:
 	if not is_instance_valid(ui) or not is_instance_valid(ui.game.fps): return

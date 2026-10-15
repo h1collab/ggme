@@ -31,6 +31,7 @@ func run() -> void:
 	game.start_fps_arena(0)
 	for i in range(35): await physics_frame
 	game.ui.refresh()
+	check(game.ui.fps_corner_hud.stamina_bar.size.y <= 5 and game.ui.fps_corner_hud.reload_bar.size.y <= 5,"Actual themed status bars retain compact height after deferred layout")
 	var controls: Array[Control] = [game.ui.joystick,game.ui.sprint_button,game.ui.jump_button,game.ui.shoot_button,game.ui.aim_button,game.ui.reload_button,game.ui.pause_button]
 	for extent in [Vector2i(1600,900),Vector2i(1280,720),Vector2i(2560,1080)]:
 		root.size = extent

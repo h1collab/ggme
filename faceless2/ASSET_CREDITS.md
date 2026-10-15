@@ -129,7 +129,7 @@ The single FPS arena floor consists of transformed, licensed **Kenney Space Stat
 
 **Author:** wriks / WRAD ARMS, original project https://github.com/wwwriks/wrad-arms ; **license:** CC0 1.0 (including commercial redistribution), https://github.com/wwwriks/wrad-arms/blob/f3987244176c33d2c20d4f9e139980af12684d87/LICENSE . Original fixed binary `arms.glb` (456328 bytes), revision `f3987244176c33d2c20d4f9e139980af12684d87`, Git blob `be023c46705bf8571e9ab97dbd3e71d2f18f8473`, SHA-256 `580efbb0852bf0b41f82dd3e17eafec86b3d2a48f4a7acaa7e64d60e850f565d`. `fetch_fps_assets.py` validates both object ID and SHA-256, source skeleton and skin before writing `fps_wrad_arms.glb`. Reposed at runtime using the original named finger, wrist, forearm and upper-arm bones for weapon grip. **The original CC0 meshes and skins remain untouched; this is a licensed pose modification, not a new AI mesh.** FPS mode hides the previous separately displayed Sketchfab hands to prevent double-arm overlap.
 
-**Visual QA revision:** The initially imported WRAD GLB revealed overly long, disconnected elbows in actual Godot ADS/hip screenshots even though wrist IK numerical errors were small. `bake_fps_grip_hands.py` now retains only source-authored WRAD wrist, palm and finger triangles (expected approx. 856 of 1196 original triangles), keeping original skinned vertices, UVs, normals and material. Source `fps_wrad_arms.glb` retains upstream SHA-256 check and derived `fps_wrad_grip_hands.glb` is baked on the trusted CI runner for the FPS view only. Do not restore floating upper-arm geometry.
+**Historical visual QA revision (superseded by the current forearm subset below):** The initially imported WRAD GLB revealed overly long, disconnected elbows in actual Godot ADS/hip screenshots even though wrist IK numerical errors were small. That revision of `bake_fps_grip_hands.py` retained only source-authored WRAD wrist, palm and finger triangles (expected approx. 856 of 1196 original triangles), keeping original skinned vertices, UVs, normals and material. Source `fps_wrad_arms.glb` retains upstream SHA-256 check and derived `fps_wrad_grip_hands.glb` is baked on the trusted CI runner for the FPS view only. Do not restore floating upper-arm geometry.
 
 ## Publisher integrity diagnostics (2026-10-14)
 
@@ -153,10 +153,9 @@ Gun orientation is corrected using original geometry. This is still a stylized
 Kenney blaster, not a photorealistic modern pistol. Visual acceptance requires
 inspection of the SHA-matched native Godot screenshots and movie.
 
-The final subset keeps 589 original arm/wrist/finger triangles per side
-(1178/1196 combined), including the original bicep faces so the cut is beyond
-the camera view. This replaces the earlier 521-face subset without adding
-triangles or changing the author, CC0 license, source SHA, bind data or UVs.
+The current subset keeps 521 original forearm/wrist/finger triangles per side
+(1042/1196 combined), excluding bicep/shoulder faces; the forearm cut is beyond
+the wrist while preserving the original complete forearms. No triangles are added; the author, CC0 license, source SHA, bind data, normals and UVs remain unchanged.
 
 ## Functional original-geometry ADS optic
 
@@ -216,3 +215,5 @@ Kloppenheim 06 Pure Sky — Greg Zaal (original) and Jarod Guest (pure sky edits
 - `hud_icons/impact.svg` is original repository-authored 2D vector art for temporary surface marks. It is a small transparent Sprite3D decal, never a substitute for the gun, hands or architecture. Authored GLB panels/pillars form added range partitions; numbered Label3D signage is original text. No reference screenshot content is shipped as a game texture or model.
 
 - Legacy huuxloc source is retained at SHA-256 `948d80d419152b82cdedd03ce92cace39fbcd69d6801330cd3021995456c984c`. `decode_backroom_glb.py` replaces a failing npm CLI with build-only **DracoPy 1.5.0**, an Apache-2.0 wrapper for Google's Draco (https://github.com/seung-lab/DracoPy). Strict source hash, 26 meshes, 3,912 triangles, attribute/index counts and finite values are verified. Original node/material/texture/UV/normal data remain; no geometry is synthesized. Decoded output SHA-256 `99d5f83a419919a51f5f692095dae0f80f432b0376a90c2d595e64a28ddca84c`.
+
+- v0.34 native screenshots exposed the retained bicep strips crossing the new stock even after the palm and trigger-finger pose were corrected. The licensed subset now excludes those original bicep triangles while preserving **all original forearm, wrist, palm and finger streams** (521 triangles per side; 1,042 of the 1,196 source triangles total). Counts are checked exactly; the untouched original remains hash-verified. No face/UV/normal/bind data is synthesized or relabeled.

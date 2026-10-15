@@ -37,7 +37,7 @@ def bake(source: Path, output: Path, side: str = "both") -> tuple[int, int]:
         ws = item(prim["attributes"]["WEIGHTS_0"],vertex)
         return sum(w for j,w in zip(js,ws)
                    if (side == "both" or names[j].endswith("." + side)) and (names[j].startswith("finger_") or names[j].startswith("wrist.")
-                   or names[j].startswith("socket.") or names[j].startswith("forearm") or names[j].startswith("bicep.")))
+                   or names[j].startswith("socket.") or names[j].startswith("forearm")))
     weight = [hand_weight(i) for i in range(acc[prim["attributes"]["POSITION"]]["count"])]
     kept = []
     for t in range(0,len(all_indices),3):
