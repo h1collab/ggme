@@ -105,6 +105,23 @@ func run() -> void:
 			var arrays: Array = mesh.mesh.surface_get_arrays(surface)
 			rifle_triangles += (arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size()/3
 	check(rifle_triangles == 9258 and fps.rifle_magazine != null and fps.rifle_handle != null,"Actual source M4A1 inventory and separate moving parts")
+	check(fps.wall_support_points.size() <= 104 and fps.wall_support_points.size() < fps.weapon_vertices.size()/20,"Near-wall path caches small per-part bounds once")
+	for angles in [Vector3.ZERO,Vector3(-.79,-.08,.1),Vector3(.2,.3,-.2),Vector3(-1.1,.6,.3)]:
+		var basis := Basis.from_euler(angles)
+		var actual_extent := -INF
+		var support_extent := -INF
+		for vertex in fps.weapon_vertices: actual_extent = maxf(actual_extent,-(basis*vertex).z)
+		for point in fps.wall_support_points: support_extent = maxf(support_extent,-(basis*point).z)
+		check(support_extent+.000001 >= actual_extent,"Cached part bounds conservatively contain every actual firearm vertex")
+	var timings: Array[int] = []
+	var result := 0.0
+	var benchmark_basis := Basis.from_euler(Vector3(-.6,-.08,.1))
+	for points in [fps.weapon_vertices,fps.wall_support_points]:
+		var begin := Time.get_ticks_usec()
+		for iteration in range(100):
+			for point in points: result = maxf(result,-(benchmark_basis*point).z)
+		timings.append(Time.get_ticks_usec()-begin)
+	print("FPS_WALL_CPU_SAMPLE 100 iterations original_us=",timings[0]," cached_us=",timings[1]," vertices=",fps.weapon_vertices.size()," supports=",fps.wall_support_points.size()," checksum=",result)
 	var preserved_kenney: Node3D = load("res://assets/vendor/fps_blaster_f.glb").instantiate()
 	check(preserved_kenney.find_children("*","MeshInstance3D",true,false).size() >= 2,"Original licensed Kenney rifle retained as historical source")
 	preserved_kenney.free()
@@ -245,6 +262,24 @@ func run() -> void:
 	game.player.pitch = asin(target_direction.y)
 	await create_timer(.2).timeout
 	check(fps.server_fire(1,target_direction) and fps.training_hits == 1,"Actual host raycast registers optional drill hit")
+	check(fps.training_shots == 1 and fps.training_accuracy() == 100,"Drill accuracy counts only host-accepted rounds")
+	check(not fps.server_fire(1,target_direction) and fps.training_shots == 1,"Duplicate cooldown request cannot inflate drill attempts")
+	await create_timer(.2).timeout
+	var miss_direction := Vector3(.09,0,-1).normalized()
+	game.player.pitch = 0.0
+	check(fps.server_fire(1,miss_direction) and fps.training_shots == 2 and fps.training_hits == 1 and fps.training_accuracy() == 50,"Accepted miss lowers actual accuracy while preserving hit count")
+	game.ui.modal = true
+	var drill_remaining: float = fps.training_time
+	fps.advance(2.0)
+	check(is_equal_approx(fps.training_time,drill_remaining),"Solo pause never consumes challenge time")
+	game.ui.modal = false
+	fps.training_time = .01
+	fps.advance(.02)
+	check(fps.training_finished and not fps.training_enabled and fps.training_targets.is_empty() and fps.training_best >= 1,"45-second drill expires, removes ray targets and retains actual score/best")
+	var saved := ConfigFile.new()
+	check(saved.load("user://faceless2.cfg") == OK and int(saved.get_value("training","best_hits",0)) == fps.training_best,"Challenge best persists through the actual settings file")
+	fps.toggle_training()
+	check(fps.training_enabled and fps.training_time == fps.TRAINING_SECONDS and fps.training_hits == 0 and fps.training_shots == 0,"Finished challenge restarts with a clean timer and score")
 	fps.toggle_training()
 	check(not fps.training_enabled and fps.training_targets.is_empty(),"Drill target toggle cleans its physics bodies")
 	print("FPS_REFERENCE_COMBAT_PASS original M4A1/PBR, moving magazine/handle, physics marks, idempotent state and optional raycast drill")

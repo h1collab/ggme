@@ -136,6 +136,7 @@ func _ready() -> void:
 	add_child(fps_arena)
 	var config := ConfigFile.new()
 	if config.load("user://faceless2.cfg") == OK:
+		fps.training_best = maxi(0,int(config.get_value("training", "best_hits", 0)))
 		quality = int(config.get_value("display", "quality", 1))
 		sensitivity = clampf(float(config.get_value("controls", "sensitivity", 1.0)), 0.5, 2.0)
 		auto_turn = bool(config.get_value("controls", "auto_turn", false))
@@ -694,6 +695,7 @@ func save_settings() -> void:
 	config.set_value("audio", "generated_voice", voice_enabled)
 	config.set_value("controls", "scripted_glance", shock_glance_enabled)
 	config.set_value("network", "directory_url", rooms.directory_url if is_instance_valid(rooms) else "")
+	config.set_value("training", "best_hits", fps.training_best if is_instance_valid(fps) else 0)
 	config.save("user://faceless2.cfg")
 
 func set_language(value: String) -> void:

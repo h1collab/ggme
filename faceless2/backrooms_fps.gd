@@ -39,7 +39,7 @@ var grip_error := 999.0
 var grip_mesh_error := 999.0
 var grip_surface_error := 999.0
 var grip_mounts: Array[Dictionary] = []
-# Measured in the original Kenney GLB coordinates: pistol grip and fore-end.
+# Measured in the original M4A1 coordinates: pistol grip and fore-end.
 const GUN_SCALE := 1.0
 const GRIP_POINTS := [Vector3(.013,-.085,.072),Vector3(0,-.006,-.235)]
 var wall_retract := 0.0
@@ -47,6 +47,7 @@ var wall_probe_seconds := 0.0
 var wall_clearance := 100.0
 var weapon_vertices := PackedVector3Array()
 var weapon_triangles := PackedVector3Array()
+var wall_support_points := PackedVector3Array()
 var reload_visual_seconds := 0.0
 var sentries: Array[StaticBody3D] = []
 var health_by_peer: Dictionary = {}
@@ -81,6 +82,11 @@ var impact_sprites: Array[Sprite3D] = []
 var impact_ages: Array[float] = []
 var training_enabled := false
 var training_hits := 0
+const TRAINING_SECONDS := 45.0
+var training_time := 0.0
+var training_shots := 0
+var training_finished := false
+var training_best := 0
 var training_targets: Array[StaticBody3D] = []
 
 func _ready() -> void:
@@ -101,6 +107,11 @@ func _ready() -> void:
             mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             _finish_rifle(mesh)
             var local: Transform3D = weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
+            # Eight source-mesh bounds corners conservatively contain every
+            # vertex. Cache them once; close-wall frames need only 13*8 tests.
+            var bounds := mesh.get_aabb()
+            for corner in range(8):
+                wall_support_points.append(local*bounds.get_endpoint(corner))
             for surface in range(mesh.mesh.get_surface_count()):
                 var arrays: Array = mesh.mesh.surface_get_arrays(surface)
                 var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -155,6 +166,7 @@ func _ready() -> void:
         var target: Vector3 = weapon_model.transform * GRIP_POINTS[0 if side == "r" else 1]
         var actual: Vector3 = grip_hands.to_local(skel.to_global(skel.get_bone_global_pose(socket).origin))
         hand.position += target-actual
+        _tuck_forearm(hand,skel,side,wrist)
         grip_mounts.append({"hand":hand,"skeleton":skel,"socket":socket,"target":target})
         for part in hand.find_children("*","MeshInstance3D",true,false):
             var skin_mesh := part as MeshInstance3D
@@ -196,6 +208,37 @@ func _ready() -> void:
     muzzle_light.visible = false
     weapon_pivot.add_child(muzzle_light)
 
+# Rigidly turn the authored elbow down beyond the view, then articulate the
+# original wrist in the opposite direction to keep its complete hand frame.
+# No bone length, bind matrix, vertex or skin weight is stretched/replaced.
+func _tuck_forearm(hand: Node3D, skel: Skeleton3D, side: String, wrist: int) -> void:
+    skel.force_update_all_bone_transforms()
+    var wrist_before := grip_hands.global_transform.affine_inverse()*skel.global_transform*skel.get_bone_global_pose(wrist)
+    var elbow := skel.find_bone("forearm."+side)
+    if elbow < 0:
+        push_error("Original WRAD forearm joint missing")
+        return
+    var elbow_at := grip_hands.to_local(skel.to_global(skel.get_bone_global_pose(elbow).origin))
+    var segment_length := elbow_at.distance_to(wrist_before.origin)
+    var along := (elbow_at-wrist_before.origin).normalized()
+    var desired := Vector3(.50,-.94,.12).normalized() if side == "r" else Vector3(-.45,-.90,.70).normalized()
+    var turn := Basis(Quaternion(along,desired))
+    hand.transform = Transform3D(turn,wrist_before.origin-turn*wrist_before.origin)*hand.transform
+    var desired_wrist := skel.global_transform.affine_inverse()*grip_hands.global_transform*wrist_before
+    var parent := skel.get_bone_parent(wrist)
+    var parent_pose := skel.get_bone_global_pose(parent) if parent >= 0 else Transform3D.IDENTITY
+    # Godot 4 pose already contains the local rest transform.
+    var pose := parent_pose.affine_inverse()*desired_wrist
+    skel.set_bone_pose_position(wrist,pose.origin)
+    skel.set_bone_pose_rotation(wrist,pose.basis.orthonormalized().get_rotation_quaternion())
+    skel.force_update_all_bone_transforms()
+    var after := grip_hands.global_transform.affine_inverse()*skel.global_transform*skel.get_bone_global_pose(wrist)
+    if after.origin.distance_to(wrist_before.origin) > .0001 or after.basis.orthonormalized().get_rotation_quaternion().angle_to(wrist_before.basis.orthonormalized().get_rotation_quaternion()) > .001:
+        push_error("Forearm articulation displaced the authored wrist frame")
+    var elbow_after := grip_hands.to_local(skel.to_global(skel.get_bone_global_pose(elbow).origin))
+    if absf(elbow_after.distance_to(after.origin)-segment_length) > .0001:
+        push_error("Forearm articulation changed the original bone length")
+
 # Pose only the authored right index joints toward the real trigger guard.
 # Work in skeleton space and recover the local pose through parent/rest bases;
 # neither skin weights nor mesh vertices are replaced or stretched.
@@ -214,7 +257,7 @@ func _pose_trigger_finger() -> void:
         var rotated := Basis(Quaternion(along,target))*current.basis
         var parent := grip_skeleton.get_bone_parent(bone)
         var parent_basis := grip_skeleton.get_bone_global_pose(parent).basis if parent >= 0 else Basis.IDENTITY
-        var pose := grip_skeleton.get_bone_rest(bone).basis.inverse()*parent_basis.inverse()*rotated
+        var pose := parent_basis.inverse()*rotated
         grip_skeleton.set_bone_pose_rotation(bone,pose.orthonormalized().get_rotation_quaternion())
     grip_skeleton.force_update_all_bone_transforms()
 
@@ -470,6 +513,9 @@ func leave_level() -> void:
     training_targets.clear()
     training_enabled = false
     training_hits = 0
+    training_shots = 0
+    training_time = 0.0
+    training_finished = false
     for sprite in impact_sprites:
         if is_instance_valid(sprite): sprite.queue_free()
     impact_sprites.clear()
@@ -526,6 +572,9 @@ func _process(delta: float) -> void:
 
 func advance(delta: float) -> void:
     if not active: return
+    if training_enabled and game.running and not game.ui.modal:
+        training_time = maxf(0.0,training_time-delta)
+        if training_time <= 0.0: _finish_training()
     shot_cooldown = maxf(0.0,shot_cooldown-delta)
     invulnerable_time = maxf(0.0,invulnerable_time-delta)
     hit_feedback_time = maxf(0.0,hit_feedback_time-delta)
@@ -581,11 +630,10 @@ func advance(delta: float) -> void:
         weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,0.0 if aiming else -.08,minf(1.0,delta*9.0))
         weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,(0.0 if aiming else -.025)+wall_retract*.10,minf(1.0,delta*9.0))
         if wall_retract > .001:
-            # Use actual original GLB vertices in the current viewmodel basis,
-            # not a fictitious AABB corner, to keep the muzzle/scope behind
-            # the measured wall plane while the posture settles.
+            # Conservative bounds of each authored part retain source-vertex
+            # clearance while avoiding thousands of transforms every frame.
             var forward_extent := 0.0
-            for vertex in weapon_vertices:
+            for vertex in wall_support_points:
                 forward_extent = maxf(forward_extent,-(weapon_pivot.basis*vertex).z)
             weapon_pivot.position.z = maxf(weapon_pivot.position.z,-wall_clearance+forward_extent+.025)
     if is_instance_valid(rifle_magazine):
@@ -751,6 +799,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         impacts.append({"serial":impact_serial,"p":world_hit.position,"n":world_hit.normal})
         if impacts.size() > 32: impacts.pop_front()
     if game.net.mode == "solo" and training_enabled:
+        training_shots += 1
         var target_query := PhysicsRayQueryParameters3D.create(origin,origin+direction*MAX_RANGE,2)
         var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(target_query)
         if not hit.is_empty() and (world_hit.is_empty() or origin.distance_to(hit.position) < origin.distance_to(world_hit.position)):
@@ -759,6 +808,10 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
                 training_hits += 1
                 hit_serials[shooter] = int(hit_serials.get(shooter,0))+1
                 target.set_meta("last_hit",Time.get_ticks_msec())
+                var model := target.get_child(0) as Node3D
+                var feedback := create_tween()
+                feedback.tween_property(model,"rotation:z",-.16,.07)
+                feedback.tween_property(model,"rotation:z",0.0,.14)
     var nearest := 1000.0
     var victim := -1
     for id in health_by_peer:
@@ -861,6 +914,9 @@ func toggle_training() -> void:
     if not active or level_id != -2 or game.net.mode != "solo": return
     training_enabled = not training_enabled
     training_hits = 0
+    training_shots = 0
+    training_finished = false
+    training_time = TRAINING_SECONDS if training_enabled else 0.0
     for target in training_targets:
         if is_instance_valid(target): target.queue_free()
     training_targets.clear()
@@ -881,6 +937,22 @@ func toggle_training() -> void:
         target.add_child(shape)
         game.fps_arena.add_child(target)
         training_targets.append(target)
+
+func _finish_training() -> void:
+    training_enabled = false
+    training_finished = true
+    training_time = 0.0
+    for target in training_targets:
+        if is_instance_valid(target): target.queue_free()
+    training_targets.clear()
+    training_best = maxi(training_best,training_hits)
+    game.save_settings()
+    game.ui.show_timed_hint(game.ui.localized(
+        "DRILL COMPLETE · %d HITS · %d%% · BEST %d · T TO RESTART",
+        "挑战结束 · 命中 %d · 准确率 %d%% · 纪录 %d · T 再来一局") % [training_hits,training_accuracy(),training_best],8.0)
+
+func training_accuracy() -> int:
+    return roundi(100.0*training_hits/maxi(1,training_shots))
 
 # Exact ray entry into the SAME upright capsule used by CharacterBody3D.
 # A torso-only sphere silently missed eye-height and lower-leg shots.

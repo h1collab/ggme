@@ -122,7 +122,8 @@ func refresh(delta: float) -> void:
 	if game.net.mode != "solo" and not fps.match_can_fire(): room_text.text += "  ·  "+ui.localized("WAITING FOR P2","等待第 2 人")
 	var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
 	score_text.text = ui.localized("KILLS %d  ·  PLAYERS %d","击倒 %d  ·  玩家 %d") % [int(fps.scores.get(id,0)),count]
-	if fps.training_enabled: score_text.text = ui.localized("DRILL HITS %d","训练命中 %d") % fps.training_hits
+	if fps.training_enabled: score_text.text = "%02ds  ·  %d HIT  ·  %d%%" % [ceili(fps.training_time),fps.training_hits,fps.training_accuracy()]
+	elif fps.training_finished: score_text.text = ui.localized("RESULT %d  ·  BEST %d","成绩 %d  ·  纪录 %d") % [fps.training_hits,fps.training_best]
 	health_text.text = str(fps.health)
 	health_text.modulate = Color(1,.37,.29) if fps.health <= 25 else Color.WHITE
 	ammo_text.text = "%d / %d" % [fps.magazine,fps.reserve]
