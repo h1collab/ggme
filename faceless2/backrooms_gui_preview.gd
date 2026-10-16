@@ -60,6 +60,16 @@ func run() -> void:
 		await shot(prefix+"09_reference_lane_impact",Vector3(-10.5,.12,-6.5),Vector3(-10.5,1.6,-11.5),true)
 		game.fps.reload()
 		await shot(prefix+"10_reload_authored_magazine",Vector3(0,.12,0),Vector3(0,1.6,-18))
+		# An additional native grasp phase is required: the old still showed
+		# a fist floating above a separately moving magazine.
+		game.fps.reload_visual_seconds = game.fps.RELOAD_SECONDS*.75
+		game.fps.advance(0.0)
+		game.ui.refresh()
+		await process_frame
+		await RenderingServer.frame_post_draw
+		var grasp_image: Image = root.get_texture().get_image()
+		if grasp_image.save_png(output_dir.path_join(prefix+"13_reload_actual_magazine_contact.png")) != OK: issues.append(prefix+"reload_contact")
+		print("NATIVE_RELOAD_CONTACT_METERS ",game.fps.reload_contact_error())
 		game.fps.toggle_training()
 		await shot(prefix+"11_optional_drill",Vector3(0,.12,0),Vector3(0,1.6,-9),true)
 		game.fps.toggle_training()

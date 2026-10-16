@@ -144,3 +144,14 @@ Material scale, neutral concrete tint and hangar light balance are adjusted.
 A native Linux capture and MP4 are required before visual approval. Android
 hardware FPS, public NAT, production matchmaking and full anti-cheat remain
 unverified. This release is not represented as AAA quality.
+
+Native v0.35 review also exposed a floating reload fist. Calibrate a contact on
+the original M4A1 magazine-base triangles; first reach its stationary base,
+then move the original magazine and hand together through withdrawal/insertion,
+and return to the fore-end before animation completion. Check the actual
+skinned skeleton socket against the moving source-mesh point at five phases;
+a real 10cm hand perturbation must fail. CPU-skinned palm vertices must also
+stay within 5mm of contact. Leaving mid-reload restores the magazine, handle and
+hand transforms immediately and clears action timers. Capture an extra contact-phase
+PNG for each map. This remains a simplified base-supported reload, not a claim
+of motion-captured animation or a physically simulated magazine inventory.

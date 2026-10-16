@@ -189,6 +189,7 @@ func run() -> void:
 	check(int(fps.ammo_by_peer[1]) == ammo-2,"Faster host cadence still consumes one bullet per accepted request")
 	# Restore one consumed round for the existing reserve/reload fixture.
 	fps.ammo_by_peer[1] += 1
+	var reload_started := Time.get_ticks_msec()
 	check(fps.server_reload(1),"Reload is server-authorized")
 	check(int(fps.ammo_by_peer[1]) == ammo-1,"Reload does not instantly refill the magazine")
 	check(not fps.server_reload(1),"Repeated reload requests rejected")
@@ -197,10 +198,18 @@ func run() -> void:
 	fps.advance(0.01)
 	check(fps.rifle_magazine.position.distance_to(fps.magazine_rest) > .12,"Real authored magazine moves out during reload")
 	check(fps.grip_hands.get_child(1).position.distance_to(fps.left_hand_rest.origin) > .1,"Support hand releases fore-end for reload")
+	check(fps.magazine_contact_ready,"Reload grasp is calibrated on the original magazine triangles")
+	for phase in [.16,.25,.43,.60,.78]:
+		fps.reload_visual_seconds = fps.RELOAD_SECONDS*(1.0-phase)
+		fps.advance(0.0)
+		check(fps.reload_contact_error() < .002,"Actual left socket follows the moving magazine base through removal/insertion")
+		check(fps.reload_skin_contact_error() < .005,"Actual CPU-skinned palm vertices stay within 5mm of the source magazine contact")
+		check_arm_boundaries(fps)
+	fps.grip_hands.get_child(1).position.x += .10
+	check(fps.reload_contact_error() > .09,"Reload contact test detects a genuine 10cm detached hand")
 	fps.reload_visual_seconds = 0.0
 	fps.advance(0.01)
 	check(fps.rifle_magazine.position.is_equal_approx(fps.magazine_rest) and fps.grip_hands.get_child(1).transform.is_equal_approx(fps.left_hand_rest),"Reload restores source magazine and calibrated support-hand grip")
-	var reload_started := Time.get_ticks_msec()
 	var reload_deadline := reload_started+5000
 	while int(fps.ammo_by_peer[1]) != fps.MAGAZINE_CAPACITY and Time.get_ticks_msec() < reload_deadline:
 		await create_timer(.05).timeout
@@ -313,7 +322,10 @@ func run() -> void:
 	fps.toggle_training()
 	check(not fps.training_enabled and fps.training_targets.is_empty(),"Drill target toggle cleans its physics bodies")
 	print("FPS_REFERENCE_COMBAT_PASS original M4A1/PBR, moving magazine/handle, physics marks, idempotent state and optional raycast drill")
+	fps.reload_visual_seconds = fps.RELOAD_SECONDS*.5
+	fps.advance(.01)
 	game.show_title_room()
+	check(fps.reload_visual_seconds == 0 and fps.reload_time == 0 and fps.rifle_magazine.position.is_equal_approx(fps.magazine_rest) and fps.grip_hands.get_child(1).transform.is_equal_approx(fps.left_hand_rest),"Leaving mid-reload restores the original magazine/hand pose and clears the action")
 	check(not fps.active and not game.fps_arena.visible,"Leaving arena unloads combat and collision")
 	game.net.leave()
 	for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:

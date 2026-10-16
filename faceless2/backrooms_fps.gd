@@ -81,6 +81,8 @@ var rifle_handle: Node3D
 var magazine_rest := Vector3.ZERO
 var handle_rest := Vector3.ZERO
 var left_hand_rest := Transform3D.IDENTITY
+var magazine_contact := Vector3.ZERO
+var magazine_contact_ready := false
 var impacts: Array[Dictionary] = []
 var impact_serial := 0
 var last_impact_serial := 0
@@ -205,7 +207,9 @@ func _ready() -> void:
     print("FPS_ORIGINAL_CC0_TWO_HAND_GRIP=",mounted)
     rifle_magazine = weapon_model.find_child("Magazine",true,false)
     rifle_handle = weapon_model.find_child("Charging_Handle",true,false)
-    if is_instance_valid(rifle_magazine): magazine_rest = rifle_magazine.position
+    if is_instance_valid(rifle_magazine):
+        magazine_rest = rifle_magazine.position
+        _calibrate_magazine_contact()
     if is_instance_valid(rifle_handle): handle_rest = rifle_handle.position
     if grip_hands.get_child_count() == 2: left_hand_rest = grip_hands.get_child(1).transform
     weapon_pivot.visible = false
@@ -287,6 +291,53 @@ func _finish_rifle(mesh: MeshInstance3D) -> void:
         finish.normal_scale = .5
         mesh.set_surface_override_material(surface,finish)
         weapon_finish_ready = true
+
+# The left palm supports the actual authored magazine base during removal /
+# insertion. Derive its contact from source triangles, not a floating offset.
+func _calibrate_magazine_contact() -> void:
+    var mesh := rifle_magazine as MeshInstance3D
+    if mesh == null: return
+    var desired := Vector3(0,-.18,-.055)
+    var closest := Vector3.ZERO
+    var distance := INF
+    var local := weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
+    for surface in range(mesh.mesh.get_surface_count()):
+        var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+        var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+        var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+        for i in range(0,indices.size(),3):
+            var point := closest_triangle_point(desired,local*vertices[indices[i]],local*vertices[indices[i+1]],local*vertices[indices[i+2]])
+            if desired.distance_to(point) < distance:
+                closest = point
+                distance = desired.distance_to(point)
+    magazine_contact_ready = distance < .025
+    if not magazine_contact_ready: push_error("Original M4A1 magazine base contact calibration failed")
+    magazine_contact = mesh.to_local(weapon_pivot.to_global(closest))
+
+func closest_triangle_point(point: Vector3, a: Vector3, b: Vector3, c: Vector3) -> Vector3:
+    var normal := (b-a).cross(c-a).normalized()
+    var projected := point-normal*(point-a).dot(normal)
+    if _distance_to_triangle(projected,a,b,c) <= .00001: return projected
+    var closest := Geometry3D.get_closest_point_to_segment(point,a,b)
+    for edge in [Geometry3D.get_closest_point_to_segment(point,b,c),Geometry3D.get_closest_point_to_segment(point,c,a)]:
+        if point.distance_squared_to(edge) < point.distance_squared_to(closest): closest = edge
+    return closest
+
+func reload_contact_error() -> float:
+    if not magazine_contact_ready or grip_mounts.size() != 2: return INF
+    var mount: Dictionary = grip_mounts[1]
+    var socket: Vector3 = mount.skeleton.to_global(mount.skeleton.get_bone_global_pose(mount.socket).origin)
+    return socket.distance_to(rifle_magazine.to_global(magazine_contact))
+
+func reload_skin_contact_error() -> float:
+    if not magazine_contact_ready or grip_mounts.size() != 2: return INF
+    var mount: Dictionary = grip_mounts[1]
+    var contact: Vector3 = rifle_magazine.to_global(magazine_contact)
+    var error := INF
+    for mesh in mount.hand.find_children("*","MeshInstance3D",true,false):
+        for surface in range(mesh.mesh.get_surface_count()):
+            for point in skinned_surface_points(mesh,mount.skeleton,surface): error = minf(error,point.distance_to(contact))
+    return error
 
 # Project nominal grasp sockets onto actual imported rifle triangles. Keep
 # nominal distance bounded; changing a model cannot silently move sockets far.
@@ -534,6 +585,11 @@ func leave_level() -> void:
     active = false
     equipped = false
     aiming = false
+    reload_visual_seconds = 0.0
+    reload_time = 0.0
+    if is_instance_valid(rifle_magazine): rifle_magazine.position = magazine_rest
+    if is_instance_valid(rifle_handle): rifle_handle.position = handle_rest
+    if is_instance_valid(grip_hands) and grip_hands.get_child_count() == 2: grip_hands.get_child(1).transform = left_hand_rest
     level_id = -1
     set_process(false)
     if is_instance_valid(weapon_pivot): weapon_pivot.visible = false
@@ -677,12 +733,15 @@ func advance(delta: float) -> void:
             _fit_near_wall()
     if is_instance_valid(rifle_magazine):
         var phase := 1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0)
-        var travel := sin(clampf((phase-.08)/.76,0.0,1.0)*PI) if reload_visual_seconds > 0 else 0.0
+        var travel := smoothstep(.16,.43,phase)*(1.0-smoothstep(.59,.78,phase)) if reload_visual_seconds > 0 else 0.0
         rifle_magazine.position = magazine_rest+Vector3(-.015,-.16,.025)*travel
         if grip_hands.get_child_count() == 2:
             var left: Node3D = grip_hands.get_child(1)
             left.transform = left_hand_rest
-            left.position += Vector3(-.015,-.16,.18)*travel
+            var reach := smoothstep(0.0,.16,phase)*(1.0-smoothstep(.78,.98,phase)) if reload_visual_seconds > 0 else 0.0
+            if magazine_contact_ready:
+                var contact: Vector3 = grip_hands.to_local(rifle_magazine.to_global(magazine_contact))
+                left.position += (contact-grip_mounts[1].target)*reach
         if is_instance_valid(rifle_handle):
             rifle_handle.position = handle_rest+Vector3(0,0,.045)*sin(clampf((phase-.80)/.18,0.0,1.0)*PI) if reload_visual_seconds > 0 else handle_rest
     game.player.camera.fov = lerpf(game.player.camera.fov,lerpf(76.0,59.0,pow(1.0-wall_retract,2.0)) if aiming and equipped else 76.0,minf(1.0,delta*9.0))
