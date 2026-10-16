@@ -34,9 +34,10 @@ func run() -> void:
     game.ui.intro_timer.stop()
     game.set_process(false)
     game.player.set_physics_process(false)
-    game.rooms.configure("" if role.begins_with("lan_") else directory)
+    game.rooms.configure("" if role.begins_with("lan_") or role == "capture_client" else directory)
     game.rooms.game_port = port
-    if role == "lan_host":
+    if role == "capture_client": game.net.join("127.0.0.1",port,room)
+    elif role == "lan_host":
         # Two real UDP peers on CI's single machine: release the host's
         # unused discovery listener and route real announcements to loopback.
         game.rooms.receiver.close()
@@ -84,6 +85,12 @@ func _process(delta: float) -> bool:
                     game.player.pitch = asin(direction.y)
                     game.player.camera.rotation.x = game.player.pitch
                 "reload": game.net.request_fps_reload()
+                "ready":
+                    for i in range(int(command.get("count",1))): game.net.request_fps_ready()
+                "expire_round":
+                    # Fixture-only admin time control; real host monotonic tick
+                    # decides expiry and sends every result through ENet.
+                    if game.net.mode == "host": game.fps.round_remaining = .15
                 "reload_flood":
                     # Same reliable ENet channel: reload arrives before these
                     # actual fire RPCs, without filesystem/scheduler delays.
@@ -113,7 +120,7 @@ func _process(delta: float) -> bool:
         "id":game.multiplayer.get_unique_id(),"active":game.fps.active,
         "arena":game.fps_arena.visible,"can_fire":game.fps.match_can_fire(),
         "reload_blocks":game.fps.reload_blocks,"reload_block_ammo":game.fps.reload_block_ammo,"reload_durations":game.fps.reload_durations,"impact_serial":game.fps.last_impact_serial,"impact_marks":game.fps.impact_sprites.size(),"impact_authority":game.fps.impact_serial,"hit_serials":game.fps.hit_serials,"hit_marker":game.fps.last_confirmed_serial,"match_attempts":game.rooms.match_attempts,"matching":game.rooms.matching,"kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
-        "hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
+        "round":game.fps.combat_state().get("round",{}),"hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
         "scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
         "directory":game.rooms.directory_url,"room":game.rooms.room_code,"capacity":game.net.max_crew,
         "running":game.running,"panel":game.ui.panel_kind,

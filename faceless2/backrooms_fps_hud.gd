@@ -19,6 +19,9 @@ var score_toggle: Button
 var last_kill_serial := 0
 var feed_seconds := 0.0
 var kill_rows: Array[Dictionary] = []
+var result_panel: Panel
+var result_text: Label
+var ready_button: Button
 func icon_file(key: String) -> String:
 	var file := "res://ui/hud/"+key+".svg"
 	return file if ResourceLoader.exists(file) else "res://faceless2/hud_icons/"+key+".svg"
@@ -44,6 +47,13 @@ func build(owner_ui: Control) -> void:
 	map_text = ui._label(left,"",Vector2(48,8),310,17)
 	icon(left,"people",Vector2(12,43),Vector2(23,23))
 	room_text = ui._label(left,"",Vector2(48,44),310,14)
+	result_panel = card(Rect2(460,245,680,250))
+	result_panel.add_theme_stylebox_override("panel",ui._style(Color(.012,.018,.024,.88)))
+	result_text = ui._label(result_panel,"",Vector2(24,24),632,24)
+	result_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_text.size.y = 120
+	ready_button = ui._button(result_panel,"",Rect2(210,165,260,58),func(): ui.game.net.request_fps_ready(),true)
+	result_panel.visible = false
 	var right := card(Rect2(1270,112,282,48))
 	icon(right,"score",Vector2(12,10),Vector2(25,25))
 	score_text = ui._label(right,"",Vector2(47,12),225,16)
@@ -100,6 +110,15 @@ func refresh(delta: float) -> void:
 	if not visible:
 		scoreboard_open = false
 		return
+	result_panel.visible = fps.round_over and game.net.mode != "solo"
+	if result_panel.visible:
+		var winners: PackedStringArray = []
+		for seat in fps.round_winner_seats: winners.append("P%d" % seat)
+		var title: String = ui.localized("DRAW","平局") if winners.size() != 1 else ui.localized("WINNER %s","获胜者 %s") % winners[0]
+		result_text.text = title+"\n"+ui.localized("NEXT ROUND IN %ds · READY %d/%d","%d 秒后下一局 · 已准备 %d/%d") % [ceili(fps.round_break),fps.round_ready.size(),fps.health_by_peer.size()]
+		var own: int = game.multiplayer.get_unique_id()
+		ready_button.text = ui.localized("READY","已准备") if fps.round_ready.has(own) else ui.localized("READY / ENTER","准备再战 / 回车")
+		ready_button.disabled = fps.round_ready.has(own)
 	var mobile: bool = ui.touch_controls_enabled()
 	stamina_bar.value = game.player.stamina
 	stamina_bar.modulate = Color(1,.64,.28) if game.player.stamina < 20 else Color(.55,.80,1)
@@ -119,7 +138,12 @@ func refresh(delta: float) -> void:
 	var count: int = fps.health_by_peer.size()
 	var cap: int = game.net.max_crew
 	room_text.text = ui.localized("LOCAL TRAINING","本地训练") if game.net.mode == "solo" else "%s  ·  %d/%d" % [game.rooms.room_code,count,cap]
-	if game.net.mode != "solo" and not fps.match_can_fire(): room_text.text += "  ·  "+ui.localized("WAITING FOR P2","等待第 2 人")
+	if game.net.mode != "solo":
+		if fps.round_over: room_text.text = ui.localized("ROUND %d COMPLETE","第 %d 局结束") % fps.round_id
+		elif count < 2: room_text.text = "%s · " % game.rooms.room_code+ui.localized("WAITING P2","等待第 2 人")
+		else:
+			var seconds: int = ceili(fps.round_remaining)
+			room_text.text += " · %02d:%02d" % [seconds/60,seconds%60]
 	var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
 	score_text.text = ui.localized("KILLS %d  ·  PLAYERS %d","击倒 %d  ·  玩家 %d") % [int(fps.scores.get(id,0)),count]
 	if fps.training_enabled: score_text.text = "%02ds  ·  %d HIT  ·  %d%%" % [ceili(fps.training_time),fps.training_hits,fps.training_accuracy()]

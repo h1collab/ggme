@@ -528,9 +528,10 @@ func open_guide() -> void:
 		[localized("SHOOT / AIM","射击 / 瞄准"),localized("LMB / RMB  •  Android FIRE / ADS","左键 / 右键  •  手机 FIRE / ADS")],
 		[localized("RELOAD","换弹"),localized("R on PC / RELOAD on Android","电脑 R / 手机 RELOAD")],
 		[localized("SPRINT / JUMP","奔跑 / 跳跃"),localized("SHIFT + SPACE / RUN + JUMP","SHIFT + 空格 / RUN + JUMP")],
-		[localized("MATCH / JOIN","匹配 / 加入"),localized("QUICK MATCH / PUBLIC LIST / 8-CHARACTER CODE","快速匹配 / 公开列表 / 八位房间码")]]
+		[localized("MATCH / JOIN","匹配 / 加入"),localized("QUICK MATCH / PUBLIC LIST / 8-CHARACTER CODE","快速匹配 / 公开列表 / 八位房间码")],
+		[localized("ROUND / REMATCH","对局 / 再战"),localized("5 MIN / FIRST TO 10 KILLS · READY: ENTER / TOUCH","5 分钟 / 先击倒 10 人获胜 · 回车 / 点击准备")]]
 	for i in range(entries.size()):
-		var y := 210 + i * 121
+		var y := 200 + i * 100
 		_label(panels,String(entries[i][0]),Vector2(77,y),450,26,ACCENT)
 		_label(panels,String(entries[i][1]),Vector2(526,y),945,23)
 	_label(panels,localized("Internet rooms need a reachable host UDP port; room codes are not NAT relays.","跨公网仍需房主 UDP 可达；房间号不是 NAT 中继。"),Vector2(77,824),1400,18,MUTED)
@@ -543,7 +544,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / FPS ARENA\nTwo authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.34.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.35.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -771,7 +772,9 @@ func refresh() -> void:
 			if fps_active:
 				var my_peer: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
 				fps_status_label.text = localized("HP %d  |  AMMO %d/%d  |  KILLS %d","生命 %d  |  弹药 %d/%d  |  击倒 %d") % [game.fps.health,game.fps.magazine,game.fps.reserve,int(game.fps.scores.get(my_peer,0))]
-				if game.net.mode != "solo" and not game.fps.match_can_fire():
+				if game.net.mode != "solo" and game.fps.round_over:
+					fps_status_label.text = localized("ROUND COMPLETE — READY FOR NEXT MATCH","本局结束——准备下一局")
+				elif game.net.mode != "solo" and not game.fps.match_can_fire():
 					fps_status_label.text = localized("WAITING FOR PLAYER 2 — MATCH STARTS AT 2/%d","等待第 2 位玩家——2 人即可开始，上限 %d 人") % game.net.max_crew
 		if hint_timer > 0:
 			hint_timer = maxf(0.0, hint_timer - get_process_delta_time())

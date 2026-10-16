@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 20
+const PROTOCOL := 21
 const MAX_CREW := 4
 const PEER_IDLE_LIMIT_MSEC := 15000
 var game: Node
@@ -338,6 +338,16 @@ func _fps_reload() -> void:
 	if mode != "host" or not game.fps_arena.visible: return
 	var id: int = multiplayer.get_remote_sender_id()
 	if members.has(id): game.fps.server_reload(id)
+
+func request_fps_ready() -> void:
+	if mode == "client" and members.has(1): _fps_ready.rpc_id(1)
+	elif mode == "host": game.fps.server_ready(1)
+
+@rpc("any_peer","call_remote","reliable",0)
+func _fps_ready() -> void:
+	if mode != "host" or not game.fps_arena.visible: return
+	var sender := multiplayer.get_remote_sender_id()
+	if members.has(sender): game.fps.server_ready(sender)
 
 func broadcast_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary) -> void:
 	if not authoritative() or not game.fps_arena.visible: return

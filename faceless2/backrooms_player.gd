@@ -201,6 +201,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_RIGHT: game.fps.set_aim(event.pressed)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
+			KEY_ENTER, KEY_KP_ENTER: if is_instance_valid(game.fps) and game.fps.round_over: game.net.request_fps_ready()
 			KEY_E: interact_or_locked_door()
 			KEY_SPACE: request_jump()
 			KEY_J: game.ui.open_journal()

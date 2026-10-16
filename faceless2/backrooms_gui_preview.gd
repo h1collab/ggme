@@ -65,6 +65,32 @@ func run() -> void:
 		game.fps.toggle_training()
 		game.fps.measure_grip()
 		print("PREVIEW_MAP ",map_id," GEOMETRY ",game.fps_arena.geometry_digest())
+	# Review the actual result HUD with a second authenticated, independent
+	# headless ENet peer. Only the fixture timer is shortened; round outcome
+	# and snapshots follow the normal host code, never a fake player count.
+	game.net.leave()
+	if game.net.host(24719,"native-round-review",false,2) == OK:
+		game.start_fps_arena(0)
+		game.player.set_physics_process(false)
+		var child := OS.create_process(OS.get_executable_path(),["--headless","--max-fps","30","--path",ProjectSettings.globalize_path("res://"),"--script","res://scripts/backrooms_fps_session_checks.gd","--","--role=capture_client","--room=native-round-review","--port=24719","--label=native_peer","--output="+output_dir])
+		var deadline := Time.get_ticks_msec()+12000
+		while game.net.members.size() < 2 and Time.get_ticks_msec() < deadline: await process_frame
+		if game.net.members.size() == 2:
+			game.fps.round_remaining = .01
+			while not game.fps.round_over and Time.get_ticks_msec() < deadline: await process_frame
+			if game.fps.round_over:
+				# Freeze only after the real timer result, for static inspection.
+				game.fps.set_process(false)
+				game.ui.refresh()
+				await process_frame
+				await RenderingServer.frame_post_draw
+				var img: Image = root.get_texture().get_image()
+				if img.save_png(output_dir.path_join("map0_12_real_two_peer_result.png")) != OK: issues.append("result_image")
+				print("NATIVE_RESULT_ACTUAL_ENET_PEERS ",game.net.members.size()," ",game.fps.combat_state().get("round"))
+			else: issues.append("actual_round_expiry")
+		else: issues.append("native_result_second_peer")
+		if child > 0 and OS.is_process_running(child): OS.kill(child)
+	else: issues.append("native_result_host")
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame

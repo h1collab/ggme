@@ -9,3 +9,5 @@
 **Visual/performance:** Licensed GLB architecture and props; skeletal/skin animation for monster, hands and visible feet. Shallow reactive water on every level, limited steps/particles and mobile resolution scaling. These are optimizations, not proof of real phone FPS or commercial AAA fidelity.
 
 Automated gameplay QA is **Godot `--headless` exclusively** and the separate Node.js service is tested with Node's built-in test runner. Android APK is exported, not installed or run in CI. See [the root README](../README.md), [credits](ASSET_CREDITS.md), and [build workflow](../.github/workflows/faceless2-apk.yml).
+
+Current standalone FPS v0.35: two host-selected maps, 2-player minimum / 2–4 capacity, five-minute or ten-kill rounds, authoritative results and ready/rematch, desktop Enter and mobile touch controls. See [current protocol and verification limits](FPS_MULTIPLAYER.md). Android device performance and public NAT connectivity are not verified; this is not an AAA-quality claim.

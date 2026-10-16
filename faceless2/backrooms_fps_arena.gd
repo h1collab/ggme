@@ -107,7 +107,7 @@ func _build_map(index: int) -> void:
 	layout.name = "CargoCourtyard" if index == 0 else "MaintenanceHangar"
 	add_child(layout)
 	map_roots.append(layout)
-	var plaster := _pbr("concrete_floor",Color(.95,.86,.70),.32)
+	var plaster := _pbr("concrete_floor",Color(.83,.80,.73),.30)
 	var metal := _pbr("rusty_metal_sheet",Color(.30,.34,.37),.72,.45)
 	var wall_height := 3.4 if index == 0 else 6.0
 	for side in [-1.0,1.0]:
@@ -168,9 +168,9 @@ func _build_map(index: int) -> void:
 				_prop(layout,"OriginalLamp_%s_%s" % [side,depth],"scan_industrial_wall_lamp.glb",at+Vector3(-side*.465,4.2,0),.55,-side*PI*.5)
 				var lamp := OmniLight3D.new()
 				lamp.position = at+Vector3(-side*2,4.5,0)
-				lamp.light_color = Color(1,.82,.62)
-				lamp.light_energy = 2.8
-				lamp.omni_range = 15.0
+				lamp.light_color = Color(1,.88,.73)
+				lamp.light_energy = 2.25
+				lamp.omni_range = 13.0
 				lamp.shadow_enabled = false
 				layout.add_child(lamp)
 
@@ -241,7 +241,7 @@ func activate(selected: int = 0) -> void:
 		map_roots[index].visible = index == map_id
 		for body in map_roots[index].find_children("*","StaticBody3D",true,false):
 			(body as StaticBody3D).collision_layer = 1 if index == map_id else 0
-	var finish := _pbr("concrete_floor" if map_id==0 else "large_grey_tiles",Color(.73,.77,.8),.55 if map_id==0 else .32)
+	var finish := _pbr("concrete_floor" if map_id==0 else "large_grey_tiles",Color(.73,.77,.8),.36 if map_id==0 else .32)
 	for tile in floor_modules+[horizon]:
 		for mesh in tile.find_children("*","MeshInstance3D",true,false): (mesh as MeshInstance3D).material_override = finish
 	light.light_energy = .90 if map_id == 0 else .65
@@ -260,7 +260,7 @@ func activate(selected: int = 0) -> void:
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	world.environment.ambient_light_color = Color(.62,.70,.80)
 	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	world.environment.ambient_light_energy = .44 if map_id == 0 else .67
+	world.environment.ambient_light_energy = .44 if map_id == 0 else .56
 	world.environment.tonemap_exposure = .90
 	layout_digest = geometry_digest()
 

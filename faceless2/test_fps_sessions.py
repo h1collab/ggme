@@ -93,7 +93,7 @@ def main():
         for _ in range(100):
             try:
                 with urlopen(url+'/health', timeout=.5) as response:
-                    assert json.load(response)['protocol'] == 20
+                    assert json.load(response)['protocol'] == 21
                 break
             except OSError:
                 time.sleep(.05)
@@ -157,15 +157,19 @@ def main():
                     initial = wait('host', lambda x: len(x.get('room', '')) == 8, 'room registered')
                     assert initial['members'] == 1 and not initial['can_fire']
                     assert 'WAITING FOR PLAYER 2' in initial['hud']
+                    time.sleep(.35)
+                    assert state('host')['round']['seconds'] == 300, 'one-player room pauses the host clock'
                     # Real unauthenticated UDP client must not consume ammo or
                     # receive the protected roster before the handshake.
                     spawn('raw', 'raw')
                     wait('raw', lambda x: x.get('transport_connected'), 'raw UDP socket')
                     time.sleep(.7)
                     command('raw', 'fire', count=10)
+                    command('raw', 'ready', count=10)
                     time.sleep(.4)
                     assert state('host')['ammo'] == {'1': 24}
                     assert state('raw')['hp'] == {}
+                    assert state('host')['round']['ready'] == []
                     command('raw', 'quit')
                     processes['raw'].wait(timeout=4)
                     code = initial['room']
@@ -301,6 +305,64 @@ def main():
                     spawn('final', code=code)
                     wait('final', lambda x: x.get('active') and len(x.get('hp', {})) == 2, 'room usable after killed clients')
                     roster(2)
+                    # Complete real rounds after the existing kill/reconnect
+                    # coverage. All state below is received from actual ENet.
+                    final_id = str(state('final')['id'])
+                    before_round = state('host')['round']['id']
+                    command('final','ready',count=4)
+                    time.sleep(.25)
+                    assert state('host')['round']['ready'] == [], 'ready is rejected during live combat'
+                    if slots == 2 and map_id == 0:
+                        import math
+                        poses = state('host')['poses']
+                        eye = [poses[final_id][0],poses[final_id][1]+1.58,poses[final_id][2]]
+                        target = [poses['1'][0],poses['1'][1]+1.0,poses['1'][2]]
+                        ray = [target[i]-eye[i] for i in range(3)]
+                        length = math.sqrt(sum(v*v for v in ray))
+                        ray = [v/length for v in ray]
+                        command('final','aim',direction=ray)
+                        time.sleep(.3)
+                        for hit in range(40):
+                            if hit == 24:
+                                command('final','reload')
+                                wait('final',lambda x:x.get('ammo',{}).get(final_id)==24,'actual reload for ten-kill round')
+                            expected = 24-(hit%24)-1
+                            command('final','fire',direction=ray)
+                            wait('final',lambda x:x.get('ammo',{}).get(final_id)==expected,'round-winning accepted ray')
+                            time.sleep(.13)
+                        wait('final',lambda x:x.get('scores',{}).get(final_id)==10 and x['round']['over'],'ten actual kills end round')
+                        assert state('final')['round']['winners'] == [int(final_id)]
+                        assert state('final')['round']['winner_seats'] == [2]
+                    else:
+                        command('host','expire_round')
+                    for source in ('host','final'):
+                        wait(source,lambda x:x.get('round',{}).get('over') and not x['can_fire'],'end-round snapshot locks fire')
+                    ammo_after = state('host')['ammo'].copy()
+                    command('final','fire',count=10)
+                    command('final','reload')
+                    time.sleep(.25)
+                    assert state('host')['ammo'] == ammo_after, 'finished round rejects fire and reload'
+                    if slots > 2:
+                        spawn('result_late',code=code)
+                        wait('result_late',lambda x:x.get('round',{}).get('over') and len(x.get('hp',{}))==3,'late join receives finished round')
+                        command('result_late','ready')
+                        command('result_late','quit')
+                        processes['result_late'].wait(timeout=4)
+                        wait('host',lambda x:x.get('members')==2 and not x['round']['ready'],'departing ready peer is removed')
+                    command('final','ready',count=4)
+                    wait('host',lambda x:len(x['round']['ready'])==1,'duplicate ready has one authenticated vote')
+                    command('host','ready')
+                    for source in ('host','final'):
+                        reset = wait(source,lambda x:x.get('round',{}).get('id')==before_round+1 and not x['round']['over'],'both ready start next round')
+                        assert reset['can_fire'] and set(reset['scores'].values())=={0}
+                        assert set(reset['ammo'].values())=={24} and set(reset['stock'].values())=={120}, (source,reset)
+                        assert set(reset['hp'].values())=={100} and not reset['kills']
+                    if slots == 2 and map_id == 0:
+                        command('host','expire_round')
+                        tie = wait('final',lambda x:x.get('round',{}).get('over'),'host clock timeout reaches client')
+                        assert set(tie['round']['winner_seats'])=={1,2}, 'equal scores produce draw'
+                        wait('final',lambda x:x.get('round',{}).get('id')==before_round+2 and not x['round']['over'],'eight-second automatic rematch',timeout=12)
+                    print(f'FPS_REAL_ROUND_{slots}_MAP_{map_id}_PASS host clock, results, authenticated ready, rematch reset',flush=True)
                     command('host', 'quit')
                     processes['host'].wait(timeout=4)
                     lost = wait('final', lambda x: x.get('mode') == 'solo' and not x.get('running'),
@@ -315,7 +377,9 @@ def main():
                         'late_join':'PASS', 'full_room_rejection':'PASS',
                         'invalid_rpc':'PASS', 'duplicate_fire':'PASS',
                         'authority_hit_marker':'PASS', 'quick_match_retry':'PASS' if slots == 2 and map_id == 0 else 'covered_in_2_map0', 'movement':'PASS', 'damage_score_respawn':'PASS', 'timed_reload':'PASS', 'reconnect':'PASS', 'strong_kill':'PASS',
-                        'host_exit':'PASS'})
+                        'host_exit':'PASS','round_result_lock':'PASS','authenticated_ready_rematch':'PASS','round_reset':'PASS',
+                        'ten_actual_kills':'PASS' if slots==2 and map_id==0 else 'covered_in_2_map0',
+                        'timeout_draw_auto_rematch':'PASS' if slots==2 and map_id==0 else 'covered_in_2_map0'})
                     print(f'FPS_REAL_UDP_CAPACITY_{slots}_MAP_{map_id}_PASS', flush=True)
                 finally:
                     for process in processes.values():

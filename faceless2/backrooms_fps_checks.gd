@@ -241,6 +241,31 @@ func run() -> void:
 	for vertex in fps.weapon_vertices:
 		nearest_weapon_z = minf(nearest_weapon_z,(fps.weapon_pivot.transform*vertex).z)
 	check(nearest_weapon_z >= -fps.wall_clearance+.024,"Actual original firearm vertices retract behind the physics wall")
+	# Same actual physics wall at very short reach, straight and oblique.
+	# Inspect every source firearm vertex, including the first input frame.
+	for angle in [-.60,0.0,.60]:
+		wall.rotation.y = angle
+		wall.position.z = game.player.position.z-.30
+		await physics_frame
+		await physics_frame
+		for ads in [false,true]:
+			fps.set_aim(ads)
+			fps.wall_probe_seconds = 0.0
+			for frame in range(20):
+				fps.advance(1.0/60.0)
+				var in_view := 0
+				var valid_depth := true
+				var clear_wall := true
+				for vertex in fps.weapon_vertices:
+					var local: Vector3 = fps.weapon_pivot.transform*vertex
+					var world: Vector3 = game.player.camera.to_global(local)
+					valid_depth = valid_depth and local.z <= -game.player.camera.near-.008
+					for plane in fps.wall_planes: clear_wall = clear_wall and plane.n.dot(world-plane.p) >= .019
+					if Rect2(Vector2.ZERO,Vector2(root.size)).has_point(game.player.camera.unproject_position(world)): in_view += 1
+				check(valid_depth and clear_wall,"All original rifle vertices clear the actual oblique wall and near plane from the first frame")
+				if frame == 19: check(in_view > fps.weapon_vertices.size()*.30,"Close-wall port arms retains a visible rifle instead of hiding it below the viewport")
+			print("FPS_NEAR_WALL_PORT_ARMS angle=",angle," ads=",ads)
+	fps.set_aim(false)
 	wall.queue_free()
 	await physics_frame
 	await physics_frame

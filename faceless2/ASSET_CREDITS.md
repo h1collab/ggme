@@ -219,3 +219,28 @@ Kloppenheim 06 Pure Sky — Greg Zaal (original) and Jarod Guest (pure sky edits
 - Legacy huuxloc source is retained at SHA-256 `948d80d419152b82cdedd03ce92cace39fbcd69d6801330cd3021995456c984c`. `decode_backroom_glb.py` replaces a failing npm CLI with build-only **DracoPy 1.5.0**, an Apache-2.0 wrapper for Google's Draco (https://github.com/seung-lab/DracoPy). Strict source hash, 26 meshes, 3,912 triangles, attribute/index counts and finite values are verified. Original node/material/texture/UV/normal data remain; no geometry is synthesized. Decoded output SHA-256 `99d5f83a419919a51f5f692095dae0f80f432b0376a90c2d595e64a28ddca84c`.
 
 - v0.34 native review exposed stock intersections; an intermediate 521-face elbow crop then exposed open forearm ends. The final source subset preserves **589 original bicep/forearm/wrist/palm/finger triangles per side** (1,178/1,196 total). Rigid forearm articulation and opposite wrist articulation preserve the calibrated grasp and original segment length, moving the original shoulder cut outside the view. Counts remain exact and the untouched source hash is unchanged. No face/UV/normal/bind data is synthesized or relabeled. Native review remains required.
+
+
+## v0.35 explicitly modified WRAD CC0 surface derivative
+
+The untouched wriks WRAD ARMS source remains pinned to commit
+`f3987244176c33d2c20d4f9e139980af12684d87`, SHA-256
+`580efbb0852bf0b41f82dd3e17eafec86b3d2a48f4a7acaa7e64d60e850f565d`.
+The historical v0.34 589-face subsets described above remain the verified
+intermediate input; the shipped v0.35 left/right arms are **modified derivatives**.
+`refine_fps_arms.py` applies two deterministic offline Loop subdivision passes,
+producing 9,424 triangles / 5,222 render vertices per side. Positions and skin
+weights are interpolated; original UV chart boundaries are preserved, UVs
+interpolated and smooth normals recomputed. Four strongest skin weights are
+renormalized (maximum discarded influence 0.088481). The original skeleton,
+inverse bind bytes, materials and embedded images are unchanged. This is not an
+unchanged-original-mesh claim. Source and CC0 attribution are retained.
+
+Derived right GLB SHA-256:
+`c5976b1afadea228f00835a7a686ff9efe1a797b5497955a3ca8675af91f88be`.
+Derived left GLB SHA-256:
+`64329bed354ad77f3b0766da7ed5ada093d2c982d02b0860c22e4744dc8ffc9c`.
+`test_refine_fps_arms.py` verifies real-source provenance, deterministic output,
+unchanged binds/materials/images, valid normals/weights and rejection of unknown
+source bytes. Godot separately tests posed grip and open shoulder boundaries;
+native screenshots remain necessary to assess visual quality.

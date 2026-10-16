@@ -11,6 +11,9 @@ const RELOAD_SECONDS := 1.65
 const HIP_RECOIL_IMPULSE := .040
 const ADS_RECOIL_IMPULSE := .024
 const RECOIL_RETURN_SPEED := 14.0
+const MATCH_SECONDS := 300.0
+const SCORE_LIMIT := 10
+const INTERMISSION_SECONDS := 8.0
 
 var game: Node
 var active := false
@@ -45,6 +48,9 @@ const GRIP_POINTS := [Vector3(.013,-.085,.072),Vector3(0,-.006,-.235)]
 var wall_retract := 0.0
 var wall_probe_seconds := 0.0
 var wall_clearance := 100.0
+var wall_probe_origin := Vector3.INF
+var wall_probe_direction := Vector3.ZERO
+var wall_planes: Array[Dictionary] = []
 var weapon_vertices := PackedVector3Array()
 var weapon_triangles := PackedVector3Array()
 var wall_support_points := PackedVector3Array()
@@ -88,6 +94,14 @@ var training_shots := 0
 var training_finished := false
 var training_best := 0
 var training_targets: Array[StaticBody3D] = []
+var round_id := 1
+var round_remaining := MATCH_SECONDS
+var round_over := false
+var round_break := 0.0
+var round_winners: Array[int] = []
+var round_winner_seats: Array[int] = []
+var round_ready: Dictionary = {}
+var round_tick_msec := 0
 
 func _ready() -> void:
     name = "Faceless2_KenneyCC0_FPS"
@@ -423,6 +437,7 @@ func is_equipped() -> bool:
 func match_can_fire() -> bool:
     if not active or not game.fps_arena.visible: return false
     if game.net.mode == "solo": return true
+    if round_over: return false
     if game.net.mode == "host": return game.net.members.size() >= 2
     return game.net.mode == "client" and health_by_peer.size() >= 2
 
@@ -435,7 +450,19 @@ func enter_arena() -> void:
     kill_serial = 0
     last_confirmed_serial = 0
     damage_feedback_time = 0.0
+    round_id = 1
+    round_remaining = MATCH_SECONDS
+    round_over = false
+    round_break = 0.0
+    round_winners.clear()
+    round_winner_seats.clear()
+    round_ready.clear()
+    round_tick_msec = Time.get_ticks_msec()
     active = true
+    wall_probe_origin = Vector3.INF
+    wall_probe_seconds = 0.0
+    wall_planes.clear()
+    wall_retract = 0.0
     equipped = true
     level_id = -2
     health = 100
@@ -473,6 +500,7 @@ func remove_peer(id: int) -> void:
     reload_durations.erase(id)
     shot_ticks.erase(id)
     hit_serials.erase(id)
+    round_ready.erase(id)
 
 func enter_level(number: int) -> void:
     # There is no authoritative replication yet for added-layer combat:
@@ -580,6 +608,7 @@ func _process(delta: float) -> void:
 
 func advance(delta: float) -> void:
     if not active: return
+    if level_id == -2 and game.net.mode == "host": _advance_match_clock()
     if training_enabled and game.running and not game.ui.modal:
         training_time = maxf(0.0,training_time-delta)
         if training_time <= 0.0: _finish_training()
@@ -608,18 +637,24 @@ func advance(delta: float) -> void:
     muzzle_flash_time = maxf(0.0,muzzle_flash_time-delta)
     if is_instance_valid(muzzle_light): muzzle_light.visible = muzzle_flash_time > 0.0
     reload_visual_seconds = maxf(0.0,reload_visual_seconds-delta)
-    # A conservative camera-to-wall ray keeps the entire rig (not just
-    # the rifle) inside the capsule envelope at close surfaces.
+    # Movement/look changes refresh immediately; idle probes run at 10Hz.
     wall_probe_seconds -= delta
-    if wall_probe_seconds <= 0.0:
+    var eye: Vector3 = game.player.camera.global_position
+    var fwd: Vector3 = -game.player.camera.global_transform.basis.z
+    if wall_probe_seconds <= 0.0 or eye.distance_squared_to(wall_probe_origin) > .000625 or fwd.dot(wall_probe_direction) < .9988:
         wall_probe_seconds = .10
-        var eye: Vector3 = game.player.camera.global_position
-        var fwd: Vector3 = -game.player.camera.global_transform.basis.z
-        var probe := PhysicsRayQueryParameters3D.create(eye,eye+fwd*1.12)
-        probe.collision_mask = 1
-        probe.exclude = [game.player.get_rid()]
-        var hit_wall: Dictionary = get_world_3d().direct_space_state.intersect_ray(probe)
-        wall_clearance = 100.0 if hit_wall.is_empty() else eye.distance_to(hit_wall.position)
+        wall_probe_origin = eye
+        wall_probe_direction = fwd
+        wall_clearance = 100.0
+        wall_planes.clear()
+        for lateral in [-.12,0.0,.30]:
+            var origin: Vector3 = eye+game.player.camera.global_basis.x*lateral
+            var probe := PhysicsRayQueryParameters3D.create(origin,origin+fwd*1.12,1)
+            probe.exclude = [game.player.get_rid()]
+            var hit_wall: Dictionary = get_world_3d().direct_space_state.intersect_ray(probe)
+            if not hit_wall.is_empty():
+                wall_clearance = minf(wall_clearance,maxf(.15,(hit_wall.position-eye).dot(fwd)))
+                wall_planes.append({"p":hit_wall.position,"n":hit_wall.normal})
         wall_retract = clampf((1.12-wall_clearance)/.78,0.0,1.0)
     if is_instance_valid(weapon_pivot):
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
@@ -627,23 +662,19 @@ func advance(delta: float) -> void:
         var base := Vector3(.23 + walking*.004*motion,
             -.19 - absf(walking)*.006*motion + game.player.landing_dip*.35,
             -.48 + visual_recoil*.30)
-        if aiming: base = Vector3(.000824,-.0773845,-.48 + visual_recoil*.22)
+        var aim_blend: float = pow(1.0-wall_retract,2.0) if aiming else 0.0
+        base = base.lerp(Vector3(.000824,-.0773845,-.48+visual_recoil*.22),aim_blend)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
-        base.y -= reload_phase*.045 + wall_retract*.10
-        base.z += wall_retract*.16
-        base.x -= wall_retract*.035
+        base.y += wall_retract*.09-reload_phase*.045
+        base.z += wall_retract*.08
+        base.x -= wall_retract*.13
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))
-        var pitch := (0.0 if aiming else -.04)+visual_recoil*.20+reload_phase*.20-wall_retract*.75
+        var pitch := -.04*(1.0-aim_blend)+visual_recoil*.20+reload_phase*.20+wall_retract*.19
         weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,minf(1.0,delta*11.0))
-        weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,0.0 if aiming else -.08,minf(1.0,delta*9.0))
-        weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,(0.0 if aiming else -.025)+wall_retract*.10,minf(1.0,delta*9.0))
+        weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,-.08*(1.0-aim_blend)+wall_retract*1.65,minf(1.0,delta*9.0))
+        weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,-.025*(1.0-aim_blend)-wall_retract*.075,minf(1.0,delta*9.0))
         if wall_retract > .001:
-            # Conservative bounds of each authored part retain source-vertex
-            # clearance while avoiding thousands of transforms every frame.
-            var forward_extent := 0.0
-            for vertex in wall_support_points:
-                forward_extent = maxf(forward_extent,-(weapon_pivot.basis*vertex).z)
-            weapon_pivot.position.z = maxf(weapon_pivot.position.z,-wall_clearance+forward_extent+.025)
+            _fit_near_wall()
     if is_instance_valid(rifle_magazine):
         var phase := 1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0)
         var travel := sin(clampf((phase-.08)/.76,0.0,1.0)*PI) if reload_visual_seconds > 0 else 0.0
@@ -654,7 +685,7 @@ func advance(delta: float) -> void:
             left.position += Vector3(-.015,-.16,.18)*travel
         if is_instance_valid(rifle_handle):
             rifle_handle.position = handle_rest+Vector3(0,0,.045)*sin(clampf((phase-.80)/.18,0.0,1.0)*PI) if reload_visual_seconds > 0 else handle_rest
-    game.player.camera.fov = lerpf(game.player.camera.fov,59.0 if aiming and equipped else 76.0,minf(1.0,delta*9.0))
+    game.player.camera.fov = lerpf(game.player.camera.fov,lerpf(76.0,59.0,pow(1.0-wall_retract,2.0)) if aiming and equipped else 76.0,minf(1.0,delta*9.0))
     if level_id != 2 or target_remaining <= 0 or game.ui.modal: return
     enemy_timer -= delta
     if enemy_timer <= 0.0:
@@ -672,6 +703,47 @@ func advance(delta: float) -> void:
             if obstacle.is_empty() or obstacle.get("collider") == game.player:
                 damage_player(9)
             break
+
+# Fit the complete original rifle between the measured wall and the camera
+# near plane. Sideways port-arms keeps the receiver/hands in view. No scaling.
+func _fit_near_wall() -> void:
+    var rear := 0.0
+    var near_limit: float = game.player.camera.near+.015
+    var lower := -INF
+    var upper := INF
+    for step in range(9):
+        rear = 0.0
+        for point in wall_support_points:
+            var z: float = (weapon_pivot.basis*point).z
+            rear = maxf(rear,z)
+        upper = -near_limit-rear-.04
+        lower = -INF
+        for plane in wall_planes:
+            var normal: Vector3 = game.player.camera.global_basis.inverse()*plane.n
+            var point: Vector3 = game.player.camera.to_local(plane.p)
+            var support := INF
+            for vertex in wall_support_points: support = minf(support,normal.dot(weapon_pivot.basis*vertex))
+            var required: float = normal.dot(point)+.04-support
+            if normal.z > .1:
+                lower = maxf(lower,(required-normal.x*weapon_pivot.position.x-normal.y*weapon_pivot.position.y)/normal.z)
+            else:
+                var along := Vector3(normal.x,normal.y,0)
+                var shortage: float = required-normal.dot(weapon_pivot.position)
+                if shortage > 0 and along.length_squared() > .01: weapon_pivot.position += along*shortage/along.length_squared()
+        if lower <= upper: break
+        weapon_pivot.rotation.y = lerpf(weapon_pivot.rotation.y,PI*.5,.5)
+    # At an oblique wall, Z-only fitting may have no feasible interval.
+    # Keep the actual camera near-plane bound, then slide laterally along
+    # the real wall normal rather than moving the entire rifle behind us.
+    weapon_pivot.position.z = minf(maxf(weapon_pivot.position.z,lower),upper)
+    if lower > upper:
+        for plane in wall_planes:
+            var normal: Vector3 = game.player.camera.global_basis.inverse()*plane.n
+            var point: Vector3 = game.player.camera.to_local(plane.p)
+            var support := INF
+            for vertex in wall_support_points: support = minf(support,normal.dot(weapon_pivot.basis*vertex))
+            var shortage: float = normal.dot(point)+.04-support-normal.dot(weapon_pivot.position)
+            if shortage > 0 and absf(normal.x) > .1: weapon_pivot.position.x += shortage/normal.x
 
 func set_aim(value: bool) -> void:
     aiming = active and equipped and value and reload_time <= 0.0
@@ -845,6 +917,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
             if kill_events.size() > 4: kill_events.pop_front()
             health_by_peer[victim] = 100
             game.net.send_fps_respawn(victim,game.fps_arena.spawn_for(int(game.net.seats.get(victim,1))))
+            if game.net.mode == "host" and int(scores[shooter]) >= SCORE_LIMIT: _finish_match()
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
     return true
 
@@ -856,11 +929,83 @@ func server_reload(shooter: int) -> bool:
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
     return true
 
+# Only the actual host's monotonic clock advances match rules. A room with
+# one member pauses the remaining clock; client frame rate cannot shorten it.
+func _advance_match_clock() -> void:
+    var now := Time.get_ticks_msec()
+    var seconds := maxf(0.0,float(now-round_tick_msec)/1000.0) if round_tick_msec > 0 else 0.0
+    round_tick_msec = now
+    if round_over:
+        round_break = maxf(0.0,round_break-seconds)
+        if round_break <= 0.0 or (game.net.members.size() >= 2 and round_ready.size() == game.net.members.size()): _next_match()
+    elif game.net.members.size() >= 2:
+        round_remaining = maxf(0.0,round_remaining-seconds)
+        if round_remaining <= 0.0: _finish_match()
+
+func _finish_match() -> void:
+    if game.net.mode != "host" or round_over: return
+    round_over = true
+    round_break = INTERMISSION_SECONDS
+    round_tick_msec = Time.get_ticks_msec()
+    round_ready.clear()
+    round_winners.clear()
+    var best := -1
+    for peer_id in scores:
+        if not game.net.members.has(peer_id): continue
+        var value := int(scores[peer_id])
+        if value > best: best = value; round_winners.clear()
+        if value == best: round_winners.append(int(peer_id))
+    round_winners.sort()
+    round_winner_seats.clear()
+    for peer_id in round_winners: round_winner_seats.append(int(game.net.seats.get(peer_id,1)))
+    reload_ends.clear()
+    game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+
+func server_ready(peer_id: int) -> bool:
+    if game.net.mode != "host" or not round_over or not game.net.members.has(peer_id): return false
+    if round_ready.has(peer_id): return false
+    round_ready[peer_id] = true
+    game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+    return true
+
+func _next_match() -> void:
+    if game.net.mode != "host": return
+    round_id += 1
+    round_over = false
+    round_remaining = MATCH_SECONDS
+    round_break = 0.0
+    round_ready.clear()
+    round_winners.clear()
+    round_tick_msec = Time.get_ticks_msec()
+    round_winner_seats.clear()
+    reload_ends.clear()
+    reload_time = 0.0
+    shot_ticks.clear()
+    kill_events.clear()
+    impacts.clear()
+    for peer_id in health_by_peer:
+        health_by_peer[peer_id] = 100
+        ammo_by_peer[peer_id] = MAGAZINE_CAPACITY
+        reserve_by_peer[peer_id] = 120
+        scores[peer_id] = 0
+        game.net.send_fps_respawn(int(peer_id),game.fps_arena.spawn_for(int(game.net.seats.get(peer_id,1))))
+    _clear_round_cosmetics()
+    game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+
+func _clear_round_cosmetics() -> void:
+    for sprite in impact_sprites:
+        if is_instance_valid(sprite): sprite.queue_free()
+    impact_sprites.clear()
+    impact_ages.clear()
+    visual_recoil = 0.0
+    reload_visual_seconds = 0.0
+    game.player.trigger_buffer = 0.0
+
 func combat_state() -> Dictionary:
     var remaining := {}
     for id in reload_ends:
         remaining[id] = maxf(0.0,float(int(reload_ends[id])-Time.get_ticks_msec())/1000.0)
-    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true),"impacts":impacts.duplicate(true),"hits":hit_serials.duplicate(),"seats":game.net.seats.duplicate()}
+    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true),"impacts":impacts.duplicate(true),"hits":hit_serials.duplicate(),"seats":game.net.seats.duplicate(),"round":{"id":round_id,"seconds":round_remaining,"over":round_over,"break":round_break,"winners":round_winners.duplicate(),"winner_seats":round_winner_seats.duplicate(),"ready":round_ready.keys()}}
 
 func finish_server_reloads() -> void:
     var changed := false
@@ -876,6 +1021,20 @@ func finish_server_reloads() -> void:
 
 func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
     if int(combat.get("map_id",game.fps_arena.map_id)) != game.fps_arena.map_id: return
+    var info: Dictionary = combat.get("round",{})
+    var next_round := int(info.get("id",round_id))
+    if next_round != round_id:
+        _clear_round_cosmetics()
+    round_id = next_round
+    round_remaining = clampf(float(info.get("seconds",round_remaining)),0,MATCH_SECONDS)
+    round_over = bool(info.get("over",round_over))
+    round_break = clampf(float(info.get("break",round_break)),0,INTERMISSION_SECONDS)
+    round_winners.clear()
+    for winner in info.get("winners",[]): round_winners.append(int(winner))
+    round_winner_seats.clear()
+    for seat in info.get("winner_seats",[]): round_winner_seats.append(clampi(int(seat),1,4))
+    round_ready.clear()
+    for peer_id in info.get("ready",[]): round_ready[int(peer_id)] = true
     for event in combat.get("impacts",[]):
         if event is Dictionary and int(event.get("serial",0)) > last_impact_serial:
             last_impact_serial = int(event.serial)
@@ -887,6 +1046,8 @@ func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, com
     health_by_peer = hp.duplicate()
     ammo_by_peer = ammo.duplicate()
     scores = points.duplicate()
+    reserve_by_peer = combat.get("reserve",{}).duplicate()
+    hit_serials = combat.get("hits",{}).duplicate()
     var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
     var next_hit: int = int(combat.get("hits",{}).get(id,0))
     if next_hit > last_confirmed_serial: hit_feedback_time = .20

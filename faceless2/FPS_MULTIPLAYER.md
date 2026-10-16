@@ -1,4 +1,4 @@
-# Faceless 2 standalone FPS / headless network notes (v0.34)
+# Faceless 2 standalone FPS / headless network notes (v0.35)
 
 The FPS playfield is **two independent 48m x 48m FPS maps**, Cargo Courtyard and Maintenance Hangar. Both use 16 licensed Kenney CC0 floor GLBs, authored Kenney structural/cover GLBs, original Poly Haven scanned props and source-verified PBR textures. Courtyard is open with loading bays; Hangar has original GLB roof wings, an open skylight, pillars, service consoles and warm source lamp fixtures. Invisible collision proxies match visible structures. It is not Level 2 and does not contain elevators, story objectives or passive Backrooms entities. Legacy source is kept for regression but is not a prerequisite to playing an FPS match.
 
@@ -8,7 +8,7 @@ PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, T optional solo 
 
 ## Network version and authority
 
-Native ENet/UDP gameplay protocol is **20** (default UDP 24711), room discovery protocol version **20** (LAN multicast/broadcast + optional HTTPS Node room directory). The v0.34 version increase is mandatory because both map collision layouts changed: older clients must not join and simulate different walls. Validated pose RPCs include camera pitch and combat-state RPCs include host-owned reload/reserve state. v19 and older clients must not join v20 rooms. The join RPC now carries the host-selected map ID; combat and world snapshots also carry that ID.
+Native ENet/UDP gameplay protocol is **21** (default UDP 24711), room discovery protocol **21**. v0.35 adds a reliable authenticated ready RPC and host-owned round state; v20 and older clients must not join. Pose RPCs include camera pitch; snapshots include host-selected map, reload/reserve state and assigned seats. The optional Node directory is a lookup service, not a UDP relay or NAT traversal guarantee.
 
 A room can hold 2-4 connected players. One player waits; combat starts at two, even in a room with three or four seats. Losing the second player returns to waiting. Late joins and disconnects broadcast the current combat roster to all authenticated live peers. Seat numbers are allocated separately from ENet IDs, reclaimed on disconnect and used for respawns. Repeated handshakes cannot refill health/ammo. The host owns health, ammo, kills, respawn location and accepted fire rate, validates membership on every firing/reload RPC and checks ray LOS/shot yaw/pitch against the last validated peer location. Clients cannot submit direct target damage or scores. Snapshots for joining clients contain their actual assigned spawn and current combat state. Hit positions are only approximated from host-validated player movement; full lag compensation and full adversarial anti-cheat remain future work.
 
@@ -114,3 +114,33 @@ The real-process reload flood fixture sends reload plus ten fire RPCs in one cli
 Close-wall extent calculation caches 104 original mesh-bound corners rather than transforming all 10,480 imported vertices on every close-wall frame. These conservative per-part bounds must contain every actual weapon vertex under four different rotations; the real physics-wall/source-vertex check remains mandatory. A headless CPU microbenchmark prints both paths' timings, which measure this calculation only, not GPU/device FPS.
 
 The original WRAD forearms are rigidly aimed down beyond the view; the authored wrist is counter-rotated to retain the complete calibrated hand frame. Runtime guards check wrist position/orientation and bone length. Godot 4 local bone pose already contains rest; applying rest twice had caused incorrect joint compensation. This numerical guard still requires native screenshots and continuous-video review for visible wrist/stock intersections.
+
+
+## v0.35 round rules and visual refinement
+
+Two authenticated peers immediately start the host's five-minute monotonic
+clock; fewer than two pauses it and locks fire. First to ten kills or timeout
+ends the round, locks fire/reload, displays all tied winners, and preserves the
+winner seat labels if a player leaves. Eight seconds later the host resets HP,
+magazines, reserve, scores, reloads, impacts and spawns. All current members can
+ready earlier (desktop Enter or the touch result button). Duplicate, unauthenticated
+and live-round ready requests are rejected. Late joiners receive current round
+state; disconnects remove readiness. This is free-for-all, not ranked matchmaking.
+
+The existing real headless UDP matrix now validates end-round state, locked fire,
+late join during intermission, authenticated readiness and rematch reset on both
+maps / all 2, 3, 4 capacities. The 2-player courtyard case scores ten actual kills
+(40 accepted rays plus actual reload), then tests timeout draw and automatic
+rematch. A fixture-only host timer shortening exercises timeout; clients never
+supply a clock or score. One-player clock pause is checked separately.
+
+The WRAD CC0 hands use an explicitly source-derived offline rounded surface
+(see credits), not a new unlicensed model. Close-wall fitting uses actual hit
+planes and cached original rifle bounds to turn sideways between the wall and
+camera near plane, retaining a visible weapon without scale animation. Tests
+inspect every original firearm vertex against straight/oblique physics walls;
+this geometric fixture does not establish no clipping in every possible pose.
+Material scale, neutral concrete tint and hangar light balance are adjusted.
+A native Linux capture and MP4 are required before visual approval. Android
+hardware FPS, public NAT, production matchmaking and full anti-cheat remain
+unverified. This release is not represented as AAA quality.

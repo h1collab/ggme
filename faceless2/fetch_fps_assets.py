@@ -77,12 +77,17 @@ def fetch_wrad_arms(folder: Path) -> None:
     if not (triangles == 1178 and original == 1196):
         raise ValueError("CC0 hand/wrist GLB subset count invalid")
     print("FPS_WRAD_CC0_SKINNED_GRIP_PASS",triangles,original)
+    from refine_fps_arms import refine
     for side in ("r", "l"):
         target = folder / ("fps_wrad_grip_" + side + ".glb")
         hand_triangles,_ = bake(dest,target,side)
         if hand_triangles != 589:
             raise ValueError("Original WRAD authored hand subset has unexpected count: "+side)
         print("FPS_WRAD_HAND_SIDE_PASS",side,hand_triangles)
+        refined = refine(target)
+        if refined["derived_triangles"] != 9424:
+            raise ValueError("WRAD derivative refinement inventory changed")
+        print("FPS_WRAD_CC0_REFINED_PASS",side,refined)
 
 def main(folder: Path) -> None:
     folder.mkdir(parents=True, exist_ok=True)
