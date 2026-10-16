@@ -133,12 +133,16 @@ for src,dest in [("map1_00_overview.png","Hangar.png"),("map0_05_near_shipped_wa
     shutil.copyfile(p/src,OUT/dest)
     Image.open(p/src).convert("RGB").save(OUT/(Path(dest).stem+"-review.jpg"),quality=95)
 shutil.copyfile("faceless2/ASSET_CREDITS.md",OUT/"ASSET_CREDITS.md")
+shutil.copyfile(movie,OUT/"Faceless2-v035-637e790.mp4")
+assert sha(apk)=="a5c46609cb87ea163035d2f72a7b3c399eed9d16374cecd6276f0c1c589b14a8"
+assert sha(movie)=="5edbf0370eba9e9551436896843b318c697dde9fba137734fa362e2b105c7fd7"
+assert artifacts[2]["zip_sha256"]=="676e156b6925e8786db8db1b12ac257d4494c4f59e63a3017c2abb1c468fdf17"
 report={"source_sha":SOURCE,"version":"0.35.0","protocol":21,"apk_run":APK_RUN,"preview_run":PREVIEW_RUN,
 "artifacts":artifacts,"apk":{"bytes":apk.stat().st_size,"sha256":sha(apk),"crc":"PASS","manifest":manifest,
 "resource_references":len(references)},"video":{"bytes":movie.stat().st_size,"sha256":sha(movie),"codec":"h264",
 "width":960,"height":540,"fps":20,"frames":520,"seconds":26,"audio":False,"distinct_frames":520,"decode":"PASS"},
 "headless":{name:"PASS" for name in markers},"sessions":sessions,"lan":"PASS","native_stills":27,
-"movie_review_samples":52,"manual_review":"pending root visual review","device_fps_public_nat":"unverified"}
+"movie_review_samples":52,"manual_review":{"status":"completed","scope":"27 screenshot overview entries, five full-size JPEG representations and 52 movie sample frames personally inspected by root; original PNG bytes preserved","visual_limits":["simplified fingers and skin detail","repeated environment props/materials","simplified base-supported reload","no AAA or all-poses zero-clipping claim"],"reviewed_video_sha256":"5edbf0370eba9e9551436896843b318c697dde9fba137734fa362e2b105c7fd7"},"device_fps_public_nat":"unverified"}
 (OUT/"Verification.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n")
 (OUT/"SHA256SUMS.txt").write_text("".join(sha(f)+"  "+f.name+"\n" for f in sorted(OUT.iterdir()) if f.is_file() and f.name!="SHA256SUMS.txt"))
 print("ARTIFACT_AUDIT_REPORT "+json.dumps(report,separators=(",",":")))
