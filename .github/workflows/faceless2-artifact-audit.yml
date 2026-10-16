@@ -1,0 +1,37 @@
+name: Audit exact Faceless 2 v0.35 artifacts
+on:
+  push:
+    branches: [qa/faceless2-v035-artifact-audit-20261016]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qa/faceless2-v035-artifact-audit-20261016
+      - name: Install static artifact inspection tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          python -m pip install Pillow==11.3.0
+      - name: Download and inspect the unchanged source-commit artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python faceless2/verify_build_artifacts.py
+      - name: Preserve actual source screenshots and review evidence on QA branch only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add faceless2/qa/637e790
+          git commit -m 'qa: preserve exact 637e790 native frames and artifact verification'
+          git push origin HEAD:qa/faceless2-v035-artifact-audit-20261016
+          echo "EVIDENCE_COMMIT=$(git rev-parse HEAD)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: faceless2-v035-637e790-artifact-audit
+          path: faceless2/qa/637e790
+          retention-days: 30
