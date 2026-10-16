@@ -235,6 +235,16 @@
   "lan": "PASS",
   "native_stills": 27,
   "movie_review_samples": 52,
-  "manual_review": "pending root visual review",
+  "manual_review": {
+    "status": "completed",
+    "scope": "27 screenshot overview entries, five full-size JPEG representations and 52 movie sample frames personally inspected by root; original PNG bytes preserved",
+    "visual_limits": [
+      "simplified fingers and skin detail",
+      "repeated environment props/materials",
+      "simplified base-supported reload",
+      "no AAA or all-poses zero-clipping claim"
+    ],
+    "reviewed_video_sha256": "5edbf0370eba9e9551436896843b318c697dde9fba137734fa362e2b105c7fd7"
+  },
   "device_fps_public_nat": "unverified"
 }
