@@ -151,7 +151,9 @@ then move the original magazine and hand together through withdrawal/insertion,
 and return to the fore-end before animation completion. Check the actual
 skinned skeleton socket against the moving source-mesh point at five phases;
 a real 10cm hand perturbation must fail. CPU-skinned palm vertices must also
-stay within 5mm of contact. Leaving mid-reload restores the magazine, handle and
+stay within 5mm of contact, and the actual contact must project inside the
+viewport at all five phases. Raise the rifle during reload to keep its magazine
+and supporting hand visible. Leaving mid-reload restores the magazine, handle and
 hand transforms immediately and clears action timers. Capture an extra contact-phase
 PNG for each map. This remains a simplified base-supported reload, not a claim
 of motion-captured animation or a physically simulated magazine inventory.

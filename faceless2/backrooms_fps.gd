@@ -721,7 +721,7 @@ func advance(delta: float) -> void:
         var aim_blend: float = pow(1.0-wall_retract,2.0) if aiming else 0.0
         base = base.lerp(Vector3(.000824,-.0773845,-.48+visual_recoil*.22),aim_blend)
         var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
-        base.y += wall_retract*.09-reload_phase*.045
+        base.y += wall_retract*.09+reload_phase*.20
         base.z += wall_retract*.08
         base.x -= wall_retract*.13
         weapon_pivot.position = weapon_pivot.position.lerp(base,minf(1.0,delta*12.0))

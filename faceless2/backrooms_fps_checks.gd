@@ -201,9 +201,13 @@ func run() -> void:
 	check(fps.magazine_contact_ready,"Reload grasp is calibrated on the original magazine triangles")
 	for phase in [.16,.25,.43,.60,.78]:
 		fps.reload_visual_seconds = fps.RELOAD_SECONDS*(1.0-phase)
-		fps.advance(0.0)
+		for frame in range(40):
+			fps.reload_visual_seconds = fps.RELOAD_SECONDS*(1.0-phase)+1.0/60.0
+			fps.advance(1.0/60.0)
 		check(fps.reload_contact_error() < .002,"Actual left socket follows the moving magazine base through removal/insertion")
 		check(fps.reload_skin_contact_error() < .005,"Actual CPU-skinned palm vertices stay within 5mm of the source magazine contact")
+		var contact_world: Vector3 = fps.rifle_magazine.to_global(fps.magazine_contact)
+		check(not game.player.camera.is_position_behind(contact_world) and Rect2(Vector2(8,8),Vector2(root.size)-Vector2(16,16)).has_point(game.player.camera.unproject_position(contact_world)),"Reload magazine/palm contact remains inside the viewport rather than hidden below it")
 		check_arm_boundaries(fps)
 	fps.grip_hands.get_child(1).position.x += .10
 	check(fps.reload_contact_error() > .09,"Reload contact test detects a genuine 10cm detached hand")
