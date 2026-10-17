@@ -26,6 +26,7 @@ static func install(target: Theme) -> void:
 		target.set_color("font_disabled_color",kind,LOCKED)
 		target.set_color("font_uneditable_color",kind,CYAN)
 		target.set_color("font_placeholder_color",kind,CYAN)
+		if kind == "Label": continue # Text stays unboxed; cards own their backgrounds.
 		for state in ["normal","panel","read_only"]: target.set_stylebox(state,kind,plate())
 		for state in ["hover","hover_pressed"]: target.set_stylebox(state,kind,plate(BLUE,CYAN))
 		target.set_stylebox("pressed",kind,plate(Color("214d75"),GOLD))

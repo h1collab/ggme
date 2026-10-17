@@ -41,6 +41,7 @@ func run() -> void:
 		check(button.modulate == Color.WHITE and button.get_theme_color("font_color") == Color.WHITE,"All weapon names retain white text and full opacity")
 		check(button.get_theme_color("font_disabled_color").b > .9 and button.get_theme_color("font_disabled_color").r < .8,"Disabled text stays cyan, never theme-default gray")
 		check(button.has_method("set_selection"),"Weapon controls use original signal skin")
+	check(not game.ui.theme.has_stylebox("normal","Label"),"Typography keeps transparent label backgrounds")
 	check(game.ui.theme.get_icon("checked","CheckBox") != null,"Custom vector settings marks are installed")
 	print("FPS_SIGNAL_INTERFACE_PASS white/cyan typography, original vector skin, stable HUD cache")
 	var controls: Array[Control] = [game.ui.joystick,game.ui.sprint_button,game.ui.jump_button,game.ui.shoot_button,game.ui.aim_button,game.ui.reload_button,game.ui.pause_button,game.ui.fps_corner_hud.view_button]
