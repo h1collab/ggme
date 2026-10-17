@@ -401,7 +401,7 @@ func _process(delta: float) -> void:
 		actor.position = actor.position.lerp(target, minf(delta * 12, 1))
 		actor.rotation.y = lerp_angle(actor.rotation.y, float(actor.get_meta("yaw", 0.0)), minf(delta * 10, 1))
 		if fps_arena.visible and actor.has_method("update_combat"):
-			actor.update_combat(speed/maxf(delta,.001),false,fps.peer_weapon(int(id)),int(fps.hit_serials.get(id,0)),delta)
+			actor.update_combat(speed/maxf(delta,.001),false,fps.peer_weapon(int(id)),int(fps.hit_serials.get(id,0)),delta,float(net.poses.get(id,{}).get("pitch",0.0)))
 			continue
 		# Cache authored animation nodes once per crew instance; no recursive
 		# find_children allocation on every render frame for four remote peers.
@@ -640,6 +640,7 @@ func update_crew(poses: Dictionary) -> void:
 				remote_water_steps[id] = step_position
 		else:
 			remote_water_steps[id] = step_position
+		if crew.has(id) and fps_arena.visible and crew[id].has_method("configure") and int(crew[id].seat) != int(net.seats.get(id,1)): remove_crew(id)
 		if not crew.has(id):
 			crew[id] = _crew_avatar(id)
 			crew[id].position = poses[id].p

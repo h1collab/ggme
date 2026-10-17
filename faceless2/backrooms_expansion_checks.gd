@@ -95,7 +95,9 @@ func run() -> void:
 		check(is_instance_valid(actor.skeleton) and is_instance_valid(actor.attachment),"Original skinned character has real weapon-hand attachment")
 		actor.update_combat(6.2,false,1,1,.016)
 		check(not actor.current_clip.is_empty(),"Imported source animation selected")
-		for index in range(4): actor.set_weapon(index)
+		for index in range(4):
+			actor.set_weapon(index)
+			check(actor.hand_contact_error() < .002,"Actual third-person hand bone remains attached to weapon grip")
 		actor.queue_free()
 	check(sources.size() == 4,"Every server seat uses a different original character")
 	var hud: Control = game.ui.fps_corner_hud

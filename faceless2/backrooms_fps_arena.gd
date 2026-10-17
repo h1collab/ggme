@@ -255,13 +255,14 @@ func update_local_actor(delta: float) -> void:
 		local_shadow.configure(seat)
 	local_shadow.global_position = player.global_position
 	local_shadow.rotation.y = player.rotation.y
-	local_shadow.visible = true
-	for mesh in local_shadow.meshes:
-		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if player.third_person else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-	for mesh in local_shadow.held.find_children("*","MeshInstance3D",true,false):
-		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if player.third_person else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	local_shadow.visible = not player.third_person or player.camera_clearance > .65
 	var speed: float = Vector2(player.velocity.x,player.velocity.z).length()
-	local_shadow.update_combat(speed,not player.is_on_floor() and absf(player.velocity.y) > .3,game.fps.selected_weapon,int(game.fps.hit_serials.get(own,0)),delta)
+	local_shadow.update_combat(speed,not player.is_on_floor() and absf(player.velocity.y) > .3,game.fps.selected_weapon,int(game.fps.hit_serials.get(own,0)),delta,player.pitch)
+	var mode := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if player.third_person else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	if int(local_shadow.get_meta("last_shadow_mode",-1)) != mode or int(local_shadow.get_meta("last_shadow_weapon",-1)) != game.fps.selected_weapon:
+		for mesh in local_shadow.meshes+local_shadow.held_meshes: (mesh as MeshInstance3D).cast_shadow = mode
+		local_shadow.set_meta("last_shadow_mode",mode)
+		local_shadow.set_meta("last_shadow_weapon",game.fps.selected_weapon)
 
 func apply_quality(quality: int) -> void:
 	if not is_instance_valid(light): return

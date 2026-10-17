@@ -532,8 +532,8 @@ func trigger_recoil() -> void:
     # Bounded rig-only impulse; aiming/shot authority are never rotated.
     var impulse := ADS_RECOIL_IMPULSE if aiming else HIP_RECOIL_IMPULSE
     visual_recoil = minf(visual_recoil+impulse,impulse*1.15)
-    muzzle_flash_time = .075
-    if is_instance_valid(muzzle_light): muzzle_light.visible = true
+    muzzle_flash_time = .075 if selected_weapon != 3 else 0.0
+    if is_instance_valid(muzzle_light): muzzle_light.visible = selected_weapon != 3
 
 # Posing fingers uses authored WRAD skeleton bones only. No full-arm
 # shoulder/elbow IK, which visibly bent the source upper arms across the gun.
@@ -876,7 +876,7 @@ func advance(delta: float) -> void:
                 wall_planes.append({"p":hit_wall.position,"n":hit_wall.normal})
         wall_retract = clampf((1.12-wall_clearance)/.78,0.0,1.0)
     if is_instance_valid(weapon_pivot):
-        weapon_pivot.visible = equipped and not game.player.third_person
+        weapon_pivot.visible = equipped and not game.player.third_person and not (selected_weapon == 2 and aiming)
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
         var walking: float = sin(game.player.motion_clock)
         var base := Vector3(.23 + walking*.004*motion,
@@ -893,6 +893,10 @@ func advance(delta: float) -> void:
         weapon_pivot.rotation.x = lerpf(weapon_pivot.rotation.x,pitch,minf(1.0,delta*11.0))
         weapon_pivot.rotation.y = lerp_angle(weapon_pivot.rotation.y,-.08*(1.0-aim_blend)+wall_retract*1.65,minf(1.0,delta*9.0))
         weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,-.025*(1.0-aim_blend)-wall_retract*.075,minf(1.0,delta*9.0))
+        if selected_weapon == 3 and shot_cooldown > 0:
+            var slash := sin((1.0-clampf(shot_cooldown/.45,0,1))*PI)
+            weapon_pivot.rotation.z += slash*.65
+            weapon_pivot.position.x -= slash*.12
         if wall_retract > .001:
             _fit_near_wall()
     if selected_weapon == 0 and is_instance_valid(rifle_magazine):

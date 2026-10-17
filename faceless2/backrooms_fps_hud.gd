@@ -238,6 +238,14 @@ func _draw() -> void:
 	var fps: Node3D = ui.game.fps
 	if not fps.active or ui.modal: return
 	var center := Vector2(800,450)
+	if fps.selected_weapon == 2 and fps.aiming and not ui.game.player.third_person:
+		draw_arc(center,800,0,TAU,128,Color(.006,.009,.012,.97),900,true)
+		draw_arc(center,350,0,TAU,128,Color(.4,.45,.48),2,true)
+		draw_line(center+Vector2(-350,0),center+Vector2(350,0),Color(.015,.018,.02),1.5,true)
+		draw_line(center+Vector2(0,-350),center+Vector2(0,350),Color(.015,.018,.02),1.5,true)
+		for step in range(1,6):
+			draw_line(center+Vector2(-5,step*30),center+Vector2(5,step*30),Color(.015,.018,.02),1,true)
+		draw_circle(center,2,Color(.9,.22,.1))
 	if not fps.aiming or ui.game.player.third_person:
 		var motion: float = Vector2(ui.game.player.velocity.x,ui.game.player.velocity.z).length()
 		var gap: float = 5.0+motion*.65+fps.visual_recoil*10

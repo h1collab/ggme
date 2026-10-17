@@ -30,5 +30,7 @@ static func model(index: int) -> Node3D:
 	var factor: float = float(entry.length)/(maxf(bounds.size.y,maxf(bounds.size.z,bounds.size.x)) if index == 3 else maxf(bounds.size.z,maxf(bounds.size.x,.01)))
 	scene.scale = Vector3.ONE*factor
 	scene.position = -bounds.get_center()*factor
+	var reference: Vector3 = Vector3(.013,-.085,.072) if index == 0 else [Vector3.ZERO,Vector3(.02,-.06,0),Vector3(.02,-.17,0),Vector3.ZERO][index]
+	root.set_meta("grip_local",scene.transform*reference)
 	root.set_meta("source_bounds",bounds)
 	return root
