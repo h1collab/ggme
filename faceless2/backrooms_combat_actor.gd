@@ -84,6 +84,11 @@ func update_combat(speed: float, airborne: bool, weapon: int, serial: int, delta
 	elif moving: play_clip("Run_Carry" if speed > 4.5 else "Walk_Carry")
 	else:
 		play_clip("Shoot_OneHanded")
-		if is_instance_valid(animation): animation.seek(.15,true)
+		if is_instance_valid(animation) and animation.speed_scale != 0.0:
+			# Clear the previous clip's blend before freezing a ready pose.
+			# Freezing a .12s blend at speed zero left the fist behind the body.
+			animation.play(current_clip,0.0)
+			animation.seek(.15,true)
+			animation.advance(0.0)
 	if is_instance_valid(animation): animation.speed_scale = (clampf(speed/3.8,.5,1.8) if moving else 1.0) if (moving or airborne or shot_seconds > 0) else 0.0
 	_update_hand_weapon()

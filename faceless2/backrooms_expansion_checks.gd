@@ -23,6 +23,20 @@ func run() -> void:
 	check(game.net.mode == "solo","Invalid resolved endpoint rejected without ENet errors")
 	var fps: Node3D = game.fps
 	var player: CharacterBody3D = game.player
+	# The former native flank fixture was inside a real cargo collision.
+	for map_id in [0,1]:
+		game.fps_arena.activate(map_id)
+		await physics_frame
+		await physics_frame
+		var shape := CapsuleShape3D.new()
+		shape.radius = .32; shape.height = 1.72
+		var query := PhysicsShapeQueryParameters3D.new()
+		query.shape = shape
+		query.transform.origin = Vector3(33,1.0,45)
+		query.exclude = [player.get_rid()]
+		check(game.get_world_3d().direct_space_state.intersect_shape(query).is_empty(),"Both expanded flank preview locations clear actual cargo geometry")
+	game.fps_arena.activate(0)
+
 	fps.set_process(false)
 	player.reset_to(Vector3(0,.12,0))
 	player.yaw = 0; player.pitch = 0; player.rotation = Vector3.ZERO
@@ -91,9 +105,32 @@ func run() -> void:
 	check(player.third_person and player.camera.position.z < .92,"Shoulder camera retracts in front of actual wall")
 	check(player.eye_position().distance_to(player.global_position+Vector3(0,1.58,0)) < .00001,"Shot origin stays at body eye, never behind-wall camera")
 	check(not fps.weapon_pivot.visible,"First-person weapon hidden in third-person view")
+	check(absf(player.camera.position.x) > .05,"Shoulder camera keeps a lateral offset after collision fitting")
 	player.set_third_person(false)
 	check(player.camera.position.distance_to(Vector3(0,1.58,0)) < .00001,"Switching back exactly restores first-person camera")
 	wall.queue_free()
+	await physics_frame
+	await physics_frame
+	fps._apply_weapon(0)
+	player.set_third_person(true)
+	player.update_combat_camera(.1)
+	game.fps_arena.update_local_actor(.1)
+	for i in range(3): await process_frame
+	var visible_points := 0
+	var total_points := 0
+	for part in game.fps_arena.local_shadow.held_meshes:
+		var mesh := part as MeshInstance3D
+		check(mesh.is_visible_in_tree() and mesh.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY,"Third-person weapon is actually rendered, not shadow-only")
+		for corner in range(8):
+			var point: Vector3 = mesh.to_global(mesh.get_aabb().get_endpoint(corner))
+			var ray := PhysicsRayQueryParameters3D.create(player.camera.global_position,point,1)
+			var hit: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(ray)
+			if hit.is_empty() and not player.camera.is_position_behind(point) and Rect2(Vector2.ZERO,Vector2(root.size)).has_point(player.camera.unproject_position(point)): visible_points += 1
+			total_points += 1
+	check(game.fps_arena.local_shadow.attachment.global_position.z < player.global_position.z-.1,"Ready-pose authored hand remains in front of the body")
+	check(visible_points > total_points/10,"Actual rifle bounds have an unobstructed view around the player's collision capsule")
+	print("THIRD_PERSON_RIFLE_VISIBLE_BOUND_POINTS ",visible_points,"/",total_points," camera=",player.camera.global_position," gun=",game.fps_arena.local_shadow.held.global_position," hand=",game.fps_arena.local_shadow.attachment.global_position)
+	player.set_third_person(false)
 	var sources := {}
 	for seat in range(1,5):
 		var actor := preload("backrooms_combat_actor.gd").new()

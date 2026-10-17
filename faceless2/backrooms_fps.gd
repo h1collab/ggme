@@ -69,6 +69,7 @@ var local_equip_end := 0
 var extra_weapons: Array[Node3D] = []
 var rifle_supports := PackedVector3Array()
 var hand_rest_transforms: Array[Transform3D] = []
+var rifle_finger_poses: Array[Quaternion] = []
 var shot_events: Array[Dictionary] = []
 var shot_serial := 0
 var last_shot_serial := 0
@@ -258,6 +259,7 @@ func peer_weapon(id: int) -> int: return int(weapon_by_peer.get(id,0))
 func _build_arsenal() -> void:
     rifle_supports = wall_support_points.duplicate()
     for hand in grip_hands.get_children(): hand_rest_transforms.append(hand.transform)
+    for bone in range(grip_skeleton.get_bone_count()): rifle_finger_poses.append(grip_skeleton.get_bone_pose_rotation(bone))
     for index in range(1,4):
         var model := Arsenal.model(index)
         model.name = "OriginalCC0_"+str(Arsenal.spec(index).label)
@@ -288,6 +290,8 @@ func _apply_weapon(index: int) -> void:
     if not Arsenal.valid(index): return
     var changed := selected_weapon != index
     selected_weapon = index
+    for bone in range(rifle_finger_poses.size()): grip_skeleton.set_bone_pose_rotation(bone,rifle_finger_poses[bone])
+    if index == 3: _curl_hand_fingers(grip_skeleton,"r")
     if changed:
         local_equip_end = Time.get_ticks_msec()+250
         aiming = false
@@ -546,7 +550,7 @@ func _curl_hand_fingers(skel: Skeleton3D, side: String) -> void:
             if bone < 0: continue
             var curl := .95 if segment == 1 else (1.02 if segment == 2 else .45)
             if finger == "thumb": curl *= .58
-            if finger == "index" and side == "r": curl *= .60
+            if finger == "index" and side == "r" and selected_weapon != 3: curl *= .60
             var direction := 1.0 if side == "r" else -1.0
             # Finger local Y is its length; bend toward the palm about Z.
             # Multiplication on the right retains each authored joint frame.

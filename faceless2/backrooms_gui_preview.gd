@@ -24,6 +24,11 @@ func shot(label: String, at: Vector3, target: Vector3, fire: bool = false) -> vo
 	var img: Image = root.get_texture().get_image()
 	if img.is_empty() or img.save_png(output_dir.path_join(label+".png")) != OK: issues.append(label)
 	else: print("GODOT_GUI_PREVIEW ",label)
+func wait_switch() -> void:
+	# Host cooldowns use monotonic time. A fixed-fps offline renderer can be
+	# slower than real time; do not turn 1.1 seconds into 33 expensive frames.
+	var deadline := Time.get_ticks_msec()+1100
+	while Time.get_ticks_msec() < deadline: await process_frame
 func run() -> void:
 	output_dir = OS.get_environment("FACELESS_PREVIEW_DIR")
 	if output_dir.is_empty(): output_dir = OS.get_user_data_dir().path_join("preview_frames")
@@ -74,14 +79,14 @@ func run() -> void:
 		await shot(prefix+"11_optional_drill",Vector3(0,.12,0),Vector3(0,1.6,-9),true)
 		game.fps.toggle_training()
 		for weapon in [1,2,3]:
-			await create_timer(1.1).timeout
+			await wait_switch()
 			game.fps.select_weapon(weapon)
 			await shot(prefix+"14_weapon_"+str(weapon),Vector3(0,.12,0),Vector3(0,1.6,-18))
 			if weapon == 2:
 				game.fps.set_aim(true)
 				await shot(prefix+"17_precision_scope",Vector3(0,.12,0),Vector3(0,1.6,-18))
 				game.fps.set_aim(false)
-		await create_timer(1.1).timeout
+		await wait_switch()
 		game.fps.select_weapon(0)
 		game.player.set_third_person(true)
 		game.player.global_position = Vector3(0,.12,24)
@@ -93,7 +98,7 @@ func run() -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(output_dir.path_join(prefix+"15_third_person_extended_sector.png"))
 		game.player.set_third_person(false)
-		await shot(prefix+"16_extended_flank",Vector3(30,.12,43),Vector3(8,1.6,19))
+		await shot(prefix+"16_extended_flank",Vector3(33,.12,45),Vector3(16,1.6,25))
 		game.fps.measure_grip()
 		print("PREVIEW_MAP ",map_id," GEOMETRY ",game.fps_arena.geometry_digest())
 	# Review the actual result HUD with a second authenticated, independent

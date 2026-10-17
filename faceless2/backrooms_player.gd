@@ -215,8 +215,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R: if is_instance_valid(game.fps): game.fps.reload()
 			KEY_T: if is_instance_valid(game.fps): game.fps.toggle_training()
 			KEY_V: set_third_person(not third_person)
-			KEY_1: if is_instance_valid(game.fps): game.fps.select_weapon(0)
-			KEY_2: if is_instance_valid(game.fps): game.fps.select_weapon(1)
+			KEY_1:
+				if is_instance_valid(game.fps):
+					if game.fps.level_id == -2: game.fps.select_weapon(0)
+					else: game.fps.select_blaster()
+			KEY_2:
+				if is_instance_valid(game.fps):
+					if game.fps.level_id == -2: game.fps.select_weapon(1)
+					else: game.fps.select_flashlight()
 			KEY_3: if is_instance_valid(game.fps): game.fps.select_weapon(2)
 			KEY_4: if is_instance_valid(game.fps): game.fps.select_weapon(3)
 			KEY_ESCAPE: game.ui.open_pause()
@@ -242,7 +248,7 @@ func update_combat_camera(delta: float) -> void:
 	if not third_person: return
 	var pivot := eye_position()
 	var orientation := global_basis*Basis(Vector3.RIGHT,pitch)
-	var offset := orientation*Vector3(.55,.18,2.8)
+	var offset := orientation*Vector3(1.2,.18,2.8)
 	var desired := pivot+offset
 	var fraction := 1.0
 	# A five-ray swept near-plane approximation prevents a shoulder camera
