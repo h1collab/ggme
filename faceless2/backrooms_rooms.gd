@@ -34,11 +34,14 @@ var matching := false
 var match_epoch := 0
 var match_message := ""
 var match_attempts := 0
+var pending_http: Dictionary = {}
+var http_retry := 0
 
 func _ready() -> void:
 	name = "RoomDiscovery"
 	client = HTTPRequest.new()
 	client.timeout = 7.0
+	client.body_size_limit = 262144
 	add_child(client)
 	client.request_completed.connect(_http_complete)
 	receiver = PacketPeerUDP.new()
@@ -189,7 +192,16 @@ func join_code(input_code: String) -> void:
 	else:
 		room_error.emit("局域网尚未发现此房间；跨网络需要部署 JS 房间服务")
 
+func valid_code(code: String) -> bool:
+	if code.length() != 8: return false
+	for letter in code:
+		if letter not in CODE_ALPHABET: return false
+	return true
+
 func _join_endpoint(target: Dictionary) -> void:
+	if not valid_code(str(target.get("code",""))) or str(target.get("address","")).is_empty() or int(target.get("port",0)) < 1024 or int(target.get("port",0)) > 65535 or str(target.get("key","")).is_empty() or not int(target.get("map_id",-1)) in [0,1]:
+		room_error.emit("Invalid room endpoint")
+		return
 	# Directory/LAN counts can be stale immediately after a disconnect.
 	# Explicit code joins ask the actual ENet host, which enforces capacity.
 	var result: Error = game.net.join(String(target.get("address", "")), int(target.get("port", DEFAULT_GAME_PORT)), String(target.get("key", "")))
@@ -206,6 +218,8 @@ func _send(kind: String, method: HTTPClient.Method, path: String, content: Dicti
 		if kind != "heartbeat": room_error.emit("房间服务正忙，稍后重试")
 		return
 	operation = kind
+	http_retry = 0
+	pending_http = {"kind":kind,"method":method,"path":path,"content":content.duplicate(true)}
 	var body := JSON.stringify(content) if method != HTTPClient.METHOD_GET else ""
 	var error: Error = client.request(directory_url + path, ["Content-Type: application/json"], method, body)
 	if error != OK:
@@ -215,21 +229,38 @@ func _send(kind: String, method: HTTPClient.Method, path: String, content: Dicti
 func _http_complete(_result: int, status_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	var op := operation
 	operation = ""
-	var decoded: Variant = JSON.parse_string(body.get_string_from_utf8())
-	if typeof(decoded) != TYPE_DICTIONARY: decoded = {}
-	var response: Dictionary = decoded
-	if status_code < 200 or status_code >= 300:
-		if op != "heartbeat": room_error.emit("房间服务：%s（HTTP %d）" % [String(response.get("error", "无法连接")), status_code])
+	if op.is_empty(): return # cancelled/stale responses cannot create a room.
+	var parser := JSON.new()
+	var valid := parser.parse(body.get_string_from_utf8()) == OK and typeof(parser.data) == TYPE_DICTIONARY
+	var response: Dictionary = parser.data if valid else {}
+	var transient := _result != HTTPRequest.RESULT_SUCCESS or status_code in [429,502,503,504] or not valid
+	# One bounded retry, preserving the active operation/single-flight lock.
+	# HTML proxy failures are user-facing network errors, never engine parse errors.
+	if transient and http_retry == 0 and pending_http.get("kind","") == op:
+		http_retry = 1
+		operation = op
+		var retry_body := JSON.stringify(pending_http.content) if int(pending_http.method) != HTTPClient.METHOD_GET else ""
+		var err := client.request(directory_url+str(pending_http.path),["Content-Type: application/json"],int(pending_http.method),retry_body)
+		if err == OK: return
+		operation = ""
+	if not valid or _result != HTTPRequest.RESULT_SUCCESS or status_code < 200 or status_code >= 300:
+		if op != "heartbeat": room_error.emit(game.ui.localized("Room directory unavailable · retry or use LAN","房间服务暂不可用 · 请重试或使用局域网"))
 		return
 	match op:
 		"create":
+			if not valid_code(str(response.get("code",""))) or str(response.get("key","")).is_empty() or str(response.get("owner_token","")).is_empty():
+				room_error.emit("Invalid room creation response")
+				return
 			if int(response.get("map_id",selected_map)) != selected_map:
 				room_error.emit("Room directory map mismatch")
 				return
 			owner_token = String(response.get("owner_token", ""))
 			_finish_create(String(response.get("code", "")), String(response.get("key", "")))
 		"list":
-			remote_public = response.get("rooms", [])
+			remote_public.clear()
+			if not response.get("rooms",[]) is Array: return
+			for item in response.get("rooms",[]):
+				if item is Dictionary and valid_code(str(item.get("code",""))) and int(item.get("max_players",0)) in [2,3,4] and int(item.get("map_id",-1)) in [0,1]: remote_public.append(item.duplicate())
 			rooms_changed.emit(public_rooms())
 		"resolve": _join_endpoint(response)
 

@@ -65,6 +65,7 @@ var weapon_by_peer: Dictionary = {}
 var loadouts: Dictionary = {}
 var switch_ends: Dictionary = {}
 var selected_weapon := 0
+var local_equip_end := 0
 var extra_weapons: Array[Node3D] = []
 var rifle_supports := PackedVector3Array()
 var hand_rest_transforms: Array[Transform3D] = []
@@ -288,6 +289,7 @@ func _apply_weapon(index: int) -> void:
     var changed := selected_weapon != index
     selected_weapon = index
     if changed:
+        local_equip_end = Time.get_ticks_msec()+250
         aiming = false
         reload_visual_seconds = 0
         game.player.trigger_buffer = 0
@@ -776,6 +778,7 @@ func leave_level() -> void:
     last_shot_serial = 0
     if not extra_weapons.is_empty(): _apply_weapon(0)
     game.player.set_third_person(false)
+    local_equip_end = 0
     health_by_peer.clear()
     ammo_by_peer.clear()
     scores.clear()
@@ -1015,6 +1018,7 @@ func fire() -> String:
     if active and level_id == -2:
         if not game.running or game.ui.modal or not equipped or not match_can_fire(): return "LOCKED"
         if reload_time > 0: return "RELOADING"
+        if Time.get_ticks_msec() < local_equip_end: return "COOLDOWN"
         if shot_cooldown > 0.0 or (magazine <= 0 and selected_weapon != 3): return "COOLDOWN"
         shot_cooldown = float(weapon_spec().rate)
         trigger_recoil()

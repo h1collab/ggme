@@ -526,8 +526,8 @@ func open_guide() -> void:
 	var entries := [
 		[localized("MOVE / LOOK","移动 / 视角"),localized("WASD + MOUSE / TOUCH JOYSTICK + SWIPE","WASD + 鼠标 / 手机摇杆 + 滑动视角")],
 		[localized("SHOOT / AIM","射击 / 瞄准"),localized("LMB / RMB  •  Android FIRE / ADS","左键 / 右键  •  手机 FIRE / ADS")],
-		[localized("RELOAD","换弹"),localized("R on PC / RELOAD on Android","电脑 R / 手机 RELOAD")],
-		[localized("SPRINT / JUMP","奔跑 / 跳跃"),localized("SHIFT + SPACE / RUN + JUMP","SHIFT + 空格 / RUN + JUMP")],
+		[localized("WEAPONS / VIEW","武器 / 人称"),localized("1–4 / V · TOUCH WEAPON SLOTS / THIRD","1–4 切枪 / V 切人称 · 手机点击武器栏 / 第三人称")],
+		[localized("RUN / JUMP / RELOAD","奔跑 / 跳跃 / 换弹"),localized("SHIFT / SPACE / R · LEFT RUN / JUMP / RELOAD","SHIFT / 空格 / R · 左侧奔跑 / 跳跃 / 换弹")],
 		[localized("MATCH / JOIN","匹配 / 加入"),localized("QUICK MATCH / PUBLIC LIST / 8-CHARACTER CODE","快速匹配 / 公开列表 / 八位房间码")],
 		[localized("ROUND / REMATCH","对局 / 再战"),localized("5 MIN / FIRST TO 10 KILLS · READY: ENTER / TOUCH","5 分钟 / 先击倒 10 人获胜 · 回车 / 点击准备")]]
 	for i in range(entries.size()):

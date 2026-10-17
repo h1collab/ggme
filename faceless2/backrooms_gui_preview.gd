@@ -15,7 +15,7 @@ func shot(label: String, at: Vector3, target: Vector3, fire: bool = false) -> vo
 	# Settle the real rig through its normal advance function before rendering
 	# static review poses. The MP4 separately renders every consecutive frame.
 	for i in range(60): game.fps.advance(1.0/60.0)
-	for i in range(8): await process_frame
+	for i in range(2): await process_frame
 	if fire:
 		game.fps.fire()
 		for i in range(2): await process_frame
@@ -77,6 +77,10 @@ func run() -> void:
 			await create_timer(1.1).timeout
 			game.fps.select_weapon(weapon)
 			await shot(prefix+"14_weapon_"+str(weapon),Vector3(0,.12,0),Vector3(0,1.6,-18))
+			if weapon == 2:
+				game.fps.set_aim(true)
+				await shot(prefix+"17_precision_scope",Vector3(0,.12,0),Vector3(0,1.6,-18))
+				game.fps.set_aim(false)
 		await create_timer(1.1).timeout
 		game.fps.select_weapon(0)
 		game.player.set_third_person(true)
@@ -85,7 +89,7 @@ func run() -> void:
 		game.player.update_combat_camera(.1)
 		game.fps_arena.update_local_actor(.1)
 		game.ui.refresh()
-		for frame in range(10): await process_frame
+		for frame in range(4): await process_frame
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(output_dir.path_join(prefix+"15_third_person_extended_sector.png"))
 		game.player.set_third_person(false)

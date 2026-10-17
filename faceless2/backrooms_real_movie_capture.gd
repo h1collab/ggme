@@ -37,6 +37,7 @@ func fire(ads: bool) -> void:
 		if i%3 == 0: game.fps.fire()
 		await frame()
 func record() -> void:
+	root.size = Vector2i(960,540) # render movie at its delivered size; no 1600px readback waste
 	output_dir = OS.get_environment("F2_CAPTURE_DIR")
 	if output_dir.is_empty(): push_error("F2_CAPTURE_DIR required"); quit(2); return
 	DirAccess.make_dir_recursive_absolute(output_dir)

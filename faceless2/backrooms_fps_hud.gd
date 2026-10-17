@@ -178,13 +178,13 @@ func refresh(delta: float) -> void:
 	health_text.text = str(fps.health)
 	health_text.modulate = Color(1,.37,.29) if fps.health <= 25 else Color.WHITE
 	ammo_text.text = "— / ∞" if fps.selected_weapon == 3 else "%d / %d" % [fps.magazine,fps.reserve]
-	ammo_text.modulate = Color(1,.68,.33) if fps.magazine <= 5 else Color.WHITE
+	ammo_text.modulate = Color(1,.68,.33) if (fps.selected_weapon != 3 and fps.magazine <= maxi(1,ceili(float(fps.weapon_spec().capacity)*.2))) else Color.WHITE
 	reload_bar.visible = fps.reload_time > 0
 	reload_bar.value = 100.0*(1.0-clampf(fps.reload_time/maxf(.01,float(fps.weapon_spec().reload)),0,1))
 	if fps.reload_time > 0: ammo_hint.text = ui.localized("RELOADING %.1fs","装弹中 %.1f 秒") % fps.reload_time
 	elif fps.selected_weapon == 3: ammo_hint.text = ui.localized("KNIFE · 2m · MELEE","战术刀 · 2米 · 近战")
 	elif fps.magazine == 0: ammo_hint.text = ui.localized("RELOAD / R","请装弹") if fps.reserve > 0 else ui.localized("NO AMMO","弹药耗尽")
-	elif fps.magazine <= 5: ammo_hint.text = ui.localized("LOW AMMO","弹匣将空")
+	elif (fps.selected_weapon != 3 and fps.magazine <= maxi(1,ceili(float(fps.weapon_spec().capacity)*.2))): ammo_hint.text = ui.localized("LOW AMMO","弹匣将空")
 	else: ammo_hint.text = str(fps.weapon_spec().zh) if game.language == "zh" else str(fps.weapon_spec().label)
 	if not fps.kill_events.is_empty():
 		var newest: int = int(fps.kill_events.back().get("serial",0))

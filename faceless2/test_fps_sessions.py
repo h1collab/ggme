@@ -55,7 +55,7 @@ def test_lan(args,output,project,script):
             for label in processes:
                 text=(output/f'fps-lan-{label}.log').read_text()
                 assert 'ERROR:' not in text and 'FAIL:' not in text,text
-            (output/'fps-lan-results.json').write_text(json.dumps({'udp_discovery':'PASS','no_http_directory':'PASS','code_to_enet':'PASS','two_player_start':'PASS','map_geometry_and_seats':'PASS'},indent=2))
+            (output/'fps-lan-results.json').write_text(json.dumps({'udp_discovery':'PASS','no_http_directory':'PASS','code_to_enet':'PASS','two_player_start':'PASS','four_weapon_rpcs':'PASS','finite_inventory_switching':'PASS','sniper_damage_death_counter':'PASS','map_geometry_and_seats':'PASS'},indent=2))
             print('FPS_REAL_LAN_ROOM_PASS native UDP announcements, code, two headless ENet peers; no HTTP',flush=True)
         finally:
             for process in processes.values():
@@ -151,6 +151,9 @@ def main():
                         if process.poll() is None and label not in ('raw', 'overflow'):
                             wait(label, lambda x: len(x.get('hp', {})) == count,
                                  f'combat roster {count} replicated')
+                            snapshot=wait(label,lambda x:len(x.get('avatars',{}))==count-1,'remote original character models instantiated')
+                            for peer_id,file in snapshot['avatars'].items():
+                                assert file==f"fps_character_{snapshot['seats'][peer_id]}.glb"
 
                 try:
                     spawn('host', 'host')
@@ -218,6 +221,15 @@ def main():
                             command('c1','fire',count=10)
                             wait('c1',lambda x:x.get('ammo',{}).get(shooter)==(expected-1 if weapon !=3 else 0),'selected cadence limits real shot flood')
                             time.sleep(.3)
+                    time.sleep(.3)
+                    command('c1','weapon',weapon=1)
+                    saved=wait('c1',lambda x:x.get('weapons',{}).get(shooter)==1,'depleted sidearm inventory restored')
+                    assert saved['ammo'][shooter]==11 and saved['stock'][shooter]==72
+                    time.sleep(.3)
+                    command('c1','weapon',weapon=0)
+                    wait('c1',lambda x:x.get('weapons',{}).get(shooter)==0,'original rifle restored')
+                    time.sleep(.3)
+                    print(f'FPS_REAL_FOUR_WEAPONS_{slots}_MAP_{map_id}_PASS selection RPCs, cadence flood and separate ammunition',flush=True)
                     command('c1','weapon',weapon=77,count=4)
                     time.sleep(.3)
                     assert state('host')['weapons'][shooter]==0
@@ -281,6 +293,16 @@ def main():
                     wait('host',lambda x: x.get('reload_durations',{}).get(shooter,0) >= 1600,
                          'host monotonic reload completion recorded')
                     assert state('host')['stock'][shooter] == 115
+                    time.sleep(.3)
+                    command('c1','weapon',weapon=2)
+                    wait('c1',lambda x:x.get('weapons',{}).get(shooter)==2,'sniper selected for real damage RPC')
+                    time.sleep(.3)
+                    command('c1','fire',direction=direction)
+                    wait('c1',lambda x:x.get('scores',{}).get(shooter)==2 and x.get('deaths',{}).get('1')==2,'one real sniper hit awards kill and death')
+                    assert state('c1')['ammo'][shooter]==3 and state('c1')['hit_marker']==5
+                    time.sleep(1.1)
+                    command('c1','weapon',weapon=0)
+                    wait('c1',lambda x:x.get('weapons',{}).get(shooter)==0 and x['ammo'][shooter]==24,'rifle inventory unchanged by sniper kill')
                     command('c1', 'aim', direction=[0,0,-1])
                     for seat in range(2, slots):
                         spawn(f'c{seat}', code=code)
@@ -288,7 +310,9 @@ def main():
                              'late joining player received current roster')
                         roster(seat+1)
                         assert state(f'c{seat}')['ammo'][shooter] == 24
-                        assert state(f'c{seat}')['scores'][shooter] == 1
+                        assert state(f'c{seat}')['scores'][shooter] == 2
+                        assert state(f'c{seat}')['deaths']['1'] == 2
+                        assert state(f'c{seat}')['weapons'][shooter] == 0
                         assert state(f'c{seat}')['kills'][-1]['killer'] == int(shooter)
                         assert state(f'c{seat}')['map'] == map_id
                         assert state(f'c{seat}')['geometry'] == state('host')['geometry']
@@ -413,7 +437,7 @@ def main():
                         handle.close()
         (output/'fps-session-results.json').write_text(json.dumps(results, indent=2)+'\n')
         test_lan(args,output,project,script)
-        print('FPS_REAL_MULTIPROCESS_UDP_PASS both maps, capacities 2/3/4, map/geometry sync, two-player start, late join, invalid RPC, disconnect and reconnect')
+        print('FPS_REAL_MULTIPROCESS_UDP_PASS both maps, capacities 2/3/4, four weapons, sniper damage, deaths, finite inventories, late join, invalid RPC, disconnect and reconnect')
     finally:
         service.terminate()
         service.wait(timeout=4)

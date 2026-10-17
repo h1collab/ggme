@@ -13,6 +13,14 @@ func run() -> void:
 	game.net.leave()
 	game.start_fps_arena(0)
 	game.player.set_physics_process(false)
+	# A malformed directory must never silently create a local UDP room.
+	for payload in ["<html>gateway failure</html>","{}",'{"code":"BAD","key":"x","owner_token":"x"}']:
+		game.rooms.operation = "create"
+		game.rooms._http_complete(HTTPRequest.RESULT_SUCCESS,200,PackedStringArray(),payload.to_utf8_buffer())
+		check(game.net.mode == "solo","Invalid HTTP response cannot start a host")
+	game.rooms.operation = "resolve"
+	game.rooms._http_complete(HTTPRequest.RESULT_SUCCESS,200,PackedStringArray(),"{}".to_utf8_buffer())
+	check(game.net.mode == "solo","Invalid resolved endpoint rejected without ENet errors")
 	var fps: Node3D = game.fps
 	var player: CharacterBody3D = game.player
 	fps.set_process(false)
@@ -105,6 +113,16 @@ func run() -> void:
 	check(hud.weapon_buttons.size() == 4 and hud.health_bar.value == fps.health,"HUD weapon slots and health bind real state")
 	check(game.ui.sprint_button.position.x < 800,"Run button is left-hand accessible")
 	check(hud.ranking_text().contains("K / D") and hud.ranking_text().contains("P2"),"Real ranking includes kills/deaths and seat labels")
+	fps._apply_weapon(2)
+	fps.magazine = 5
+	game.ui.refresh()
+	check(not hud.ammo_hint.text.contains("LOW AMMO"),"Full sniper magazine is not a low-ammo warning")
+	fps.magazine = 1
+	game.ui.refresh()
+	check(hud.ammo_hint.text == "LOW AMMO","One sniper round triggers correct weapon-specific warning")
+	fps._apply_weapon(3)
+	fps.trigger_recoil()
+	check(fps.muzzle_flash_time == 0.0,"Knife swing produces no firearm flash")
 	check(fps.shot_sounds.size() == 4 and fps.shot_sounds.all(func(sound): return sound != null),"All four offline weapon sounds packaged")
 	game.net.leave()
 	game.queue_free()
