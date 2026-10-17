@@ -1,0 +1,217 @@
+name: Godot 4.7.2 cinematic desktop preview (no APK)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/faceless2-rendering-polish
+    paths:
+      - "faceless2/backrooms_gui_preview.gd"
+      - "faceless2/backrooms_real_movie_capture.gd"
+      - "faceless2/backrooms_prologue.gd"
+      - "faceless2/backrooms_prologue_room.gd"
+      - "faceless2/backrooms_wakeup_room.gd"
+      - "faceless2/backrooms_player.gd"
+      - "faceless2/backrooms_extra_levels_checks.gd"
+      - "faceless2/backrooms_extra_levels.gd"
+      - "faceless2/backrooms_fps.gd"
+      - "faceless2/fps_weapon_finish.gdshader"
+      - "faceless2/fetch_fps_surface.py"
+      - "faceless2/backrooms_fps_arena.gd"
+      - "faceless2/backrooms_network.gd"
+      - "faceless2/backrooms_rooms.gd"
+      - "faceless2/backrooms_room_checks.gd"
+      - "faceless2/backrooms_fps_checks.gd"
+      - "faceless2/backrooms_mobile_checks.gd"
+      - "faceless2/backrooms_fps_session_checks.gd"
+      - "faceless2/test_fps_sessions.py"
+      - "faceless2/generate_sound.py"
+      - "faceless2/fetch_fps_assets.py"
+      - "faceless2/fetch_fps_rifle.py"
+      - "faceless2/decode_backroom_glb.py"
+      - "faceless2/backrooms_bake_rifle.gd"
+      - "faceless2/bake_fps_grip_hands.py"
+      - "faceless2/refine_fps_arms.py"
+      - "faceless2/test_refine_fps_arms.py"
+      - "faceless2/bake_fps_optic.py"
+      - "faceless2/backrooms_extra_transport.gd"
+      - "faceless2/fetch_real_backrooms_assets.py"
+      - "faceless2/fetch_flashlight.py"
+      - "faceless2/bake_frowner_sprite.py"
+      - "faceless2/bake_laboratory_glb.py"
+      - "faceless2/fetch_wakeup_assets.py"
+      - "faceless2/ASSET_CREDITS.md"
+      - "faceless2/backrooms_ui.gd"
+      - "faceless2/backrooms_interface*.gd"
+      - "faceless2/virtual_joystick.gd"
+      - "faceless2/touch_action.gd"
+      - "faceless2/backrooms_fps_hud.gd"
+      - "faceless2/hud_icons/**"
+      - ".github/workflows/faceless2-preview.yml"
+concurrency:
+  group: faceless2-desktop-preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  desktop-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Sketchfab licensing importer without network or secrets
+        run: |
+          python -m unittest discover -s faceless2 -p 'test_fetch_sketchfab_cast.py' -v
+          python -m unittest discover -s faceless2 -p 'test_fetch_real_backrooms_assets.py' -v
+      - name: Restore exact authored GLB assets and Godot project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat faceless2/assets/entity.glb.part[0-9][0-9] > faceless2/assets/entity.glb
+          echo "bf74395119a9c93aa13c46ec15d7facca2a314f9637e11de237a3bebb8ca9961  faceless2/assets/entity.glb" | sha256sum -c -
+          cat v03/chunk00.b64 v03/chunk01.b64 v03/chunk02.b64 v03/chunk03.b64 v03/chunk04.b64 v03/chunk05.b64 v03/chunk06.b64 > upgrade.b64
+          base64 -d upgrade.b64 > upgrade.zip
+          echo "054a7037bebddd6a4be9e697f495c5577756bc7b4c075681d2fb3226a74f65ea  upgrade.zip" | sha256sum -c -
+          mkdir app
+          unzip -q upgrade.zip -d app
+          python -m pip install -q Pillow==11.3.0 fonttools==4.61.1 trimesh==4.7.4 numpy==2.2.6 cairosvg==2.8.2 DracoPy==1.5.0
+          python - <<'PYCODE'
+          from pathlib import Path
+          import shutil,re
+          from PIL import Image
+          src=Path("faceless2")
+          for d in ["scripts","assets","audio"]:
+              folder=Path("app",d);folder.mkdir(exist_ok=True,parents=True)
+              for p in folder.iterdir():
+                  if p.is_file():p.unlink()
+          for p in src.glob("backrooms*.gd"):
+              shutil.copy2(p,Path("app/scripts")/p.name)
+          for name in ["virtual_joystick.gd","touch_action.gd","backrooms_gui_preview.gd","fps_weapon_finish.gdshader"]:
+              shutil.copy2(src/name,Path("app/scripts")/name)
+          shutil.copy2(src/"assets/entity.glb","app/assets/entity.glb")
+          Path("app/assets/vendor").mkdir(parents=True,exist_ok=True)
+          shutil.copy2(src/"assets/vendor/huuxloc_backroom.glb","app/assets/vendor/huuxloc_backroom.draco.glb")
+          shutil.copy2(src/"assets/vendor/almond_water.glb","app/assets/vendor/almond_water.glb")
+          shutil.copy2(src/"assets/vendor/lift_key.glb","app/assets/vendor/lift_key.glb")
+          shutil.copy2(src/"ASSET_CREDITS.md","app/ASSET_CREDITS.md")
+          shutil.copy2(src/"OFL.txt","app/OFL.txt")
+          Path("app/main.tscn").write_text((src/"main.tscn").read_text().replace("res://faceless2/","res://scripts/"))
+          Path("app/ui").mkdir(parents=True,exist_ok=True)
+          shutil.copy2(src/"branding/game_icon.png","app/ui/game_icon.png")
+          shutil.copytree(Path("faceless2/hud_icons"),Path("app/ui/hud"),dirs_exist_ok=True)
+          shutil.copy2(src/"branding/team_logo.jpg","app/ui/team_logo.jpg")
+          Image.open("app/ui/team_logo.jpg").save("app/ui/team_splash.png")
+          p=Path("app/project.godot");s=p.read_text()
+          s=re.sub(r'config/name=.*','config/name="Faceless 2 Desktop Preview"',s)
+          s=re.sub(r'config/icon=.*','config/icon="res://ui/game_icon.png"',s)
+          s=re.sub(r'boot_splash/image=.*','boot_splash/image="res://ui/team_splash.png"',s)
+          p.write_text(s)
+          PYCODE
+      - name: Fetch and validate licensed GLB scenery, iPhone and foley
+        shell: bash
+        env:
+          SKETCHFAB_TOKEN: ${{ secrets.SKETCHFAB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python faceless2/backrooms_audio.py app/audio
+          python faceless2/fetch_backrooms_assets.py app/assets/vendor
+          python faceless2/fetch_wakeup_assets.py app/assets/vendor
+          python faceless2/fetch_fps_assets.py app/assets/vendor
+          python faceless2/test_refine_fps_arms.py --source app/assets/vendor/fps_wrad_arms.glb
+          python faceless2/fetch_fps_rifle.py app/assets/vendor
+          python faceless2/fetch_fps_expansion.py app/assets/vendor
+          python faceless2/fetch_flashlight.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/flashlight-assets.log
+          python faceless2/fetch_sketchfab_cast.py app/assets/vendor
+          python faceless2/bake_sketchfab_smiler.py app/assets/vendor/sketchfab_smiler.glb app/assets/vendor/sketchfab_smiler_face.png
+          python faceless2/bake_online_frowner.py faceless2/assets/third_party/twemoji_2639.svg app/assets/vendor/frowner_online_ccby.png app/ASSET_CREDITS.md
+          python faceless2/bake_laboratory_glb.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/laboratory-shell.json
+          # v0.28 retired the old experimental lab; only keep the sourced corridor.
+          rm app/assets/vendor/laboratory_shell_cc0.glb app/assets/vendor/observation_wing_cc0.glb
+          python faceless2/fetch_real_backrooms_assets.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/real-backrooms-assets.json
+          python faceless2/fetch_fps_surface.py app/assets/vendor app/ASSET_CREDITS.md preview_frames/weapon-surfaces.json
+          python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_arms.glb --part arm
+          python faceless2/create_viewmodel.py app/assets/vendor/crew.glb app/assets/vendor/first_person_legs.glb --part leg
+          python faceless2/generate_sound.py app/audio
+          curl -fLsS --retry 3 -o app/assets/vendor/iphone17_pro.glb "https://raw.githubusercontent.com/quentin-pla/phone-mockup-studio/9908f2c321787779b6e028cba1ab67cd29a6a6dd/source/iphone_17_pro.glb"
+          test "$(git hash-object app/assets/vendor/iphone17_pro.glb)" = "31d6a04caabcca2fb717738079ca66da59347647"
+          python faceless2/decode_backroom_glb.py app/assets/vendor/huuxloc_backroom.draco.glb app/assets/vendor/huuxloc_backroom.glb
+          rm app/assets/vendor/huuxloc_backroom.draco.glb
+      - name: Install Godot 4.7.2 native Linux desktop preview runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xauth libgl1-mesa-dri libglu1-mesa libxrandr2 libxi6 libxcursor1
+          curl -fLsS --retry 3 -o godot.zip "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+          godot --headless --path app --import
+          godot --headless --path app --script scripts/backrooms_bake_rifle.gd
+          godot --headless --path app --import
+      - name: Preserve reproducible authored-asset project for headless QA
+        shell: bash
+        run: |
+          printf '%s\n' "$GITHUB_SHA" > app/BUILD_SHA.txt
+          zip -q -r faceless2-headless-source.zip app -x 'app/.godot/*'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: faceless2-headless-source-project
+          path: faceless2-headless-source.zip
+          compression-level: 0
+          retention-days: 7
+      - name: Capture interactive-viewport Godot frames (not Android APK)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p preview_frames
+          printf '%s\n' "$GITHUB_SHA" > preview_frames/commit-sha.txt
+          cp app/assets/vendor/sketchfab_smiler.glb preview_frames/smiler-authorized-inspection.glb
+          cp app/assets/vendor/sketchfab_smiler_face.png preview_frames/smiler_baked_source_review.png
+          export FACELESS_PREVIEW_DIR="$GITHUB_WORKSPACE/preview_frames"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          timeout 600 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 30 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
+          test "$(find preview_frames -maxdepth 1 -name '*.png' | wc -l)" -ge 8
+          ! grep -E "ERROR:|FAIL:" preview_frames/preview.log
+          echo "GODOT_PREVIEW_PASS independent desktop viewport screenshots, no APK"
+      - name: Publish native stills for review while continuous video records
+        uses: actions/upload-artifact@v4
+        with:
+          name: faceless2-native-stills
+          path: |
+            preview_frames/map*.png
+            preview_frames/interface*.png
+            preview_frames/commit-sha.txt
+            preview_frames/preview.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Record actual continuous Godot gameplay into H.264 MP4
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq ffmpeg
+          cp faceless2/backrooms_real_movie_capture.gd app/scripts/backrooms_real_movie_capture.gd
+          mkdir -p preview_frames/movie_frames
+          export F2_CAPTURE_DIR="$GITHUB_WORKSPACE/preview_frames/movie_frames"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          timeout 900 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1 || { tail -80 preview_frames/video.log; exit 1; }
+          grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
+          ! grep -E "ERROR:|FAIL:" preview_frames/video.log
+          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v037-godot-real-gameplay.mp4
+          python - <<'VERIFY'
+          from pathlib import Path
+          import json,subprocess
+          p=Path("preview_frames/faceless2-v037-godot-real-gameplay.mp4")
+          assert p.stat().st_size>120000,"MP4 missing or tiny"
+          d=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=codec_name,nb_frames,width,height","-of","json",str(p)]))
+          stream=d["streams"][0]
+          assert stream["codec_name"]=="h264" and int(stream["nb_frames"])>=300 and stream["width"]==960
+          print("REAL_GODOT_CONTINUOUS_MP4_PASS",p.stat().st_size,stream)
+          VERIFY
+          rm -rf preview_frames/movie_frames
+      - name: Upload actual Godot desktop viewport frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: faceless2-godot-desktop-preview
+          path: |
+            preview_frames/
+            !preview_frames/movie_frames/**
+          if-no-files-found: warn
