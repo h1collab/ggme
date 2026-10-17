@@ -47,7 +47,7 @@ func run() -> void:
 		game.fps.set_aim(false)
 		await shot(prefix+"03_fire_finish",Vector3(0,.12,0),Vector3(0,1.6,-18),true)
 		await shot(prefix+"04_original_scanned_cover",Vector3(9,.12,9),Vector3(15,1.3,5))
-		await shot(prefix+"05_near_shipped_wall",Vector3(0,.12,-23.45),Vector3(0,1.6,-26))
+		await shot(prefix+"05_near_shipped_wall",Vector3(0,.12,-47.45),Vector3(0,1.6,-50))
 		await shot(prefix+"06_ground_material_shadow",Vector3(0,.12,0),Vector3(1.2,0,-.4))
 		game.ui.touch_preview = true
 		game.ui.prologue_finished()
@@ -73,6 +73,23 @@ func run() -> void:
 		game.fps.toggle_training()
 		await shot(prefix+"11_optional_drill",Vector3(0,.12,0),Vector3(0,1.6,-9),true)
 		game.fps.toggle_training()
+		for weapon in [1,2,3]:
+			await create_timer(1.1).timeout
+			game.fps.select_weapon(weapon)
+			await shot(prefix+"14_weapon_"+str(weapon),Vector3(0,.12,0),Vector3(0,1.6,-18))
+		await create_timer(1.1).timeout
+		game.fps.select_weapon(0)
+		game.player.set_third_person(true)
+		game.player.global_position = Vector3(0,.12,24)
+		game.player.yaw = 0; game.player.rotation.y = 0; game.player.pitch = -.13
+		game.player.update_combat_camera(.1)
+		game.fps_arena.update_local_actor(.1)
+		game.ui.refresh()
+		for frame in range(10): await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(output_dir.path_join(prefix+"15_third_person_extended_sector.png"))
+		game.player.set_third_person(false)
+		await shot(prefix+"16_extended_flank",Vector3(30,.12,43),Vector3(8,1.6,19))
 		game.fps.measure_grip()
 		print("PREVIEW_MAP ",map_id," GEOMETRY ",game.fps_arena.geometry_digest())
 	# Review the actual result HUD with a second authenticated, independent

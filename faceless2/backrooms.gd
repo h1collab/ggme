@@ -400,6 +400,9 @@ func _process(delta: float) -> void:
 		var speed := actor.position.distance_to(target)
 		actor.position = actor.position.lerp(target, minf(delta * 12, 1))
 		actor.rotation.y = lerp_angle(actor.rotation.y, float(actor.get_meta("yaw", 0.0)), minf(delta * 10, 1))
+		if fps_arena.visible and actor.has_method("update_combat"):
+			actor.update_combat(speed/maxf(delta,.001),false,fps.peer_weapon(int(id)),int(fps.hit_serials.get(id,0)),delta)
+			continue
 		# Cache authored animation nodes once per crew instance; no recursive
 		# find_children allocation on every render frame for four remote peers.
 		for animator in actor.get_meta("cached_animation_nodes", []):
@@ -644,11 +647,17 @@ func update_crew(poses: Dictionary) -> void:
 		crew[id].set_meta("yaw", poses[id].y)
 
 func _crew_avatar(id: int) -> Node3D:
-	var avatar := Assets.fitted("vendor/crew.glb", 1.75)
+	var avatar: Node3D
+	if fps_arena.visible:
+		avatar = preload("backrooms_combat_actor.gd").new()
+		add_child(avatar)
+		avatar.configure(int(net.seats.get(id,1)))
+	else:
+		avatar = Assets.fitted("vendor/crew.glb",1.75)
+		add_child(avatar)
 	avatar.name = "Surveyor_%s" % id
-	add_child(avatar)
 	var label := Label3D.new()
-	label.text = "CREW / %02d" % (crew.size() + 1)
+	label.text = "P%02d" % int(net.seats.get(id,crew.size()+1))
 	label.position.y = 1.95
 	label.pixel_size = 0.005
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED

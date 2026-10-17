@@ -32,7 +32,8 @@ func run() -> void:
 	for i in range(35): await physics_frame
 	game.ui.refresh()
 	check(game.ui.fps_corner_hud.stamina_bar.size.y <= 5 and game.ui.fps_corner_hud.reload_bar.size.y <= 5,"Actual themed status bars retain compact height after deferred layout")
-	var controls: Array[Control] = [game.ui.joystick,game.ui.sprint_button,game.ui.jump_button,game.ui.shoot_button,game.ui.aim_button,game.ui.reload_button,game.ui.pause_button]
+	var controls: Array[Control] = [game.ui.joystick,game.ui.sprint_button,game.ui.jump_button,game.ui.shoot_button,game.ui.aim_button,game.ui.reload_button,game.ui.pause_button,game.ui.fps_corner_hud.view_button]
+	for slot in game.ui.fps_corner_hud.weapon_buttons: controls.append(slot)
 	for extent in [Vector2i(1600,900),Vector2i(1280,720),Vector2i(2560,1080)]:
 		root.size = extent
 		await process_frame
@@ -108,6 +109,22 @@ func run() -> void:
 	check(game.ui.fps_corner_hud.scoreboard.visible and game.ui.fps_corner_hud.scoreboard_text.text.contains("P1"),"Touch scoreboard displays authenticated combat roster")
 	touch(9,point(game.ui.fps_corner_hud.score_toggle),true)
 	touch(9,point(game.ui.fps_corner_hud.score_toggle),false)
+	# Actual viewport events exercise new camera and weapon controls too.
+	touch(10,point(game.ui.fps_corner_hud.view_button),true)
+	touch(10,point(game.ui.fps_corner_hud.view_button),false)
+	check(game.player.third_person,"Touch toggles actual third-person camera")
+	for i in range(4): await physics_frame
+	check(not game.fps.weapon_pivot.visible,"Third person hides duplicate camera rifle")
+	touch(10,point(game.ui.fps_corner_hud.view_button),true)
+	touch(10,point(game.ui.fps_corner_hud.view_button),false)
+	check(not game.player.third_person,"Second camera press restores first person")
+	touch(11,point(game.ui.fps_corner_hud.weapon_buttons[1]),true)
+	touch(11,point(game.ui.fps_corner_hud.weapon_buttons[1]),false)
+	check(game.fps.selected_weapon == 1,"Touch selects real sidearm inventory")
+	await create_timer(.3).timeout
+	touch(11,point(game.ui.fps_corner_hud.weapon_buttons[0]),true)
+	touch(11,point(game.ui.fps_corner_hud.weapon_buttons[0]),false)
+	check(game.fps.selected_weapon == 0 and game.fps.magazine == 0,"Touch cycling cannot refill the emptied rifle")
 	# Measure actual accelerated CharacterBody velocity, not assigned constants.
 	game.ui.touch_preview = false
 	game.player.reset_to(Vector3(0,.12,0))

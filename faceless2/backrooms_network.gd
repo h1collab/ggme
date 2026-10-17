@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 21
+const PROTOCOL := 22
 const MAX_CREW := 4
 const PEER_IDLE_LIMIT_MSEC := 15000
 var game: Node
@@ -260,7 +260,7 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool, pitch: float) -> v
 	var elapsed := clampf(float(now - int(pose_times.get(id, now))) / 1000, 0.05, 1.0)
 	var old: Vector3 = poses[id].p
 	if game.fps_arena.visible:
-		if absf(pos.x) > 23.6 or absf(pos.z) > 23.6 or pos.y < -.5 or pos.y > 3.1: return
+		if absf(pos.x) > game.fps_arena.WIDTH*.5-.4 or absf(pos.z) > game.fps_arena.LENGTH*.5-.4 or pos.y < -.5 or pos.y > 3.1: return
 	else:
 		if absf(pos.x) > 14.6 or pos.z < -29.6 or pos.z > 11.6 or pos.y < -0.5 or pos.y > 1.0: return
 	var speed_limit: float = game.player.FPS_SPRINT_SPEED + .8 if game.fps_arena.visible else 5.0
@@ -326,6 +326,17 @@ func _fps_fire(direction: Vector3) -> void:
 	var id: int = multiplayer.get_remote_sender_id()
 	if not members.has(id): return
 	game.fps.server_fire(id,direction)
+
+func request_fps_weapon(index: int) -> void:
+	if mode == "client": _fps_weapon.rpc_id(1,index)
+	else: game.fps.server_weapon(1,index)
+
+@rpc("any_peer","call_remote","reliable",0)
+func _fps_weapon(index: int) -> void:
+	if mode != "host": return
+	var sender := multiplayer.get_remote_sender_id()
+	if not members.has(sender): return
+	game.fps.server_weapon(sender,index)
 
 func request_fps_reload() -> void:
 	if not game.fps_arena.visible: return

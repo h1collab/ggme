@@ -8,7 +8,7 @@ PC: WASD / Shift / Space to move, LMB shoot, RMB ADS, R reload, T optional solo 
 
 ## Network version and authority
 
-Native ENet/UDP gameplay protocol is **21** (default UDP 24711), room discovery protocol **21**. v0.35 adds a reliable authenticated ready RPC and host-owned round state; v20 and older clients must not join. Pose RPCs include camera pitch; snapshots include host-selected map, reload/reserve state and assigned seats. The optional Node directory is a lookup service, not a UDP relay or NAT traversal guarantee.
+Native ENet/UDP gameplay protocol is **21** (default UDP 24711), room discovery protocol **22**. v0.35 adds a reliable authenticated ready RPC and host-owned round state; v20 and older clients must not join. Pose RPCs include camera pitch; snapshots include host-selected map, reload/reserve state and assigned seats. The optional Node directory is a lookup service, not a UDP relay or NAT traversal guarantee.
 
 A room can hold 2-4 connected players. One player waits; combat starts at two, even in a room with three or four seats. Losing the second player returns to waiting. Late joins and disconnects broadcast the current combat roster to all authenticated live peers. Seat numbers are allocated separately from ENet IDs, reclaimed on disconnect and used for respawns. Repeated handshakes cannot refill health/ammo. The host owns health, ammo, kills, respawn location and accepted fire rate, validates membership on every firing/reload RPC and checks ray LOS/shot yaw/pitch against the last validated peer location. Clients cannot submit direct target damage or scores. Snapshots for joining clients contain their actual assigned spawn and current combat state. Hit positions are only approximated from host-validated player movement; full lag compensation and full adversarial anti-cheat remain future work.
 
@@ -157,3 +157,15 @@ and supporting hand visible. Leaving mid-reload restores the magazine, handle an
 hand transforms immediately and clears action timers. Capture an extra contact-phase
 PNG for each map. This remains a simplified base-supported reload, not a claim
 of motion-captured animation or a physically simulated magazine inventory.
+
+
+## v0.36 combat update (protocol 22)
+
+- Press V / touch THIRD to toggle shoulder camera. The first-person view remains available. Five physics rays retract the shoulder camera; all shots originate at the player's body eye, with a second world-occlusion ray. Camera position never determines the authoritative muzzle.
+- Keys 1–4 / four touch slots choose M4A1, sidearm, sniper and knife. The server owns selection, magazine/reserve, cooldown, damage, melee range and reload. Separate inventories survive switching; 250ms equip delay and the old weapon cooldown prevent cycling exploits. Malformed/unknown/reloading/result-state requests are rejected.
+- Rifle: 24/120, 25 damage, .12s cadence. Sidearm: 12/72, 34 damage, .20s. Sniper: 5/25, 100 damage, 1.05s. Knife: unlimited, 50 damage, .45s, 2m occluded reach. Reload times 1.65/1.25/2.50 seconds. Source-model shapes are stylized except the inherited authored M4A1; extra-weapon reload is a simplified carry motion.
+- Four distinct licensed skinned models are chosen deterministically by authoritative seat; original locomotion/action clips are preserved. This is not a custom photorealistic animation set.
+- Both maps now measure 72×96 metres, with 48 imported floor panels, alternating sector walls, returning cover pockets and flank routes. The original central test lanes remain. Spawn positions remain in clear central pockets to avoid excessive travel with two players.
+- Left upper HUD: kills, deaths, score (100 per kill). Bottom: real HP and stamina bars, actual ammunition, selected weapon. Five-minute host clock / first to ten kills; final ranking sorts kills descending, deaths ascending, seat ascending for deterministic ties; equal kill counts remain a draw. Auto rematch / authenticated readiness retained.
+- Offline deterministic synthesized weapon, switch, damage, result and reload sounds. Remote shots are spatialized with bounded player pools. These are synthesized Foley, not field recordings. Native preview movie has no recorded audio track.
+- Android physical device, sustained device FPS, Wi-Fi/public NAT, full anti-cheat and AAA quality remain unverified. Automated game tests are Godot --headless; native screenshots/movie use the user's explicit Linux+xvfb exception only.

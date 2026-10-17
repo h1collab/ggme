@@ -93,7 +93,7 @@ def main():
         for _ in range(100):
             try:
                 with urlopen(url+'/health', timeout=.5) as response:
-                    assert json.load(response)['protocol'] == 21
+                    assert json.load(response)['protocol'] == 22
                 break
             except OSError:
                 time.sleep(.05)
@@ -166,9 +166,11 @@ def main():
                     time.sleep(.7)
                     command('raw', 'fire', count=10)
                     command('raw', 'ready', count=10)
+                    command('raw', 'weapon', weapon=2, count=10)
                     time.sleep(.4)
                     assert state('host')['ammo'] == {'1': 24}
                     assert state('raw')['hp'] == {}
+                    assert state('host')['weapons'] == {'1':0}
                     assert state('host')['round']['ready'] == []
                     command('raw', 'quit')
                     processes['raw'].wait(timeout=4)
@@ -204,6 +206,21 @@ def main():
                     assert first['map'] == map_id == state('host')['map']
                     assert first['geometry'] == state('host')['geometry'] and len(first['geometry']) == 64
                     shooter = str(first['id'])
+                    for weapon in (1,2,3,0):
+                        time.sleep(1.1)  # current weapon's real cooldown cannot be shortened by switching
+                        command('c1','weapon',weapon=weapon,count=4)
+                        switched=wait('c1',lambda x:x.get('weapons',{}).get(shooter)==weapon,'weapon selection replicated')
+                        assert state('host')['weapons'][shooter]==weapon
+                        expected=(24,12,5,0)[weapon]
+                        assert switched['ammo'][shooter]==expected
+                        if weapon != 0:
+                            time.sleep(.3)
+                            command('c1','fire',count=10)
+                            wait('c1',lambda x:x.get('ammo',{}).get(shooter)==(expected-1 if weapon !=3 else 0),'selected cadence limits real shot flood')
+                            time.sleep(.3)
+                    command('c1','weapon',weapon=77,count=4)
+                    time.sleep(.3)
+                    assert state('host')['weapons'][shooter]==0
                     command('c1', 'fire', direction=[100, 0, 0], count=8)
                     command('c1', 'fire', direction=[0, 0, 1], count=8)
                     command('c1', 'fire', direction=[0, .9, -.435889894], count=8)
@@ -251,6 +268,7 @@ def main():
                         time.sleep(.22)
                     wait('c1', lambda x: x.get('scores', {}).get(shooter) == 1 and x.get('hp', {}).get('1') == 100,
                          'score and respawn HP replicated')
+                    assert state('c1')['deaths']['1'] == 1, 'host death counter reaches shooter'
                     assert state('c1')['hit_marker'] == 4, 'authoritative four-hit confirmation reaches shooter'
                     for source in ('host','c1'):
                         wait(source, lambda x: bool(x.get('kills')) and x['kills'][-1]['killer'] == int(shooter) and x['kills'][-1]['victim'] == 1, 'host-authorized kill feed replicated')
@@ -357,6 +375,7 @@ def main():
                         assert reset['can_fire'] and set(reset['scores'].values())=={0}
                         assert set(reset['ammo'].values())=={24} and set(reset['stock'].values())=={120}, (source,reset)
                         assert set(reset['hp'].values())=={100} and not reset['kills']
+                        assert set(reset['deaths'].values())=={0} and set(reset['weapons'].values())=={0}
                     if slots == 2 and map_id == 0:
                         command('host','expire_round')
                         tie = wait('final',lambda x:x.get('round',{}).get('over'),'host clock timeout reaches client')

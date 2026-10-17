@@ -62,14 +62,30 @@ func record() -> void:
 		game.player.sprinting = false
 		game.fps.reload()
 		await move(Vector3(4,.12,-4),Vector3(9,.12,-6),Vector3(14,1.4,5),Vector3(15,1.3,5),36)
-		await move(Vector3(0,.12,-22.6),Vector3(0,.12,-23.45),Vector3(0,1.6,-26),Vector3(0,1.6,-26),25)
+		await move(Vector3(0,.12,-46.6),Vector3(0,.12,-47.45),Vector3(0,1.6,-50),Vector3(0,1.6,-50),25)
+		for weapon in [1,2,3]:
+			# Source capture waits real switch cooldowns through rendered frames.
+			for i in range(22): await frame()
+			game.fps.select_weapon(weapon)
+			await move(Vector3(0,.12,24),Vector3(2,.12,25),Vector3(0,1.6,42),Vector3(8,1.6,42),20)
+		for i in range(22): await frame()
+		game.fps.select_weapon(0)
+		game.player.set_third_person(true)
+		game.player.yaw = 0; game.player.rotation.y = 0; game.player.pitch = -.12
+		for i in range(40):
+			game.player.global_position = Vector3(0,.12,25-float(i)*.08)
+			game.player.velocity = Vector3(0,0,-1.6)
+			game.player.update_combat_camera(.05)
+			game.fps_arena.update_local_actor(.05)
+			await frame()
+		game.player.set_third_person(false)
 		game.ui.touch_preview = true
 		game.ui.prologue_finished()
 		await move(Vector3(0,.12,0),Vector3(0,.12,1),Vector3(0,.25,-3),Vector3(5,1.6,-18),25)
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame
-	if total != 520: issues.append("Expected 520 actual consecutive native frames")
+	if total != 896: issues.append("Expected 896 actual consecutive native frames")
 	if not issues.is_empty():
 		for issue in issues: push_error(issue)
 		quit(1)

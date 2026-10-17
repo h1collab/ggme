@@ -1,0 +1,74 @@
+extends Node3D
+# Four distinct original Quaternius CC0 skinned GLBs, selected by server seat.
+const Assets = preload("backrooms_assets.gd")
+const Arsenal = preload("backrooms_arsenal.gd")
+var model: Node3D
+var animation: AnimationPlayer
+var skeleton: Skeleton3D
+var held: Node3D
+var attachment: BoneAttachment3D
+var meshes: Array[Node] = []
+var current_weapon := -1
+var current_clip := ""
+var seat := 0
+var moving := false
+var shot_seconds := 0.0
+var hit_serial := 0
+var last_position := Vector3.INF
+func configure(number: int) -> void:
+	seat = clampi(number,1,4)
+	model = Assets.fitted("vendor/fps_character_%d.glb" % seat,1.75)
+	# Source characters face +Z. Game forward is -Z.
+	model.rotation.y = PI
+	add_child(model)
+	set_meta("character_source","fps_character_%d.glb" % seat)
+	var skels := model.find_children("*","Skeleton3D",true,false)
+	if not skels.is_empty(): skeleton = skels[0] as Skeleton3D
+	var players := model.find_children("*","AnimationPlayer",true,false)
+	if not players.is_empty(): animation = players[0] as AnimationPlayer
+	if is_instance_valid(skeleton):
+		for i in range(skeleton.get_bone_count()):
+			var key := skeleton.get_bone_name(i).to_lower()
+			if ("hand" in key or "wrist" in key or "fist" in key) and ("right" in key or key.ends_with(".r") or key.ends_with("_r")):
+				attachment = BoneAttachment3D.new()
+				attachment.bone_name = skeleton.get_bone_name(i)
+				skeleton.add_child(attachment)
+				break
+	meshes = model.find_children("*","MeshInstance3D",true,false)
+	set_weapon(0)
+	play_clip("Idle")
+func set_weapon(index: int) -> void:
+	if index == current_weapon or not Arsenal.valid(index): return
+	current_weapon = index
+	if is_instance_valid(held): held.queue_free()
+	held = Arsenal.model(index)
+	if is_instance_valid(attachment):
+		attachment.add_child(held)
+		# Source hand socket is measured in the fitted 1.75m skeleton frame.
+		held.scale = Vector3.ONE/maxf(model.get_child(0).scale.x,.001)
+		held.position = Vector3(0,.025,.06)/maxf(model.get_child(0).scale.x,.001)
+		held.rotation = Vector3(-PI*.5,0,0)
+	else:
+		add_child(held)
+		held.position = Vector3(.28,1.1,-.24)
+	if not is_instance_valid(attachment): push_error("Combat actor lacks original right-hand bone")
+func play_clip(key: String) -> void:
+	if not is_instance_valid(animation): return
+	for clip in animation.get_animation_list():
+		if str(clip).get_file() != key: continue
+		if current_clip != str(clip):
+			current_clip = str(clip)
+			animation.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+			animation.play(clip,.12)
+		return
+func update_combat(speed: float, airborne: bool, weapon: int, serial: int, delta: float) -> void:
+	set_weapon(weapon)
+	if serial > hit_serial: shot_seconds = .22
+	hit_serial = serial
+	shot_seconds = maxf(0,shot_seconds-delta)
+	moving = speed > .15
+	if airborne: play_clip("Jump")
+	elif shot_seconds > 0: play_clip("SwordSlash" if weapon == 3 else "Shoot_OneHanded")
+	elif moving: play_clip("Run_Carry" if speed > 4.5 else "Walk_Carry")
+	else: play_clip("Idle")
+	if is_instance_valid(animation): animation.speed_scale = clampf(speed/3.8,.5,1.8) if moving else 1.0

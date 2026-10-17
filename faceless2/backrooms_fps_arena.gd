@@ -1,7 +1,8 @@
 extends Node3D
 # Two independent authored-GLB FPS maps, selected once by the authoritative host.
 const Assets = preload("backrooms_assets.gd")
-const WIDTH := 48.0
+const WIDTH := 72.0
+const LENGTH := 96.0
 const TILE := 12.0
 const MAP_NAMES := ["CARGO COURTYARD", "MAINTENANCE HANGAR"]
 const MAP_NAMES_ZH := ["货运庭院", "维修仓库"]
@@ -111,8 +112,8 @@ func _build_map(index: int) -> void:
 	var metal := _pbr("rusty_metal_sheet",Color(.30,.34,.37),.72,.45)
 	var wall_height := 3.4 if index == 0 else 6.0
 	for side in [-1.0,1.0]:
-		_panel(layout,"Perimeter_X_%s" % side,Vector3(side*23.9,wall_height*.5,0),Vector3(.28,wall_height,48.2),plaster,true)
-		_panel(layout,"Perimeter_Z_%s" % side,Vector3(0,wall_height*.5,side*23.9),Vector3(48.2,wall_height,.28),plaster)
+		_panel(layout,"Perimeter_X_%s" % side,Vector3(side*(WIDTH*.5-.1),wall_height*.5,0),Vector3(.28,wall_height,LENGTH+.2),plaster,true)
+		_panel(layout,"Perimeter_Z_%s" % side,Vector3(0,wall_height*.5,side*(LENGTH*.5-.1)),Vector3(WIDTH+.2,wall_height,.28),plaster)
 	# Deliberately keep both spawn diagonals and the central movement lanes clear.
 	# Each side has cover pockets, with 3m+ passageways around actual proxies.
 	for side in [-1.0,1.0]:
@@ -154,8 +155,8 @@ func _build_map(index: int) -> void:
 			_prop(layout,"BayPillar_%s" % depth,"wakeup_wall_pillar.glb",Vector3(6,0,depth*18),3.5,0,plaster,Vector2(.65,.65))
 	else:
 		# Real floor GLBs form roof wings with a 6m open skylight between them.
-		_roof(layout,"Roof_West",Vector3(-13.5,6,0),Vector3(21,.20,48.2),metal)
-		_roof(layout,"Roof_East",Vector3(13.5,6,0),Vector3(21,.20,48.2),metal)
+		_roof(layout,"Roof_West",Vector3(-19.5,6,0),Vector3(33,.20,LENGTH+.2),metal)
+		_roof(layout,"Roof_East",Vector3(19.5,6,0),Vector3(33,.20,LENGTH+.2),metal)
 		for depth in [-1.0,1.0]:
 			_panel(layout,"ServiceBay_%s" % depth,Vector3(0,1.25,depth*17),Vector3(12,2.5,.28),metal)
 			_prop(layout,"ServiceConsole_%s" % depth,"wakeup_computer_screen.glb",Vector3(-4,0,depth*18.8),1.3,PI if depth<0 else 0)
@@ -174,20 +175,48 @@ func _build_map(index: int) -> void:
 				lamp.shadow_enabled = false
 				layout.add_child(lamp)
 
+	# Two new rear sectors per side: alternating passageways connect the
+	# original centre to long flank routes, with distinct courtyard/hangar cover.
+	for end in [-1.0,1.0]:
+		for sector in [0,1]:
+			var z: float = end*(27.0+sector*12.0)
+			for side in [-1.0,1.0]:
+				var x: float = side*(18.0 if sector == 0 else 12.0)
+				_panel(layout,"SectorDivider_%s_%s_%s" % [end,sector,side],Vector3(x,1.9,z),Vector3(14.0,3.8,.35),plaster)
+				_panel(layout,"SectorReturn_%s_%s_%s" % [end,sector,side],Vector3(x+side*7,1.9,z+end*3),Vector3(.35,3.8,6),metal,true)
+				_prop(layout,"FlankCargo_%s_%s_%s" % [end,sector,side],"wakeup_container_tall.glb",Vector3(side*29,0,z+end*3),2.4,PI*.5,metal,Vector2(3.0,5.5))
+				_prop(layout,"SectorBarrel_%s_%s_%s" % [end,sector,side],"scan_barrel_02.glb",Vector3(side*7,0,z+end*4),1.0)
+				var sign := Label3D.new()
+				sign.text = ("CARGO" if index == 0 else "SERVICE")+" %s%d" % ["N" if end < 0 else "S",sector+1]
+				sign.position = Vector3(x,2.5,z-end*.20)
+				sign.rotation.y = PI if end > 0 else 0.0
+				sign.font_size = 64
+				sign.pixel_size = .012
+				sign.no_depth_test = false
+				layout.add_child(sign)
+				if index == 1:
+					_prop(layout,"ServiceLight_%s_%s_%s" % [end,sector,side],"scan_industrial_wall_lamp.glb",Vector3(x,3.6,z-end*.3),.55)
+					var lamp := OmniLight3D.new()
+					lamp.position = Vector3(x,4,z-end*3)
+					lamp.light_color = Color(.72,.84,1)
+					lamp.light_energy = 2.0
+					lamp.omni_range = 15
+					layout.add_child(lamp)
+
 func build() -> void:
 	if built: return
 	built = true
 	ground = StaticBody3D.new()
 	ground.name = "Invisible_FloorAndBoundary_Physics_Only"
 	add_child(ground)
-	_collider(ground,Vector3(0,-.31,0),Vector3(WIDTH,.64,WIDTH))
+	_collider(ground,Vector3(0,-.31,0),Vector3(WIDTH,.64,LENGTH))
 	var finish := _pbr("large_grey_tiles",Color(.8,.83,.86),.32)
-	for x in range(4):
-		for z in range(4):
+	for x in range(6):
+		for z in range(8):
 			var tile := Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
 			var dimensions: Vector3 = tile.get_meta("dimensions",Vector3.ONE)
 			tile.scale = Vector3((TILE+.10)/dimensions.x,1,(TILE+.10)/dimensions.z)
-			tile.position = Vector3((x-1.5)*TILE,-.16-float(x+z)*.0003,(z-1.5)*TILE)
+			tile.position = Vector3((x-2.5)*TILE,-.16-float(x+z)*.0003,(z-3.5)*TILE)
 			for mesh in tile.find_children("*","MeshInstance3D",true,false):
 				(mesh as MeshInstance3D).material_override = finish
 				(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -209,24 +238,38 @@ func build() -> void:
 	light.shadow_normal_bias = 1.0
 	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	add_child(light)
-	local_shadow = Assets.fitted("vendor/crew.glb",1.75)
-	for mesh in local_shadow.find_children("*","MeshInstance3D",true,false):
-		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-	shadow_animations = local_shadow.find_children("*","AnimationPlayer",true,false)
+	local_shadow = preload("backrooms_combat_actor.gd").new()
 	add_child(local_shadow)
+	local_shadow.configure(1)
+
+func update_local_actor(delta: float) -> void:
+	if not is_instance_valid(local_shadow): return
+	var game: Node = get_parent()
+	var player: Node3D = game.player
+	var own: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
+	var seat: int = int(game.net.seats.get(own,1))
+	if int(local_shadow.seat) != seat:
+		local_shadow.queue_free()
+		local_shadow = preload("backrooms_combat_actor.gd").new()
+		add_child(local_shadow)
+		local_shadow.configure(seat)
+	local_shadow.global_position = player.global_position
+	local_shadow.rotation.y = player.rotation.y
+	local_shadow.visible = true
+	for mesh in local_shadow.meshes:
+		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if player.third_person else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	for mesh in local_shadow.held.find_children("*","MeshInstance3D",true,false):
+		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if player.third_person else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	var speed: float = Vector2(player.velocity.x,player.velocity.z).length()
+	local_shadow.update_combat(speed,not player.is_on_floor() and absf(player.velocity.y) > .3,game.fps.selected_weapon,int(game.fps.hit_serials.get(own,0)),delta)
 
 func apply_quality(quality: int) -> void:
 	if not is_instance_valid(light): return
 	light.shadow_enabled = quality > 0
 	light.directional_shadow_max_distance = 24.0 if OS.has_feature("android") else 45.0
 
-func _process(_delta: float) -> void:
-	if not is_instance_valid(local_shadow): return
-	var player: Node3D = get_parent().player
-	local_shadow.global_position = player.global_position
-	local_shadow.rotation.y = player.rotation.y
-	var speed: float = Vector2(player.velocity.x,player.velocity.z).length()
-	for animation in shadow_animations: (animation as AnimationPlayer).speed_scale = clampf(speed/get_parent().player.FPS_WALK_SPEED,0,1.8)
+func _process(delta: float) -> void:
+	update_local_actor(delta)
 
 func activate(selected: int = 0) -> void:
 	if selected < 0 or selected >= MAP_NAMES.size():

@@ -37,7 +37,7 @@ test('capacity and malformed rooms rejected; health and manual leave',async()=>{
   const base={name:'Room',port:24711,max_players:4,public:true};
   assert.equal((await a.api('POST','/v1/rooms',{...base,max_players:5})).status,400);
   assert.equal((await a.api('POST','/v1/rooms',{...base,port:0})).status,400);
-  assert.equal((await a.api('GET','/health')).body.protocol,21);
+  assert.equal((await a.api('GET','/health')).body.protocol,22);
   const room=(await a.api('POST','/v1/rooms',base)).body;
   assert.equal((await a.api('DELETE',`/v1/rooms/${room.code}`,{owner_token:'not-owner'})).status,403);
   assert.equal((await a.api('DELETE',`/v1/rooms/${room.code}`,{owner_token:room.owner_token})).status,200);

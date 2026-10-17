@@ -80,7 +80,7 @@ func run() -> void:
 	print("FPS_CAPSULE_RAY_PARITY_PASS 15 real head/torso/leg/lateral rays, rifle range 70m")
 
 	var fps: Node3D = game.fps
-	check(game.fps_arena.visible and game.fps_arena.floor_modules.size() == 16, "One open arena of sixteen real imported CC0 GLB tiles")
+	check(game.fps_arena.visible and game.fps_arena.floor_modules.size() == 48, "One open arena of forty-eight real imported CC0 GLB tiles")
 	check(fps.active and fps.level_id == -2, "FPS has no level ID or elevator")
 	check(is_instance_valid(fps.grip_hands) and is_instance_valid(fps.grip_skeleton), "Original WRAD CC0 skinned GLB hands imported")
 	check(fps.grip_ready and fps.grip_error < .002 and fps.grip_mesh_error < .005 and fps.grip_surface_error < .0005, "Both authored wrist bones solve at the rifle grip without detached hands")

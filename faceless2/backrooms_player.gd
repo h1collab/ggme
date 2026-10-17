@@ -3,6 +3,8 @@ extends CharacterBody3D
 const FPS_WALK_SPEED := 3.8
 const FPS_SPRINT_SPEED := 6.2
 const Assets = preload("backrooms_assets.gd")
+var third_person := false
+var camera_clearance := 3.0
 var game: Node
 var viewmodel_root: Node3D
 var walk_animation: AnimationPlayer
@@ -212,8 +214,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				else: toggle_torch()
 			KEY_R: if is_instance_valid(game.fps): game.fps.reload()
 			KEY_T: if is_instance_valid(game.fps): game.fps.toggle_training()
-			KEY_1: if is_instance_valid(game.fps): game.fps.select_blaster()
-			KEY_2: if is_instance_valid(game.fps): game.fps.select_flashlight()
+			KEY_V: set_third_person(not third_person)
+			KEY_1: if is_instance_valid(game.fps): game.fps.select_weapon(0)
+			KEY_2: if is_instance_valid(game.fps): game.fps.select_weapon(1)
+			KEY_3: if is_instance_valid(game.fps): game.fps.select_weapon(2)
+			KEY_4: if is_instance_valid(game.fps): game.fps.select_weapon(3)
 			KEY_ESCAPE: game.ui.open_pause()
 	if event is InputEventScreenTouch:
 		if event.pressed and event.position.x > get_viewport().get_visible_rect().size.x * 0.38 and aim_pointer == -1:
@@ -221,6 +226,39 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif not event.pressed and event.index == aim_pointer: aim_pointer = -1
 	elif event is InputEventScreenDrag and event.index == aim_pointer:
 		look(event.relative * 1.15)
+
+func eye_position() -> Vector3:
+	return global_position+Vector3(0,1.58,0)
+
+func set_third_person(value: bool) -> void:
+	third_person = value and is_instance_valid(game.fps) and game.fps.active
+	aim_pointer = -1
+	camera.position = Vector3(0,1.58,0)
+	camera_clearance = 3.0
+	if is_instance_valid(game.fps.weapon_pivot): game.fps.weapon_pivot.visible = game.fps.equipped and not third_person
+	if is_instance_valid(game.fps_arena): game.fps_arena.update_local_actor(0.0)
+
+func update_combat_camera(delta: float) -> void:
+	if not third_person: return
+	var pivot := eye_position()
+	var orientation := global_basis*Basis(Vector3.RIGHT,pitch)
+	var offset := orientation*Vector3(.55,.18,2.8)
+	var desired := pivot+offset
+	var fraction := 1.0
+	# A five-ray swept near-plane approximation prevents a shoulder camera
+	# from looking through a corner even when its centre ray is clear.
+	for local in [Vector3.ZERO,Vector3(.14,0,0),Vector3(-.14,0,0),Vector3(0,.14,0),Vector3(0,-.14,0)]:
+		var shift: Vector3 = orientation*local
+		var query := PhysicsRayQueryParameters3D.create(pivot+shift,desired+shift,1)
+		query.exclude = [get_rid()]
+		var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty(): fraction = minf(fraction,maxf(.0,pivot.distance_to(hit.position-shift)-.20)/offset.length())
+	var length := offset.length()*fraction
+	camera_clearance = length if length < camera_clearance else lerpf(camera_clearance,length,minf(1,delta*8))
+	camera.global_position = pivot+offset.normalized()*camera_clearance
+	camera.rotation.x = pitch
+	# At extreme proximity hide the body rather than putting a camera in it.
+	game.fps_arena.local_shadow.visible = camera_clearance > .65
 
 func request_fire() -> void:
 	# A press just before cooldown ends is retained, never resets host timing.
@@ -347,7 +385,8 @@ func _physics_process(delta: float) -> void:
 	var bob := sin(motion_clock) * (0.022 if moving else 0.001)
 	var cabin_vibration := sin(lift_clock * 19.0) * 0.009 if lift_riding and lift_clock >= 3.15 else 0.0
 	if lift_riding: lift_clock += delta
-	camera.position.y = lerpf(camera.position.y, 1.58 + bob - landing_dip + cabin_vibration, minf(delta * 10,1.0))
+	if third_person: update_combat_camera(delta)
+	else: camera.position.y = lerpf(camera.position.y, 1.58 + bob - landing_dip + cabin_vibration, minf(delta * 10,1.0))
 	if is_instance_valid(viewmodel_root):
 		# Inertial arm sway + gait cycle; zero per-frame GLB allocations.
 		var moving_strength := clampf(Vector2(velocity.x,velocity.z).length()/4.3, 0.0, 1.0)

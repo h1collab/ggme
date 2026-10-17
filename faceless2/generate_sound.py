@@ -70,6 +70,19 @@ def render(name: str, duration: float, seed: int):
             attack = math.exp(-t * 42.0)
             tail = math.exp(-t * 9.0)
             sample = smooth * .95 * attack + math.sin(2 * math.pi * (155-90*t)*t) * .38 * tail
+        elif name in ('fps_pistol', 'fps_sniper'):
+            base = 210 if name == 'fps_pistol' else 85
+            tail = 15 if name == 'fps_pistol' else 6
+            sample = smooth*.85*math.exp(-t*48) + math.sin(2*math.pi*(base-35*t)*t)*.43*math.exp(-t*tail)
+        elif name == 'fps_knife':
+            sample = smooth*.65*math.exp(-((t-.08)/.045)**2)
+        elif name == 'fps_switch':
+            sample = (smooth*.3+math.sin(2*math.pi*440*t)*.15)*math.exp(-t*30)
+        elif name == 'fps_damage':
+            sample = (smooth*.3+math.sin(2*math.pi*65*t)*.2)*math.exp(-t*17)
+        elif name == 'fps_result':
+            note = [523.25,659.25,783.99][min(2,int(t/.18))]
+            sample = math.sin(2*math.pi*note*t)*.19*min(1,t*30)*max(0,1-t/duration)
         elif name == 'fps_reload':
             p1 = math.exp(-abs(t-.16)*45)
             p2 = math.exp(-abs(t-.83)*40)
@@ -88,7 +101,7 @@ def render(name: str, duration: float, seed: int):
 
 def write(destination: Path):
     destination.mkdir(parents=True, exist_ok=True)
-    for name, duration, seed in [('splash', .46, 18), ('elevator_door', 1.35, 127), ('elevator_move', 4.1, 210), ('phone_ring', 3.0, 414), ('phone_disconnect', .46, 51), ('phone_fall', 2.4, 91), ('phone_static', 3.5, 940), ('smiler_sting', .98, 301), ('door_locked', .45, 472), ('door_creak', 1.18, 615), ('door_slam', 0.75, 227), ('flashlight_pickup', 0.42, 381), ('flashlight_click', 0.16, 723), ('fps_shot', .42, 1811), ('fps_reload', 1.05, 1812), ('fps_impact', .30, 1813)]:
+    for name, duration, seed in [('splash', .46, 18), ('elevator_door', 1.35, 127), ('elevator_move', 4.1, 210), ('phone_ring', 3.0, 414), ('phone_disconnect', .46, 51), ('phone_fall', 2.4, 91), ('phone_static', 3.5, 940), ('smiler_sting', .98, 301), ('door_locked', .45, 472), ('door_creak', 1.18, 615), ('door_slam', 0.75, 227), ('flashlight_pickup', 0.42, 381), ('flashlight_click', 0.16, 723), ('fps_shot', .42, 1811), ('fps_reload', 1.05, 1812), ('fps_impact', .30, 1813), ('fps_pistol', .30, 1831), ('fps_sniper', .75, 1832), ('fps_knife', .22, 1833), ('fps_switch', .16, 1834), ('fps_damage', .28, 1835), ('fps_result', .8, 1836)]:
         with wave.open(str(destination / (name + '.wav')), 'wb') as fd:
             fd.setnchannels(1)
             fd.setsampwidth(2)

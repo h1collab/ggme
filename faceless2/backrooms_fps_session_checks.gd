@@ -84,6 +84,8 @@ func _process(delta: float) -> bool:
                     game.player.rotation.y = game.player.yaw
                     game.player.pitch = asin(direction.y)
                     game.player.camera.rotation.x = game.player.pitch
+                "weapon":
+                    for i in range(int(command.get("count",1))): game.net.request_fps_weapon(int(command.get("weapon",0)))
                 "reload": game.net.request_fps_reload()
                 "ready":
                     for i in range(int(command.get("count",1))): game.net.request_fps_ready()
@@ -121,7 +123,7 @@ func _process(delta: float) -> bool:
         "arena":game.fps_arena.visible,"can_fire":game.fps.match_can_fire(),
         "reload_blocks":game.fps.reload_blocks,"reload_block_ammo":game.fps.reload_block_ammo,"reload_durations":game.fps.reload_durations,"impact_serial":game.fps.last_impact_serial,"impact_marks":game.fps.impact_sprites.size(),"impact_authority":game.fps.impact_serial,"hit_serials":game.fps.hit_serials,"hit_marker":game.fps.last_confirmed_serial,"match_attempts":game.rooms.match_attempts,"matching":game.rooms.matching,"kills":game.fps.kill_events,"map":game.fps_arena.map_id,"geometry":game.fps_arena.layout_digest,
         "round":game.fps.combat_state().get("round",{}),"hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
-        "scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
+        "weapons":game.fps.weapon_by_peer,"deaths":game.fps.deaths,"scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
         "directory":game.rooms.directory_url,"room":game.rooms.room_code,"capacity":game.net.max_crew,
         "running":game.running,"panel":game.ui.panel_kind,
         "hud":game.ui.fps_status_label.text,"serial":serial}

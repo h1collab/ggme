@@ -244,3 +244,22 @@ Derived left GLB SHA-256:
 unchanged binds/materials/images, valid normals/weights and rejection of unknown
 source bytes. Godot separately tests posed grip and open shoulder boundaries;
 native screenshots remain necessary to assess visual quality.
+
+
+## v0.36 combat expansion — Quaternius original CC0 GLBs
+
+Author: Quaternius. License: CC0 1.0, commercial redistribution permitted.
+Publisher pages: https://quaternius.com/packs/toonshootergamekit.html and https://quaternius.com/packs/ultimatedanimatedcharacter.html .
+These are explicitly stylized original models, not photorealistic weapons. The original M4A1 remains the default rifle.
+Binary mirror pinned to Papyszoo/CC0-Public-Domain-Models revision `77343cac874f06b73d16ad0063339df7c9ca254c`.
+No source triangles, materials, UVs, skins or animations are replaced. Runtime fitting, per-seat assignment and attachment transforms are game changes.
+
+| File | Original path | Bytes | Git blob SHA-1 | SHA-256 |
+|---|---|---:|---|---|
+| fps_pistol.glb | packs/quaternius-toonshootergamekit/models/pistol/pistol.glb | 43200 | 2c972f6318e7e276b567d4f84d1d297784e298a8 | e2e04925cd7da2a2277dcc2cc786462bf4181990af9d19b169a87fc32c734f3b |
+| fps_sniper.glb | packs/quaternius-toonshootergamekit/models/sniper/sniper.glb | 86056 | c2f7b16ea97fd17c008601f59ce2eb4a644b261b | a4515fd68ece765d4995fe4ec21d2bc19ffb86490cfb96b5a34036b318e8ea11 |
+| fps_knife.glb | packs/quaternius-toonshootergamekit/models/knife_1/knife_1.glb | 25600 | 5165f88031503caf681e76384f2932e9f50547c5 | caccc1bab73bfa2825e8011e6498a45c1cc411a9ea938800d5c805bfc043ac27 |
+| fps_character_1.glb | packs/quaternius-ultimatedanimatedcharacter/models/soldier_male/soldier_male.glb | 1094616 | 08a6194c43a2b1c9c07f60e58a3d9045b3ca4d39 | 8cac948b84679ad73917d026708a55ebbdfacc9a195a392556019cdd05cc2c8c |
+| fps_character_2.glb | packs/quaternius-ultimatedanimatedcharacter/models/blue_soldier_female/blue_soldier_female.glb | 1302704 | 3f7a5a238ea43df29082314e28b3b16b410e87ec | 2f2340c049c1f3070ceb0f32dd164c9f724b504adeca9122a9186f1cc3f7627a |
+| fps_character_3.glb | packs/quaternius-ultimatedanimatedcharacter/models/ninja_male/ninja_male.glb | 1079144 | 173af51c2ca03aa759f16e93c47eb2dfaea7cdb5 | 1771452716515ef03d4760f45500ab68a705cbee8fec074a63b3c33fddf93920 |
+| fps_character_4.glb | packs/quaternius-ultimatedanimatedcharacter/models/ninja_sand_female/ninja_sand_female.glb | 1313224 | 0c714b663b22f345b621e5671516828fbf6d2a5b | 23366e9df98b34d404cde1468b895ed71a577aed1ad042c279157b7515ac4058 |

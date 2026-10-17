@@ -3,6 +3,7 @@ extends Node3D
 # physics-ray hitscan, magazine/reload, ADS, recoil, health and responsive
 # non-humanoid security targets. No visible primitive weapon/enemy meshes.
 const Assets = preload("backrooms_assets.gd")
+const Arsenal = preload("backrooms_arsenal.gd")
 const WeaponFinish = preload("fps_weapon_finish.gdshader")
 const MAGAZINE_CAPACITY := 24
 const MAX_RANGE := 70.0
@@ -59,6 +60,23 @@ var sentries: Array[StaticBody3D] = []
 var health_by_peer: Dictionary = {}
 var ammo_by_peer: Dictionary = {}
 var scores: Dictionary = {}
+var deaths: Dictionary = {}
+var weapon_by_peer: Dictionary = {}
+var loadouts: Dictionary = {}
+var switch_ends: Dictionary = {}
+var selected_weapon := 0
+var extra_weapons: Array[Node3D] = []
+var rifle_supports := PackedVector3Array()
+var hand_rest_transforms: Array[Transform3D] = []
+var shot_events: Array[Dictionary] = []
+var shot_serial := 0
+var last_shot_serial := 0
+var remote_shots: Array[AudioStreamPlayer3D] = []
+var switch_audio: AudioStreamPlayer
+var result_audio: AudioStreamPlayer
+var damage_audio: AudioStreamPlayer
+var shot_sounds: Array[AudioStream] = []
+
 var kill_events: Array[Dictionary] = []
 var kill_serial := 0
 var hit_serials: Dictionary = {}
@@ -229,6 +247,133 @@ func _ready() -> void:
 # Rigidly turn the authored elbow down beyond the view, then articulate the
 # original wrist in the opposite direction to keep its complete hand frame.
 # No bone length, bind matrix, vertex or skin weight is stretched/replaced.
+    _build_arsenal()
+
+func weapon_spec(index: int = -1) -> Dictionary:
+    return Arsenal.spec(selected_weapon if index < 0 else index)
+
+func peer_weapon(id: int) -> int: return int(weapon_by_peer.get(id,0))
+
+func _build_arsenal() -> void:
+    rifle_supports = wall_support_points.duplicate()
+    for hand in grip_hands.get_children(): hand_rest_transforms.append(hand.transform)
+    for index in range(1,4):
+        var model := Arsenal.model(index)
+        model.name = "OriginalCC0_"+str(Arsenal.spec(index).label)
+        weapon_pivot.add_child(model)
+        # Source guns point -X; orient -Z in the same camera-space rig.
+        model.rotation.y = -PI*.5 if index != 3 else 0.0
+        model.rotation.x = -PI*.5 if index == 3 else 0.0
+        model.position = Vector3(0,.005,-.07) if index == 1 else Vector3(0,.025,-.10)
+        model.visible = false
+        extra_weapons.append(model)
+        for node in model.find_children("*","MeshInstance3D",true,false):
+            (node as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    switch_audio = _audio("fps_switch.wav",-15)
+    result_audio = _audio("fps_result.wav",-12)
+    damage_audio = _audio("fps_damage.wav",-17)
+    for file in ["fps_shot.wav","fps_pistol.wav","fps_sniper.wav","fps_knife.wav"]:
+        var path: String = "res://audio/"+str(file)
+        shot_sounds.append(load(path) if ResourceLoader.exists(path) else null)
+    for index in range(8):
+        var player := AudioStreamPlayer3D.new()
+        player.max_distance = 95
+        player.unit_size = 8
+        player.volume_db = -12
+        game.add_child(player)
+        remote_shots.append(player)
+
+func _apply_weapon(index: int) -> void:
+    if not Arsenal.valid(index): return
+    var changed := selected_weapon != index
+    selected_weapon = index
+    if changed:
+        aiming = false
+        reload_visual_seconds = 0
+        game.player.trigger_buffer = 0
+        if is_instance_valid(switch_audio) and switch_audio.stream != null: switch_audio.play()
+    weapon_model.visible = index == 0
+    wall_support_points = rifle_supports.duplicate()
+    for i in range(extra_weapons.size()): extra_weapons[i].visible = i+1 == index
+    for i in range(grip_hands.get_child_count()):
+        var hand: Node3D = grip_hands.get_child(i)
+        hand.transform = hand_rest_transforms[i]
+        hand.visible = index == 0
+    # Source wrist socket is measured against each imported grip geometry.
+    if index > 0:
+        var source := extra_weapons[index-1]
+        wall_support_points.clear()
+        for part in source.find_children("*","MeshInstance3D",true,false):
+            var mesh := part as MeshInstance3D
+            var local: Transform3D = weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
+            for corner in range(8): wall_support_points.append(local*mesh.get_aabb().get_endpoint(corner))
+        var right: Node3D = grip_hands.get_child(0)
+        var skel: Skeleton3D = grip_mounts[0].skeleton
+        var socket: int = grip_mounts[0].socket
+        var references := [Vector3(.02,-.06,0),Vector3(.02,-.17,0),Vector3(0,0,0)]
+        var original: Node3D = source.get_child(0)
+        var nominal: Vector3 = weapon_pivot.to_local(original.to_global(references[index-1]))
+        var contact := Vector3.INF
+        var distance := INF
+        # Nearest point on original source triangles, not an invented socket
+        # success flag. Preserve for regression measurement and visual review.
+        for part in source.find_children("*","MeshInstance3D",true,false):
+            var mesh := part as MeshInstance3D
+            var local: Transform3D = weapon_pivot.global_transform.affine_inverse()*mesh.global_transform
+            for surface in range(mesh.mesh.get_surface_count()):
+                var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+                var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+                var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+                for face in range(0,indices.size(),3):
+                    var point := closest_triangle_point(nominal,local*vertices[indices[face]],local*vertices[indices[face+1]],local*vertices[indices[face+2]])
+                    if point.distance_squared_to(nominal) < distance:
+                        contact = point
+                        distance = point.distance_squared_to(nominal)
+        source.set_meta("actual_grip_contact",contact)
+        right.position += contact-grip_hands.to_local(skel.to_global(skel.get_bone_global_pose(socket).origin))
+        right.visible = true
+        if index == 2:
+            var left: Node3D = grip_hands.get_child(1)
+            var left_skel: Skeleton3D = grip_mounts[1].skeleton
+            var support: Vector3 = weapon_pivot.to_local(original.to_global(Vector3(-.75,-.08,0)))
+            left.position += support-grip_hands.to_local(left_skel.to_global(left_skel.get_bone_global_pose(grip_mounts[1].socket).origin))
+            left.visible = true
+    shot_audio.stream = shot_sounds[index] if shot_sounds.size() == 4 else shot_audio.stream
+    wall_probe_origin = Vector3.INF
+
+func select_weapon(index: int) -> bool:
+    if not active or level_id != -2 or not Arsenal.valid(index): return false
+    if reload_time > 0 or round_over or game.ui.modal: return false
+    game.net.request_fps_weapon(index)
+    return true
+
+func server_weapon(peer_id: int, index: int) -> bool:
+    if not game.net.authoritative() or not active or level_id != -2 or not health_by_peer.has(peer_id): return false
+    if not Arsenal.valid(index) or round_over or reload_ends.has(peer_id) or peer_weapon(peer_id) == index: return false
+    var now := Time.get_ticks_msec()
+    if now < int(switch_ends.get(peer_id,0)): return false
+    var old := peer_weapon(peer_id)
+    # Save before switching: cycling never refills ammunition or shortens a shot.
+    loadouts[peer_id][old] = {"ammo":int(ammo_by_peer[peer_id]),"reserve":int(reserve_by_peer[peer_id])}
+    switch_ends[peer_id] = maxi(now+250,int(shot_ticks.get(peer_id,-999999))+int(Arsenal.spec(old).rate*1000))
+    weapon_by_peer[peer_id] = index
+    ammo_by_peer[peer_id] = int(loadouts[peer_id][index].ammo)
+    reserve_by_peer[peer_id] = int(loadouts[peer_id][index].reserve)
+    game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
+    return true
+
+func shot_direction() -> Vector3:
+    var camera: Camera3D = game.player.camera
+    var forward: Vector3 = -camera.global_basis.z
+    if not game.player.third_person: return forward
+    var origin: Vector3 = game.player.eye_position()
+    var query := PhysicsRayQueryParameters3D.create(camera.global_position,camera.global_position+forward*float(weapon_spec().range),1)
+    query.exclude = [game.player.get_rid()]
+    var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+    var target: Vector3 = hit.position if not hit.is_empty() else camera.global_position+forward*float(weapon_spec().range)
+    var direction := (target-origin).normalized()
+    return direction if direction.dot(forward) >= .92 else forward
+
 func _tuck_forearm(hand: Node3D, skel: Skeleton3D, side: String, wrist: int) -> void:
     skel.force_update_all_bone_transforms()
     var wrist_before := grip_hands.global_transform.affine_inverse()*skel.global_transform*skel.get_bone_global_pose(wrist)
@@ -383,6 +528,7 @@ func _finish_weapon(mesh: MeshInstance3D) -> void:
         weapon_finish_ready = true
 
 func trigger_recoil() -> void:
+    if is_instance_valid(game.fps_arena.local_shadow): game.fps_arena.local_shadow.shot_seconds = .22
     # Bounded rig-only impulse; aiming/shot authority are never rotated.
     var impulse := ADS_RECOIL_IMPULSE if aiming else HIP_RECOIL_IMPULSE
     visual_recoil = minf(visual_recoil+impulse,impulse*1.15)
@@ -531,6 +677,10 @@ func enter_arena() -> void:
 
 func register_peer(id: int) -> void:
     if not game.net.authoritative(): return
+    deaths[id] = 0
+    weapon_by_peer[id] = 0
+    loadouts[id] = {}
+    for index in range(4): loadouts[id][index] = {"ammo":int(Arsenal.spec(index).capacity),"reserve":int(Arsenal.spec(index).reserve)}
     health_by_peer[id] = 100
     ammo_by_peer[id] = MAGAZINE_CAPACITY
     scores[id] = 0
@@ -541,6 +691,10 @@ func register_peer(id: int) -> void:
     reload_durations[id] = 0
 
 func remove_peer(id: int) -> void:
+    deaths.erase(id)
+    weapon_by_peer.erase(id)
+    loadouts.erase(id)
+    switch_ends.erase(id)
     health_by_peer.erase(id)
     ammo_by_peer.erase(id)
     scores.erase(id)
@@ -613,6 +767,15 @@ func leave_level() -> void:
     impact_sprites.clear()
     impact_ages.clear()
     target_remaining = 0
+    deaths.clear()
+    weapon_by_peer.clear()
+    loadouts.clear()
+    switch_ends.clear()
+    shot_events.clear()
+    shot_serial = 0
+    last_shot_serial = 0
+    if not extra_weapons.is_empty(): _apply_weapon(0)
+    game.player.set_third_person(false)
     health_by_peer.clear()
     ammo_by_peer.clear()
     scores.clear()
@@ -713,6 +876,7 @@ func advance(delta: float) -> void:
                 wall_planes.append({"p":hit_wall.position,"n":hit_wall.normal})
         wall_retract = clampf((1.12-wall_clearance)/.78,0.0,1.0)
     if is_instance_valid(weapon_pivot):
+        weapon_pivot.visible = equipped and not game.player.third_person
         var motion: float = clampf(Vector2(game.player.velocity.x,game.player.velocity.z).length()/4.3,0.0,1.0)
         var walking: float = sin(game.player.motion_clock)
         var base := Vector3(.23 + walking*.004*motion,
@@ -720,7 +884,7 @@ func advance(delta: float) -> void:
             -.48 + visual_recoil*.30)
         var aim_blend: float = pow(1.0-wall_retract,2.0) if aiming else 0.0
         base = base.lerp(Vector3(.000824,-.0773845,-.48+visual_recoil*.22),aim_blend)
-        var reload_phase := sin((1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0))*PI)
+        var reload_phase := sin((1.0-clampf(reload_visual_seconds/maxf(.01,float(weapon_spec().reload)),0.0,1.0))*PI)
         base.y += wall_retract*.09+reload_phase*.20
         base.z += wall_retract*.08
         base.x -= wall_retract*.13
@@ -731,7 +895,7 @@ func advance(delta: float) -> void:
         weapon_pivot.rotation.z = lerpf(weapon_pivot.rotation.z,-.025*(1.0-aim_blend)-wall_retract*.075,minf(1.0,delta*9.0))
         if wall_retract > .001:
             _fit_near_wall()
-    if is_instance_valid(rifle_magazine):
+    if selected_weapon == 0 and is_instance_valid(rifle_magazine):
         var phase := 1.0-clampf(reload_visual_seconds/RELOAD_SECONDS,0.0,1.0)
         var travel := smoothstep(.16,.43,phase)*(1.0-smoothstep(.59,.78,phase)) if reload_visual_seconds > 0 else 0.0
         rifle_magazine.position = magazine_rest+Vector3(-.015,-.16,.025)*travel
@@ -744,7 +908,7 @@ func advance(delta: float) -> void:
                 left.position += (contact-grip_mounts[1].target)*reach
         if is_instance_valid(rifle_handle):
             rifle_handle.position = handle_rest+Vector3(0,0,.045)*sin(clampf((phase-.80)/.18,0.0,1.0)*PI) if reload_visual_seconds > 0 else handle_rest
-    game.player.camera.fov = lerpf(game.player.camera.fov,lerpf(76.0,59.0,pow(1.0-wall_retract,2.0)) if aiming and equipped else 76.0,minf(1.0,delta*9.0))
+    game.player.camera.fov = lerpf(game.player.camera.fov,lerpf(76.0,24.0 if selected_weapon == 2 else 59.0,pow(1.0-wall_retract,2.0)) if aiming and equipped else 76.0,minf(1.0,delta*9.0))
     if level_id != 2 or target_remaining <= 0 or game.ui.modal: return
     enemy_timer -= delta
     if enemy_timer <= 0.0:
@@ -805,7 +969,7 @@ func _fit_near_wall() -> void:
             if shortage > 0 and absf(normal.x) > .1: weapon_pivot.position.x += shortage/normal.x
 
 func set_aim(value: bool) -> void:
-    aiming = active and equipped and value and reload_time <= 0.0
+    aiming = active and equipped and selected_weapon != 3 and value and reload_time <= 0.0
 
 func select_blaster() -> void:
     if not active: return
@@ -827,15 +991,15 @@ func select_flashlight() -> void:
 
 func reload() -> bool:
     if active and level_id == -2:
-        if not equipped or not match_can_fire() or reload_time > 0 or magazine >= MAGAZINE_CAPACITY or reserve <= 0: return false
-        reload_visual_seconds = RELOAD_SECONDS
-        reload_time = RELOAD_SECONDS
+        if selected_weapon == 3 or not equipped or not match_can_fire() or reload_time > 0 or magazine >= int(weapon_spec().capacity) or reserve <= 0: return false
+        reload_visual_seconds = float(weapon_spec().reload)
+        reload_time = float(weapon_spec().reload)
         aiming = false
         if reload_audio.stream != null: reload_audio.play()
         game.net.request_fps_reload()
         return true
-    if not active or not equipped or reload_time > 0.0 or magazine >= MAGAZINE_CAPACITY or reserve <= 0: return false
-    reload_time = RELOAD_SECONDS
+    if not active or not equipped or reload_time > 0.0 or magazine >= int(weapon_spec().capacity) or reserve <= 0: return false
+    reload_time = float(weapon_spec().reload)
     aiming = false
     if reload_audio.stream != null: reload_audio.play()
     return true
@@ -847,11 +1011,11 @@ func fire() -> String:
     if active and level_id == -2:
         if not game.running or game.ui.modal or not equipped or not match_can_fire(): return "LOCKED"
         if reload_time > 0: return "RELOADING"
-        if shot_cooldown > 0.0 or magazine <= 0: return "COOLDOWN"
-        shot_cooldown = RATE_SECONDS
+        if shot_cooldown > 0.0 or (magazine <= 0 and selected_weapon != 3): return "COOLDOWN"
+        shot_cooldown = float(weapon_spec().rate)
         trigger_recoil()
         if shot_audio.stream != null: shot_audio.play()
-        game.net.request_fps_fire(-game.player.camera.global_transform.basis.z)
+        game.net.request_fps_fire(shot_direction())
         return "REQUESTED"
     if not active or not equipped or not game.running or game.ui.modal: return "LOCKED"
     if reload_time > 0.0: return "RELOADING"
@@ -860,7 +1024,7 @@ func fire() -> String:
         reload()
         return "EMPTY"
     magazine -= 1
-    shot_cooldown = RATE_SECONDS
+    shot_cooldown = float(weapon_spec().rate)
     trigger_recoil()
     if shot_audio.stream != null: shot_audio.play()
     var eye: Vector3 = game.player.camera.global_position
@@ -924,13 +1088,20 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
     var facing_pitch: float = game.player.pitch if shooter == 1 else float(game.net.poses[shooter].get("pitch",0.0))
     var facing := Vector3(-sin(facing_yaw)*cos(facing_pitch),sin(facing_pitch),-cos(facing_yaw)*cos(facing_pitch))
     if direction.dot(facing) < .92: return false
+    var spec := Arsenal.spec(peer_weapon(shooter))
+    var melee := peer_weapon(shooter) == 3
     var now: int = Time.get_ticks_msec()
-    if now - int(shot_ticks.get(shooter,-999999)) < int(RATE_SECONDS*1000.0)-2: return false
-    if int(ammo_by_peer.get(shooter,0)) <= 0: return false
+    if now < int(switch_ends.get(shooter,0)): return false
+    if now - int(shot_ticks.get(shooter,-999999)) < int(float(spec.rate)*1000.0)-2: return false
+    if not melee and int(ammo_by_peer.get(shooter,0)) <= 0: return false
     shot_ticks[shooter] = now
-    ammo_by_peer[shooter] = int(ammo_by_peer[shooter])-1
-    var origin: Vector3 = game.player.camera.global_position if shooter == 1 else game.net.poses[shooter].p + Vector3(0,1.58,0)
-    var world_query := PhysicsRayQueryParameters3D.create(origin,origin+direction*MAX_RANGE,1)
+    if not melee: ammo_by_peer[shooter] = int(ammo_by_peer[shooter])-1
+    var origin: Vector3 = game.player.eye_position() if shooter == 1 else game.net.poses[shooter].p + Vector3(0,1.58,0)
+    shot_serial += 1
+    shot_events.append({"serial":shot_serial,"peer":shooter,"weapon":peer_weapon(shooter),"p":origin})
+    if shot_events.size() > 12: shot_events.pop_front()
+    var shot_range: float = float(spec.range)
+    var world_query := PhysicsRayQueryParameters3D.create(origin,origin+direction*shot_range,1)
     world_query.exclude = [game.player.get_rid()]
     var world_hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(world_query)
     if not world_hit.is_empty():
@@ -959,7 +1130,7 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         if candidate != 1 and not game.net.poses.has(candidate): continue
         var pos: Vector3 = game.player.position if candidate == 1 else game.net.poses[candidate].p
         var t: float = _capsule_entry(origin,direction,pos)
-        if t < .2 or t > MAX_RANGE or t >= nearest: continue
+        if t < .2 or t > shot_range or t >= nearest: continue
         var ray := PhysicsRayQueryParameters3D.create(origin,origin+direction*t)
         ray.collision_mask = 1
         ray.exclude = [game.player.get_rid()]
@@ -968,8 +1139,9 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
         victim = candidate
     if victim >= 0:
         hit_serials[shooter] = int(hit_serials.get(shooter,0))+1
-        health_by_peer[victim] = maxi(0,int(health_by_peer[victim])-25)
+        health_by_peer[victim] = maxi(0,int(health_by_peer[victim])-int(spec.damage))
         if int(health_by_peer[victim]) == 0:
+            deaths[victim] = int(deaths.get(victim,0))+1
             scores[shooter] = int(scores.get(shooter,0))+1
             kill_serial += 1
             kill_events.append({"serial":kill_serial,"killer":shooter,"victim":victim})
@@ -982,9 +1154,10 @@ func server_fire(shooter: int, direction: Vector3) -> bool:
 
 func server_reload(shooter: int) -> bool:
     if not active or not game.net.authoritative() or not ammo_by_peer.has(shooter) or not match_can_fire(): return false
-    if int(ammo_by_peer[shooter]) >= MAGAZINE_CAPACITY: return false
+    var spec := Arsenal.spec(peer_weapon(shooter))
+    if peer_weapon(shooter) == 3 or int(ammo_by_peer[shooter]) >= int(spec.capacity): return false
     if reload_ends.has(shooter) or int(reserve_by_peer.get(shooter,0)) <= 0: return false
-    reload_ends[shooter] = Time.get_ticks_msec()+int(RELOAD_SECONDS*1000)
+    reload_ends[shooter] = Time.get_ticks_msec()+int(float(spec.reload)*1000)
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
     return true
 
@@ -1040,6 +1213,8 @@ func _next_match() -> void:
     reload_ends.clear()
     reload_time = 0.0
     shot_ticks.clear()
+    switch_ends.clear()
+    shot_events.clear()
     kill_events.clear()
     impacts.clear()
     for peer_id in health_by_peer:
@@ -1047,6 +1222,10 @@ func _next_match() -> void:
         ammo_by_peer[peer_id] = MAGAZINE_CAPACITY
         reserve_by_peer[peer_id] = 120
         scores[peer_id] = 0
+        deaths[peer_id] = 0
+        weapon_by_peer[peer_id] = 0
+        loadouts[peer_id] = {}
+        for index in range(4): loadouts[peer_id][index] = {"ammo":int(Arsenal.spec(index).capacity),"reserve":int(Arsenal.spec(index).reserve)}
         game.net.send_fps_respawn(int(peer_id),game.fps_arena.spawn_for(int(game.net.seats.get(peer_id,1))))
     _clear_round_cosmetics()
     game.net.broadcast_fps_state(health_by_peer,ammo_by_peer,scores)
@@ -1064,14 +1243,15 @@ func combat_state() -> Dictionary:
     var remaining := {}
     for id in reload_ends:
         remaining[id] = maxf(0.0,float(int(reload_ends[id])-Time.get_ticks_msec())/1000.0)
-    return {"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true),"impacts":impacts.duplicate(true),"hits":hit_serials.duplicate(),"seats":game.net.seats.duplicate(),"round":{"id":round_id,"seconds":round_remaining,"over":round_over,"break":round_break,"winners":round_winners.duplicate(),"winner_seats":round_winner_seats.duplicate(),"ready":round_ready.keys()}}
+    return {"weapons":weapon_by_peer.duplicate(),"deaths":deaths.duplicate(),"shots":shot_events.duplicate(true),"reserve":reserve_by_peer,"reload":remaining,"map_id":game.fps_arena.map_id,"kills":kill_events.duplicate(true),"impacts":impacts.duplicate(true),"hits":hit_serials.duplicate(),"seats":game.net.seats.duplicate(),"round":{"id":round_id,"seconds":round_remaining,"over":round_over,"break":round_break,"winners":round_winners.duplicate(),"winner_seats":round_winner_seats.duplicate(),"ready":round_ready.keys()}}
 
 func finish_server_reloads() -> void:
     var changed := false
     for id in reload_ends.keys():
         if Time.get_ticks_msec() < int(reload_ends[id]): continue
-        reload_durations[id] = Time.get_ticks_msec()-(int(reload_ends[id])-int(RELOAD_SECONDS*1000))
-        var transfer := mini(MAGAZINE_CAPACITY-int(ammo_by_peer.get(id,0)),int(reserve_by_peer.get(id,0)))
+        var spec := Arsenal.spec(peer_weapon(int(id)))
+        reload_durations[id] = Time.get_ticks_msec()-(int(reload_ends[id])-int(float(spec.reload)*1000))
+        var transfer := mini(int(spec.capacity)-int(ammo_by_peer.get(id,0)),int(reserve_by_peer.get(id,0)))
         ammo_by_peer[id] = int(ammo_by_peer.get(id,0))+transfer
         reserve_by_peer[id] = int(reserve_by_peer.get(id,0))-transfer
         reload_ends.erase(id)
@@ -1086,7 +1266,9 @@ func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, com
         _clear_round_cosmetics()
     round_id = next_round
     round_remaining = clampf(float(info.get("seconds",round_remaining)),0,MATCH_SECONDS)
+    var was_over := round_over
     round_over = bool(info.get("over",round_over))
+    if round_over and not was_over and is_instance_valid(result_audio) and result_audio.stream != null: result_audio.play()
     round_break = clampf(float(info.get("break",round_break)),0,INTERMISSION_SECONDS)
     round_winners.clear()
     for winner in info.get("winners",[]): round_winners.append(int(winner))
@@ -1105,13 +1287,29 @@ func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, com
     health_by_peer = hp.duplicate()
     ammo_by_peer = ammo.duplicate()
     scores = points.duplicate()
+    deaths = combat.get("deaths",{}).duplicate()
+    weapon_by_peer = combat.get("weapons",{}).duplicate()
+    var own: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
+    if peer_weapon(own) != selected_weapon: _apply_weapon(peer_weapon(own))
+    for event in combat.get("shots",[]):
+        if int(event.get("serial",0)) <= last_shot_serial: continue
+        last_shot_serial = int(event.serial)
+        var peer_id := int(event.peer)
+        if peer_id == own: continue
+        var player := remote_shots[last_shot_serial%remote_shots.size()]
+        player.global_position = event.p
+        player.stream = shot_sounds[clampi(int(event.weapon),0,3)]
+        if player.stream != null: player.play()
+        if game.crew.has(peer_id): game.crew[peer_id].shot_seconds = .22
     reserve_by_peer = combat.get("reserve",{}).duplicate()
     hit_serials = combat.get("hits",{}).duplicate()
     var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
     var next_hit: int = int(combat.get("hits",{}).get(id,0))
     if next_hit > last_confirmed_serial: hit_feedback_time = .20
     last_confirmed_serial = next_hit
-    if int(hp.get(id,100)) < health: damage_feedback_time = .35
+    if int(hp.get(id,100)) < health:
+        damage_feedback_time = .35
+        if damage_audio.stream != null: damage_audio.play()
     health = int(hp.get(id,100))
     magazine = int(ammo.get(id,MAGAZINE_CAPACITY))
     reserve = int(combat.get("reserve",{}).get(id,120))

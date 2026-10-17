@@ -154,7 +154,7 @@ func _button(parent: Node, text: String, rect: Rect2, callback: Callable, touch:
 	button.add_theme_color_override("font_color", PAPER)
 	button.add_theme_stylebox_override("normal", _style(Color(0.07, 0.095, 0.09, 0.97)))
 	button.add_theme_stylebox_override("hover", _style(Color(0.14, 0.23, 0.19), ACCENT))
-	button.add_theme_stylebox_override("pressed", _style(Color(0.19, 0.35, 0.27), ACCENT))
+	button.add_theme_stylebox_override("pressed", _style(Color(0.19, 0.36, 0.27), ACCENT))
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	button.text = text
@@ -225,7 +225,7 @@ func _build_hud() -> void:
 	fps_crosshair.visible = false
 	_button(hud, localized("DRINK ALMOND", "杏仁水 / 喝"), Rect2(1060, 784, 226, 52), func(): game.net.request("drink"), true)
 	_button(hud, localized("REPLAY VOICE", "重播语音"), Rect2(1060, 840, 226, 50), _replay_generated_voice, true)
-	var run := _button(hud, localized("RUN", "奔跑"), Rect2(290, 780, 142, 80), func(): pass, true)
+	var run := _button(hud, localized("RUN", "奔跑"), Rect2(290, 690, 142, 80), func(): pass, true)
 	sprint_button = run
 	transient_hint = _label(hud, "", Vector2(365, 660), 870, 25, ACCENT)
 	transient_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -544,7 +544,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / FPS ARENA\nTwo authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.35.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.36.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
