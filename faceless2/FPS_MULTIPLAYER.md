@@ -169,3 +169,12 @@ of motion-captured animation or a physically simulated magazine inventory.
 - Left upper HUD: kills, deaths, score (100 per kill). Bottom: real HP and stamina bars, actual ammunition, selected weapon. Five-minute host clock / first to ten kills; final ranking sorts kills descending, deaths ascending, seat ascending for deterministic ties; equal kill counts remain a draw. Auto rematch / authenticated readiness retained.
 - Offline deterministic synthesized weapon, switch, damage, result and reload sounds. Remote shots are spatialized with bounded player pools. These are synthesized Foley, not field recordings. Native preview movie has no recorded audio track.
 - Android physical device, sustained device FPS, Wi-Fi/public NAT, full anti-cheat and AAA quality remain unverified. Automated game tests are Godot --headless; native screenshots/movie use the user's explicit Linux+xvfb exception only.
+
+The v0.36 UDP harness prepares the late-join lobby process before expiring a
+round, then joins through the real directory and ENet during intermission. This
+keeps slow process startup outside the eight-second observation window without
+changing the game clock or late-join assertions. Shutdown cancels discovery,
+stops/unloads audio, drains deferred deletion and 250ms of monotonic time for
+the audio thread, then quits from a separate deferred function after the drain
+coroutine returns. Strict resource/error checks remain enabled; verbose peer
+logs preserve any future leaked-resource identities.

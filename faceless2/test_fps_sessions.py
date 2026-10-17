@@ -129,7 +129,7 @@ def main():
                 def spawn(label, role='client', code=''):
                     log = (output/f'fps-{slots}-map{map_id}-{label}.log').open('w')
                     handles.append(log)
-                    command = [args.godot, '--headless', '--path', str(project),
+                    command = [args.godot, '--headless', '--verbose', '--path', str(project),
                                '--script', script, '--', f'--role={role}',
                                f'--label={label}', f'--directory={url}',
                                f'--port={port}', f'--slots={slots}', f'--map={map_id}',
@@ -354,6 +354,12 @@ def main():
                     command('final','ready',count=4)
                     time.sleep(.25)
                     assert state('host')['round']['ready'] == [], 'ready is rejected during live combat'
+                    if slots > 2:
+                        # Load the actual lobby before the eight-second result
+                        # window; joining below still travels through HTTP/UDP.
+                        spawn('result_late',role='idle')
+                        wait('result_late',lambda x:x.get('mode')=='solo' and x.get('serial')==0,
+                             'late-join lobby process prepared')
                     if slots == 2 and map_id == 0:
                         import math
                         poses = state('host')['poses']
@@ -385,7 +391,7 @@ def main():
                     time.sleep(.25)
                     assert state('host')['ammo'] == ammo_after, 'finished round rejects fire and reload'
                     if slots > 2:
-                        spawn('result_late',code=code)
+                        command('result_late','join',room=code)
                         wait('result_late',lambda x:x.get('round',{}).get('over') and len(x.get('hp',{}))==3,'late join receives finished round')
                         command('result_late','ready')
                         command('result_late','quit')

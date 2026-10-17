@@ -36,7 +36,8 @@ func run() -> void:
     game.player.set_physics_process(false)
     game.rooms.configure("" if role.begins_with("lan_") or role == "capture_client" else directory)
     game.rooms.game_port = port
-    if role == "capture_client": game.net.join("127.0.0.1",port,room)
+    if role == "idle": pass # Prepared lobby process; joining still uses real HTTP/ENet.
+    elif role == "capture_client": game.net.join("127.0.0.1",port,room)
     elif role == "lan_host":
         # Two real UDP peers on CI's single machine: release the host's
         # unused discovery listener and route real announcements to loopback.
@@ -73,6 +74,7 @@ func _process(delta: float) -> bool:
         if command is Dictionary:
             serial = int(command.get("serial",0))
             match str(command.get("op","")):
+                "join": game.rooms.join_code(str(command.get("room","")))
                 "fire":
                     var v: Array = command.get("direction",[0,0,-1])
                     for i in range(int(command.get("count",1))):
@@ -138,6 +140,7 @@ func _process(delta: float) -> bool:
     return false
 
 func shutdown() -> void:
+    game.rooms.cancel_match()
     game.net.leave()
     for kind in ["AudioStreamPlayer","AudioStreamPlayer3D"]:
         for sound in game.find_children("*",kind,true,false):
@@ -146,5 +149,12 @@ func shutdown() -> void:
     game.queue_free()
     game = null
     for i in range(12): await process_frame
+    # Uncapped headless frames can finish before the audio mix thread releases
+    # stopped playback. Drain real time, then unwind this coroutine before quit.
+    var deadline := Time.get_ticks_msec()+250
+    while Time.get_ticks_msec() < deadline: await process_frame
+    call_deferred("finish_shutdown")
+
+func finish_shutdown() -> void:
     print("FPS_SESSION_SHUTDOWN ",label)
     quit()
