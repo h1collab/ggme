@@ -3,10 +3,13 @@ extends Control
 const Joystick = preload("virtual_joystick.gd")
 const CornerHud = preload("backrooms_fps_hud.gd")
 const TouchAction = preload("touch_action.gd")
+const SignalTheme = preload("backrooms_interface_theme.gd")
+const SignalButton = preload("backrooms_interface_button.gd")
+const SignalArt = preload("backrooms_interface_art.gd")
 # Legible, low-glare typography against dark real-GLB interiors.
-const PAPER := Color(0.93, 0.94, 0.92)
-const MUTED := Color(0.72, 0.79, 0.78)
-const ACCENT := Color(0.79, 0.94, 0.84)
+const PAPER := Color.WHITE
+const MUTED := Color("58efff")
+const ACCENT := Color("ffda56")
 var game: Node
 var canvas: Control
 var hud: Control
@@ -75,8 +78,9 @@ func release_mobile_inputs() -> void:
 
 func _ready() -> void:
 	var font_path := "res://assets/vendor/story_font.otf" if ResourceLoader.exists("res://assets/vendor/story_font.otf") else "res://faceless2/assets/vendor/story_font.otf"
+	theme = Theme.new()
+	SignalTheme.install(theme)
 	if ResourceLoader.exists(font_path):
-		theme = Theme.new()
 		# Retain the existing commercially redistributable Noto Sans SC
 		# (OFL 1.1) with complete CJK glyph coverage; the boldened variation
 		# remains legible even at mobile's reduced viewport resolution.
@@ -111,15 +115,10 @@ func _fit() -> void:
 	else: canvas.position = (extent - Vector2(1600, 900) * factor) * 0.5
 	canvas.scale = Vector2.ONE * factor
 
-func _style(color: Color, border: Color = Color(0.26, 0.32, 0.30)) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = border
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(5)
-	return style
+func _style(color: Color, border: Color = SignalTheme.CYAN) -> StyleBoxFlat:
+	return SignalTheme.plate(color,border)
 
-func _card(parent: Node, rect: Rect2, color: Color = Color(0.025, 0.042, 0.04, 0.95)) -> Panel:
+func _card(parent: Node, rect: Rect2, color: Color = Color("102a46")) -> Panel:
 	var panel := Panel.new()
 	panel.position = rect.position
 	panel.size = rect.size
@@ -136,9 +135,9 @@ func _label(parent: Node, text: String, pos: Vector2, width: float, font_size: i
 	# Independent outline + shadow makes English and simplified Chinese
 	# readable over metal textures without opaque, fake geometry panels.
 	label.add_theme_color_override("font_outline_color", Color(0.006,0.010,0.015,0.92))
-	label.add_theme_constant_override("outline_size", 3 if readable_size <= 30 else 2)
+	label.add_theme_constant_override("outline_size", 1)
 	label.add_theme_color_override("font_shadow_color", Color(0,0,0,0.65))
-	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.add_theme_constant_override("shadow_offset_y", 1)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.size = Vector2(width, readable_size * 3.0)
@@ -147,14 +146,15 @@ func _label(parent: Node, text: String, pos: Vector2, width: float, font_size: i
 	return label
 
 func _button(parent: Node, text: String, rect: Rect2, callback: Callable, touch: bool = false) -> Button:
-	var button: Button = TouchAction.new() if touch else Button.new()
+	var button: Button = TouchAction.new() if touch else SignalButton.new()
 	button.position = rect.position
 	button.size = rect.size
 	button.add_theme_font_size_override("font_size", 23)
-	button.add_theme_color_override("font_color", PAPER)
-	button.add_theme_stylebox_override("normal", _style(Color(0.07, 0.095, 0.09, 0.97)))
-	button.add_theme_stylebox_override("hover", _style(Color(0.14, 0.23, 0.19), ACCENT))
-	button.add_theme_stylebox_override("pressed", _style(Color(0.19, 0.36, 0.27), ACCENT))
+	for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color","font_hover_pressed_color"]: button.add_theme_color_override(state,PAPER)
+	button.add_theme_color_override("font_disabled_color",SignalTheme.LOCKED)
+	button.add_theme_stylebox_override("normal", _style(SignalTheme.SURFACE))
+	button.add_theme_stylebox_override("hover", _style(SignalTheme.BLUE,SignalTheme.CYAN))
+	button.add_theme_stylebox_override("pressed", _style(Color("214d75"),SignalTheme.GOLD))
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	button.text = text
@@ -240,8 +240,9 @@ func _build_hud() -> void:
 		button.expand_icon = true
 		button.add_theme_constant_override("icon_max_width",32)
 		if button == pause_button: button.text = ""
-		var normal := _style(Color(.025,.035,.045,.24),Color(1,1,1,.32))
-		normal.set_corner_radius_all(38)
+		var normal := _style(Color(.025,.07,.13,.82),SignalTheme.CYAN)
+		normal.set_corner_radius_all(3)
+		if button == shoot_button: button.primary = true
 		button.add_theme_stylebox_override("normal",normal)
 		button.add_theme_font_size_override("font_size",16)
 	facility_goal_label = _label(hud,"",Vector2(42,48),760,22,ACCENT)
@@ -314,26 +315,37 @@ func rebuild_language() -> void:
 		"journal": open_journal()
 		_: pass
 
+func _signal_art(hero: bool = false) -> void:
+	var art := SignalArt.new()
+	art.size = Vector2(1600,900)
+	art.hero = hero
+	panels.add_child(art)
+
 func menu() -> void:
 	if is_instance_valid(game): game.show_title_room()
 	_clear("menu")
-	_card(panels, Rect2(0, 0, 775, 900), Color(0.02, 0.035, 0.034, 0.97))
-	_image(panels, _brand_file("game_icon.png"), Rect2(70, 50, 90, 90))
-	_label(panels, "ZORIX / RECOVERED TRANSMISSION", Vector2(188, 76), 530, 20, ACCENT)
-	_label(panels, "FACELESS 2", Vector2(70, 214), 680, 71)
-	_label(panels, localized("FPS ARENA", "独立 FPS 竞技场"), Vector2(73, 323), 640, 27, ACCENT)
-	_label(panels, localized("TWO MAPS. TWO PLAYERS TO START.\nCargo courtyard / Maintenance hangar.", "两张地图，两人即可开局。\n货运庭院 / 维修仓库。"), Vector2(72, 411), 600, 26, MUTED)
-	_button(panels, localized("TRAINING / RANDOM MAP", "本地训练 / 随机地图"), Rect2(72, 538, 600, 76), func(): game.net.leave(); game.start_fps_arena())
-	_button(panels, localized("FPS MATCH / MIN 2 MAX 4", "FPS 匹配 / 最低 2 人，最多 4 人"), Rect2(72, 631, 600, 74), open_lobby)
-	_button(panels, "CONTROLS", Rect2(72, 734, 288, 67), open_guide)
-	_button(panels, "ABOUT", Rect2(381, 734, 291, 67), open_about)
-	_button(panels, "SETTINGS", Rect2(1195, 42, 338, 66), open_settings)
-	_label(panels, localized("FIRST-PERSON SHOOTER / ENET ROOMS / KENNEY CC0 GLB", "第一人称射击 / ENet 房间 / 原版授权 GLB"), Vector2(73, 843), 640, 18, MUTED)
-	# No legacy chapter, tape objective, or building narrative on the title.
+	_signal_art(true)
+	_image(panels,_brand_file("game_icon.png"),Rect2(72,50,62,62))
+	_label(panels,"ZORIX  /  SIGNAL DIVISION",Vector2(157,68),550,18,ACCENT)
+	_label(panels,"FACELESS",Vector2(72,190),760,100)
+	_label(panels,"02",Vector2(70,292),260,110,ACCENT)
+	_label(panels,localized("ENTER THE SIGNAL.","进入信号战区。"),Vector2(292,337),490,30)
+	_label(panels,localized("TWO SECTORS  /  YOUR NEXT ENCOUNTER","双战区  /  下一次交锋"),Vector2(76,444),670,20,MUTED)
+	var play := _button(panels,localized("FIND A MATCH     →","寻找对局     →"),Rect2(72,516,646,82),open_lobby)
+	play.primary = true
+	_button(panels,localized("LOCAL TRAINING  /  RANDOM MAP","本地训练  /  随机地图"),Rect2(72,618,646,68),func(): game.net.leave(); game.start_fps_arena())
+	_button(panels,localized("CONTROLS","操作指南"),Rect2(72,716,200,60),open_guide)
+	_button(panels,localized("ABOUT","关于我们"),Rect2(294,716,200,60),open_about)
+	_button(panels,localized("SETTINGS","设置"),Rect2(516,716,202,60),open_settings)
+	_label(panels,localized("02 PLAYERS TO START   /   04 SLOTS","02 人即可开局   /   04 席位"),Vector2(76,818),690,19,ACCENT)
+	_label(panels,"SECTOR ATLAS   /   01—02",Vector2(900,172),600,24,ACCENT)
+	_label(panels,localized("01  CARGO COURTYARD","01  货运庭院"),Vector2(924,263),520,22)
+	_label(panels,localized("02  MAINTENANCE HANGAR","02  维修机库"),Vector2(924,523),520,22)
+	_label(panels,localized("72 × 96 METRES  /  TWO WAYS TO ENGAGE","72 × 96 米  /  双视角交锋"),Vector2(900,780),620,20,MUTED)
 
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
-	_card(panels, Rect2(0, 0, 1600, 900), Color(0.02, 0.036, 0.034, 1.0))
+	_signal_art()
 	_label(panels, "FACELESS 2  /  ZORIX GAme TEAM", Vector2(72, 47), 1050, 19, ACCENT)
 	_label(panels, title, Vector2(72, 108), 1240, 40)
 	_button(panels, "BACK", Rect2(1320, 45, 204, 70), func(): close_panels() if game.running else menu())
@@ -544,7 +556,7 @@ func open_about() -> void:
 	_label(panels, "FACELESS 2 / FPS ARENA\nTwo authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.36.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.37.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -585,10 +597,10 @@ func open_lobby() -> void:
 	room_name_field = LineEdit.new()
 	room_name_field.position = Vector2(94, 292)
 	room_name_field.size = Vector2(630, 56)
-	room_name_field.placeholder_text = localized("Room name", "房间名字 / 例如 黑暗走廊")
+	room_name_field.placeholder_text = localized("Room name", "房间名字 / 例如 信号小队")
 	room_name_field.max_length = 40
 	panels.add_child(room_name_field)
-	_label(panels, "类型", Vector2(93, 373), 190, 19, MUTED)
+	_label(panels, localized("VISIBILITY","房间类型"), Vector2(93, 373), 190, 19, MUTED)
 	room_visibility = OptionButton.new()
 	room_visibility.position = Vector2(96, 409)
 	room_visibility.size = Vector2(323, 56)
@@ -683,7 +695,7 @@ func _render_rooms(list: Array) -> void:
 		var code: String = str(entry.get("code", ""))
 		var players: int = int(entry.get("players", 1))
 		var limit: int = int(entry.get("max_players", 4))
-		var join := Button.new()
+		var join := SignalButton.new()
 		join.custom_minimum_size = Vector2(600, 59)
 		var map_id: int = int(entry.get("map_id",0))
 		var map_name: String = game.fps_arena.MAP_NAMES_ZH[clampi(map_id,0,1)] if game.language == "zh" else game.fps_arena.MAP_NAMES[clampi(map_id,0,1)]
@@ -801,64 +813,60 @@ func refresh() -> void:
 	if is_instance_valid(quick_button): quick_button.text = localized("CANCEL SEARCH","取消搜索") if game.rooms.matching else localized("QUICK MATCH","快速匹配")
 
 func open_settings() -> void:
-	_page(localized("Graphics, Audio & Controls", "画质、配音和操作"), "settings")
-	_label(panels, localized("LANGUAGE / Default: English", "语言 / 默认英语"), Vector2(75, 160), 850, 24, ACCENT)
+	_page(localized("TUNE YOUR SIGNAL","调整你的信号"),"settings")
+	_card(panels,Rect2(72,210,696,610))
+	_card(panels,Rect2(800,210,728,610))
+	_label(panels,localized("01  /  DISPLAY","01  /  画面"),Vector2(98,234),630,24,ACCENT)
+	_label(panels,localized("LANGUAGE","语言"),Vector2(100,302),260,20,MUTED)
 	var languages := OptionButton.new()
-	languages.position = Vector2(1085, 154)
-	languages.size = Vector2(382, 57)
-	languages.add_item("English", 0)
-	languages.add_item("简体中文", 1)
+	languages.position = Vector2(372,290)
+	languages.size = Vector2(366,57)
+	languages.add_item("English",0); languages.add_item("简体中文",1)
 	languages.select(1 if game.language == "zh" else 0)
 	languages.item_selected.connect(func(i: int): game.set_language("zh" if i == 1 else "en"))
 	panels.add_child(languages)
-	_label(panels, localized("DYNAMIC 3D RESOLUTION / SHARED WATER AND SHADOW BUDGET", "动态 3D 分辨率 / 水面与阴影共用手机性能预算"), Vector2(76, 197), 1310, 24, ACCENT)
+	_label(panels,localized("GRAPHICS PRESET","画质预设"),Vector2(100,395),600,20,MUTED)
 	for i in range(3):
-		var labels := [localized("PERFORMANCE / 58%", "流畅 / 58%"), localized("BALANCED / 74%", "均衡 / 74%"), localized("QUALITY / 91%", "精细 / 91%")]
-		_button(panels, labels[i], Rect2(76 + i * 488, 273, 455, 73), func(): game.set_quality(i))
-	var turn := CheckBox.new()
-	turn.text = localized("Scripted camera assistance (off by default; manual look cancels)", "剧情自动转头（默认关闭，手动触摸或鼠标立即取消）")
-	turn.position = Vector2(75, 375)
-	turn.size = Vector2(1390, 59)
-	turn.button_pressed = game.auto_turn
-	turn.toggled.connect(func(value: bool): game.auto_turn = value; game.player.cancel_focus(); game.save_settings())
-	panels.add_child(turn)
-	_label(panels, localized("LOOK SENSITIVITY", "视角灵敏度"), Vector2(75, 467), 1100, 24, ACCENT)
+		var labels := [localized("PERFORMANCE","流畅"),localized("BALANCED","均衡"),localized("QUALITY","精细")]
+		var choice := i
+		var button := _button(panels,labels[i],Rect2(100,444+i*92,636,70),func(): game.set_quality(choice); open_settings())
+		button.set_selection(game.quality == i)
+	_label(panels,localized("Choose a preset that suits your device.","选择适合设备的画质。"),Vector2(102,748),630,19,MUTED)
+	_label(panels,localized("02  /  FEEL & SOUND","02  /  操作与声音"),Vector2(826,234),660,24,ACCENT)
+	_label(panels,localized("LOOK SENSITIVITY","视角灵敏度"),Vector2(828,302),630,20,MUTED)
 	var sensitivity := HSlider.new()
-	sensitivity.position = Vector2(75, 517)
-	sensitivity.size = Vector2(1390, 51)
-	sensitivity.min_value = 0.5
-	sensitivity.max_value = 2.0
-	sensitivity.step = 0.05
+	sensitivity.position = Vector2(832,364); sensitivity.size = Vector2(652,42)
+	sensitivity.min_value = .5; sensitivity.max_value = 2.0; sensitivity.step = .05
 	sensitivity.value = game.sensitivity
 	sensitivity.value_changed.connect(func(value: float): game.sensitivity = value; game.save_settings())
 	panels.add_child(sensitivity)
-	_label(panels, localized("MASTER VOLUME", "主音量"), Vector2(75, 582), 1100, 24, ACCENT)
+	_label(panels,localized("MASTER VOLUME","主音量"),Vector2(828,465),630,20,MUTED)
 	var volume := HSlider.new()
-	volume.position = Vector2(75, 628)
-	volume.size = Vector2(1390, 51)
-	volume.min_value = 0
-	volume.max_value = 1
-	volume.step = 0.05
-	volume.value = game.audio_volume
-	volume.value_changed.connect(game.set_audio_volume)
+	volume.position = Vector2(832,522); volume.size = Vector2(652,42)
+	volume.min_value = 0; volume.max_value = 1; volume.step = .05
+	volume.value = game.audio_volume; volume.value_changed.connect(game.set_audio_volume)
 	panels.add_child(volume)
-	var glance := CheckBox.new()
-	glance.text = localized("Opening shock glance (interruptible; can disable)", "开场惊吓瞬间转头（默认开；可关闭，手动视角立即打断）")
-	glance.position = Vector2(75, 708)
-	glance.size = Vector2(1400, 49)
-	glance.button_pressed = game.shock_glance_enabled
-	glance.toggled.connect(func(value: bool): game.shock_glance_enabled = value; game.player.cancel_focus(); game.save_settings())
-	panels.add_child(glance)
-	var speech := CheckBox.new()
-	speech.text = localized("Play offline Mandarin dialogue (available in Chinese mode)", "播放神经网络预生成的中文录音（非系统 TTS，可关闭）")
-	speech.position = Vector2(75, 770)
-	speech.size = Vector2(1400, 55)
-	speech.button_pressed = game.voice_enabled
-	speech.toggled.connect(func(value: bool):
-		game.voice_enabled = value
-		if not value and is_instance_valid(game.story.voice_audio): game.story.voice_audio.stop()
-		game.save_settings())
-	panels.add_child(speech)
+	_label(panels,localized("V  PERSPECTIVE    /    1—4  LOADOUT","V  切换视角    /    1—4  切换武器"),Vector2(830,630),650,20,ACCENT)
+	_label(panels,localized("SHIFT  SPRINT    /    R  RELOAD","SHIFT  奔跑    /    R  换弹"),Vector2(830,680),650,20,MUTED)
+	_label(panels,localized("Touch controls appear automatically on mobile.","手机自动显示摇杆与独立触控按钮。"),Vector2(830,746),650,19)
+
+	# Keep the historical exploration options available only in that mode.
+	if game.running and not game.fps.active:
+		for node in panels.get_children():
+			if node is Label and node.position.x > 800 and node.position.y >= 630: node.hide()
+		for option in [["auto_turn",localized("Scripted camera assistance","剧情辅助视角")],["shock_glance_enabled",localized("Opening shock glance","开场瞬间转头")],["voice_enabled",localized("Offline Mandarin dialogue","离线中文配音")]]:
+			var setting: String = option[0]
+			var toggle := CheckBox.new()
+			toggle.text = option[1]
+			toggle.position = Vector2(830,622+(["auto_turn","shock_glance_enabled","voice_enabled"].find(setting))*54)
+			toggle.size = Vector2(650,48)
+			toggle.button_pressed = game.get(setting)
+			toggle.toggled.connect(func(value: bool):
+				game.set(setting,value)
+				game.player.cancel_focus()
+				if setting == "voice_enabled" and not value: game.story.voice_audio.stop()
+				game.save_settings())
+			panels.add_child(toggle)
 
 func _brand_file(filename: String) -> String:
 	var packaged := "res://ui/" + filename

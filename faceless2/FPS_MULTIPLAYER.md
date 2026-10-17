@@ -1,4 +1,4 @@
-# Faceless 2 standalone FPS / headless network notes (v0.36)
+# Faceless 2 standalone FPS / headless network notes (v0.37)
 
 The FPS playfield is **two independent 72m x 96m FPS maps**, Cargo Courtyard and Maintenance Hangar. Both use 48 licensed Kenney CC0 floor GLBs, authored Kenney structural/cover GLBs, original Poly Haven scanned props and source-verified PBR textures. Courtyard is open with loading bays; Hangar has original GLB roof wings, an open skylight, pillars, service consoles and warm source lamp fixtures. Invisible collision proxies match visible structures. It is not Level 2 and does not contain elevators, story objectives or passive Backrooms entities. Legacy source is kept for regression but is not a prerequisite to playing an FPS match.
 
@@ -178,3 +178,13 @@ stops/unloads audio, drains deferred deletion and 250ms of monotonic time for
 the audio thread, then quits from a separate deferred function after the drain
 coroutine returns. Strict resource/error checks remain enabled; verbose peer
 logs preserve any future leaked-resource identities.
+
+## v0.37 SIGNAL interface
+Original code-native navy/cyan/yellow visual system replaces default button,
+focus, disabled, input and settings marks; white primary / cyan secondary text
+retains full opacity in unselected weapon slots. Original vector sector atlas
+on the bilingual title screen is an abstract map illustration, not gameplay.
+HUD layouts and weapon styling rebuild only on state changes; live ammo,
+health, reload and reticle still update normally. Three-aspect-ratio real touch
+regressions and a 300-refresh stable-state check are retained. This reduces
+HUD work, not a claim of measured Android GPU or sustained frame rate.

@@ -263,3 +263,10 @@ No source triangles, materials, UVs, skins or animations are replaced. Runtime f
 | fps_character_2.glb | packs/quaternius-ultimatedanimatedcharacter/models/blue_soldier_female/blue_soldier_female.glb | 1302704 | 3f7a5a238ea43df29082314e28b3b16b410e87ec | 2f2340c049c1f3070ceb0f32dd164c9f724b504adeca9122a9186f1cc3f7627a |
 | fps_character_3.glb | packs/quaternius-ultimatedanimatedcharacter/models/ninja_male/ninja_male.glb | 1079144 | 173af51c2ca03aa759f16e93c47eb2dfaea7cdb5 | 1771452716515ef03d4760f45500ab68a705cbee8fec074a63b3c33fddf93920 |
 | fps_character_4.glb | packs/quaternius-ultimatedanimatedcharacter/models/ninja_sand_female/ninja_sand_female.glb | 1313224 | 0c714b663b22f345b621e5671516828fbf6d2a5b | 23366e9df98b34d404cde1468b895ed71a577aed1ad042c279157b7515ac4058 |
+
+## v0.37 SIGNAL interface art
+Original repository-native vector drawing code in backrooms_interface_art.gd,
+backrooms_interface_button.gd and backrooms_interface_theme.gd: sector atlas,
+signal routes, corner marks, checkbox/slider glyphs and joystick. Authored for
+FACELESS 2 / Zorix GAme Team; no downloaded art or generated raster assets.
+Typography retains the source-verified Noto Sans SC (OFL 1.1) described above.

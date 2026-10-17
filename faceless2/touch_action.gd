@@ -1,10 +1,11 @@
-extends Button
+extends "backrooms_interface_button.gd"
 
 # Independent pointer capture allows aiming, firing and moving simultaneously.
 # Mouse emulation supports only one touch, so combat buttons handle touch IDs.
 var pointer_id := -1
 
 func _ready() -> void:
+	super._ready()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	focus_mode = Control.FOCUS_NONE
 	visibility_changed.connect(func(): if not is_visible_in_tree(): release_pointer())

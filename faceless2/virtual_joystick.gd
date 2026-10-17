@@ -37,12 +37,14 @@ func _update_value(local_position: Vector2) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	var c := size * 0.5
-	draw_circle(c, 94, Color(0.015, 0.035, 0.042, 0.65))
-	draw_circle(c, 86, Color(0.32, 0.73, 0.74, 0.42), false, 2, true)
-	draw_circle(c, 58, Color(0.28, 0.59, 0.61, 0.16), false, 1, true)
-	for direction in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
-		draw_line(c + direction * 75, c + direction * 82, Color(0.60, 0.81, 0.82, 0.7), 2)
-	var knob := c + value * 58
-	draw_circle(knob, 29, Color(0.18, 0.41, 0.43, 0.9))
-	draw_circle(knob, 29, Color(0.57, 0.85, 0.84, 0.85), false, 2, true)
+	var c := size*.5
+	draw_circle(c,94,Color(.02,.065,.12,.82))
+	for segment in range(4):
+		var start := segment*PI*.5+.12
+		draw_arc(c,87,start,start+PI*.5-.24,20,Color("58efff"),2,true)
+	for direction in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:
+		draw_line(c+direction*73,c+direction*81,Color("ffda56"),3,true)
+	var knob := c+value*58
+	draw_circle(knob,30,Color("1262ce"))
+	draw_circle(knob,30,Color("58efff"),false,2,true)
+	draw_circle(knob,5,Color.WHITE)

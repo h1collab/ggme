@@ -29,6 +29,12 @@ func wait_switch() -> void:
 	# slower than real time; do not turn 1.1 seconds into 33 expensive frames.
 	var deadline := Time.get_ticks_msec()+1100
 	while Time.get_ticks_msec() < deadline: await process_frame
+func interface_shot(label: String) -> void:
+	for i in range(4): await process_frame
+	await RenderingServer.frame_post_draw
+	var image: Image = root.get_texture().get_image()
+	if image.save_png(output_dir.path_join("interface_"+label+".png")) != OK: issues.append(label)
+	else: print("GODOT_SIGNAL_INTERFACE_CAPTURE ",label)
 func run() -> void:
 	output_dir = OS.get_environment("FACELESS_PREVIEW_DIR")
 	if output_dir.is_empty(): output_dir = OS.get_user_data_dir().path_join("preview_frames")
@@ -40,6 +46,17 @@ func run() -> void:
 	game.ui.intro_timer.stop()
 	game.net.leave()
 	game.set_process(false)
+	game.language = "en"
+	game.ui.menu()
+	await interface_shot("00_menu_en")
+	game.language = "zh"
+	game.ui.menu()
+	await interface_shot("01_menu_zh")
+	game.language = "en"
+	game.ui.open_lobby()
+	await interface_shot("02_lobby")
+	game.ui.open_settings()
+	await interface_shot("03_settings")
 	for map_id in [0,1]:
 		game.ui.touch_preview = false
 		game.start_fps_arena(map_id)
