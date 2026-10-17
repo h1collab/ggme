@@ -79,7 +79,9 @@ func record() -> void:
 			game.player.update_combat_camera(.05)
 			game.fps_arena.update_local_actor(.05)
 			var torso: Vector3 = game.player.global_position+Vector3(0,1.0,0)
-			if camera.is_position_behind(torso) or not Rect2(Vector2.ZERO,Vector2(root.size)).has_point(camera.unproject_position(torso)):
+			# Camera projection uses the stretched logical viewport, not the
+			# 960x540 output framebuffer (the project's UI canvas is 1600x900).
+			if camera.is_position_behind(torso) or not camera.get_viewport().get_visible_rect().has_point(camera.unproject_position(torso)):
 				issues.append("Third-person actor outside actual movie viewport")
 			await frame()
 		game.player.set_third_person(false)
