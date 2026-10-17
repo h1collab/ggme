@@ -262,7 +262,7 @@ func update_combat_camera(delta: float) -> void:
 	var length := offset.length()*fraction
 	camera_clearance = length if length < camera_clearance else lerpf(camera_clearance,length,minf(1,delta*8))
 	camera.global_position = pivot+offset.normalized()*camera_clearance
-	camera.rotation.x = pitch
+	camera.rotation = Vector3(pitch,0,0)
 	# At extreme proximity hide the body rather than putting a camera in it.
 	game.fps_arena.local_shadow.visible = camera_clearance > .65
 

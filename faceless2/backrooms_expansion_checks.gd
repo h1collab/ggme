@@ -113,7 +113,9 @@ func run() -> void:
 	await physics_frame
 	fps._apply_weapon(0)
 	player.set_third_person(true)
+	player.camera.rotation = Vector3(.2,PI,.3) # Previous scripted/cinematic look.
 	player.update_combat_camera(.1)
+	check(absf(player.camera.rotation.y) < .00001 and absf(player.camera.rotation.z) < .00001,"Shoulder camera clears stale cinematic yaw and roll")
 	game.fps_arena.update_local_actor(.1)
 	for i in range(3): await process_frame
 	var visible_points := 0
