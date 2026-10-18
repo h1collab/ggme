@@ -679,7 +679,7 @@ func enter_arena() -> void:
     if is_instance_valid(game.player.flashlight_rig): game.player.flashlight_rig.visible = false
     if is_instance_valid(game.player.torch): game.player.torch.visible = false
     set_process(true)
-    if game.net.authoritative(): register_peer(1)
+    if game.net.authoritative() and not game.net.dedicated: register_peer(1)
 
 func register_peer(id: int) -> void:
     if not game.net.authoritative(): return
@@ -1285,7 +1285,7 @@ func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, com
     round_winners.clear()
     for winner in info.get("winners",[]): round_winners.append(int(winner))
     round_winner_seats.clear()
-    for seat in info.get("winner_seats",[]): round_winner_seats.append(clampi(int(seat),1,4))
+    for seat in info.get("winner_seats",[]): round_winner_seats.append(clampi(int(seat),1,6))
     round_ready.clear()
     for peer_id in info.get("ready",[]): round_ready[int(peer_id)] = true
     for event in combat.get("impacts",[]):

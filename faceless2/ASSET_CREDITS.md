@@ -270,3 +270,10 @@ backrooms_interface_button.gd and backrooms_interface_theme.gd: sector atlas,
 signal routes, corner marks, checkbox/slider glyphs and joystick. Authored for
 FACELESS 2 / Zorix GAme Team; no downloaded art or generated raster assets.
 Typography retains the source-verified Noto Sans SC (OFL 1.1) described above.
+
+## v0.38 own-code derivatives
+Four-sector map layout and animated SIGNAL atlas/scanner are repository-authored
+code. New sectors reuse the existing verified original Kenney/Poly Haven GLBs/PBR
+without changing source hashes. Seats 5/6 reuse Quaternius source characters 1/2
+with original runtime cyan/copper material tint derivatives; meshes, skins, UVs
+and source licenses are preserved. No newly downloaded or AI-generated models.

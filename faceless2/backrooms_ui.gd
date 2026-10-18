@@ -317,6 +317,7 @@ func rebuild_language() -> void:
 
 func _signal_art(hero: bool = false) -> void:
 	var art := SignalArt.new()
+	art.name = "SignalAtlas"
 	art.size = Vector2(1600,900)
 	art.hero = hero
 	panels.add_child(art)
@@ -330,17 +331,19 @@ func menu() -> void:
 	_label(panels,"FACELESS",Vector2(72,190),760,100)
 	_label(panels,"02",Vector2(70,292),260,110,ACCENT)
 	_label(panels,localized("ENTER THE SIGNAL.","进入信号战区。"),Vector2(292,337),490,30)
-	_label(panels,localized("TWO SECTORS  /  YOUR NEXT ENCOUNTER","双战区  /  下一次交锋"),Vector2(76,444),670,20,MUTED)
-	var play := _button(panels,localized("FIND A MATCH     →","寻找对局     →"),Rect2(72,516,646,82),open_lobby)
+	_label(panels,localized("FOUR SECTORS  /  YOUR NEXT ENCOUNTER","四战区  /  下一次交锋"),Vector2(76,444),670,20,MUTED)
+	var play := _button(panels,localized("FIND A MATCH     →","寻找对局     →"),Rect2(72,516,646,82),func(): open_lobby(); _quick_match())
 	play.primary = true
 	_button(panels,localized("LOCAL TRAINING  /  RANDOM MAP","本地训练  /  随机地图"),Rect2(72,618,646,68),func(): game.net.leave(); game.start_fps_arena())
 	_button(panels,localized("CONTROLS","操作指南"),Rect2(72,716,200,60),open_guide)
 	_button(panels,localized("ABOUT","关于我们"),Rect2(294,716,200,60),open_about)
 	_button(panels,localized("SETTINGS","设置"),Rect2(516,716,202,60),open_settings)
-	_label(panels,localized("02 PLAYERS TO START   /   04 SLOTS","02 人即可开局   /   04 席位"),Vector2(76,818),690,19,ACCENT)
-	_label(panels,"SECTOR ATLAS   /   01—02",Vector2(900,172),600,24,ACCENT)
+	_label(panels,localized("02 PLAYERS TO START   /   06 SLOTS","02 人即可开局   /   06 席位"),Vector2(76,818),690,19,ACCENT)
+	_label(panels,"SECTOR ATLAS   /   01—04",Vector2(900,172),600,24,ACCENT)
 	_label(panels,localized("01  CARGO COURTYARD","01  货运庭院"),Vector2(924,263),520,22)
-	_label(panels,localized("02  MAINTENANCE HANGAR","02  维修机库"),Vector2(924,523),520,22)
+	_label(panels,localized("02  MAINTENANCE HANGAR","02  维修机库"),Vector2(924,393),520,22)
+	_label(panels,localized("03  RELAY DEPOT","03  中继货站"),Vector2(924,523),520,22)
+	_label(panels,localized("04  FOUNDRY CROSSING","04  铸造交汇"),Vector2(924,653),520,22)
 	_label(panels,localized("72 × 96 METRES  /  TWO WAYS TO ENGAGE","72 × 96 米  /  双视角交锋"),Vector2(900,780),620,20,MUTED)
 
 func _page(title: String, kind: String) -> void:
@@ -553,7 +556,7 @@ func open_about() -> void:
 	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 248, 357, 357), true)
 	_label(panels, "Zorix GAme Team", Vector2(580, 244), 840, 45)
 	_label(panels, "Made By Zorix GAme Team", Vector2(584, 335), 850, 27, ACCENT)
-	_label(panels, "FACELESS 2 / FPS ARENA\nTwo authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–4 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
+	_label(panels, "FACELESS 2 / FPS ARENA\nFour authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
 	_label(panels, "BUILD 0.37.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
@@ -612,13 +615,13 @@ func open_lobby() -> void:
 	slot_limit.position = Vector2(458, 409)
 	slot_limit.size = Vector2(244, 56)
 	slot_limit.min_value = 2
-	slot_limit.max_value = 4
+	slot_limit.max_value = 6
 	slot_limit.step = 1
-	slot_limit.value = 4
+	slot_limit.value = 6
 	panels.add_child(slot_limit)
 	_button(panels, localized("CREATE ROOM", "创建房间"), Rect2(95, 497, 609, 70), _create_room)
 	room_code_label = _label(panels, localized("Share your room code to invite friends.", "房间号在创建后显示，复制给朋友即可加入。"), Vector2(99, 593), 630, 22, ACCENT)
-	_label(panels, localized("Same Wi-Fi works locally. Internet hosting requires a reachable UDP port.", "同一 Wi-Fi 无须服务器。跨网络需要部署 JS 房间服务，且房主 UDP 端口可达。"), Vector2(97, 680), 628, 19, MUTED)
+	_label(panels, localized("Online: HTTPS directory + managed UDP server. Direct rooms need host mapping.", "跨网络：HTTPS 服务 + 独立 UDP 服务器。直连房间仍需房主映射端口。"), Vector2(97, 680), 628, 19, MUTED)
 	_label(panels, localized("JOIN BY ROOM CODE", "加入房间 / 不输入 IP"), Vector2(821, 236), 635, 28, ACCENT)
 	room_code_field = LineEdit.new()
 	room_code_field.position = Vector2(827, 290)
@@ -648,6 +651,10 @@ func open_lobby() -> void:
 	quick_button = _button(panels, localized("QUICK MATCH", "快速匹配"),Rect2(820,722,320,62),_quick_match,true)
 	room_status = _label(panels, game.net.status, Vector2(1155, 722), 355, 17, ACCENT)
 	if not game.rooms.matching: game.rooms.discover()
+
+func update_match_animation() -> void:
+	var art := panels.get_node_or_null("SignalAtlas")
+	if is_instance_valid(art): art.searching = game.rooms.matching
 
 func _quick_match() -> void:
 	if game.rooms.matching:
@@ -698,7 +705,7 @@ func _render_rooms(list: Array) -> void:
 		var join := SignalButton.new()
 		join.custom_minimum_size = Vector2(600, 59)
 		var map_id: int = int(entry.get("map_id",0))
-		var map_name: String = game.fps_arena.MAP_NAMES_ZH[clampi(map_id,0,1)] if game.language == "zh" else game.fps_arena.MAP_NAMES[clampi(map_id,0,1)]
+		var map_name: String = game.fps_arena.MAP_NAMES_ZH[clampi(map_id,0,3)] if game.language == "zh" else game.fps_arena.MAP_NAMES[clampi(map_id,0,3)]
 		join.text = "%s  ·  %d/%d  ·  %s" % [map_name,players,limit,code]
 		join.add_theme_font_size_override("font_size", 21)
 		join.disabled = players >= limit
@@ -809,6 +816,7 @@ func refresh() -> void:
 	subtitle_label.text = game.story.subtitle
 	subtitle_backdrop.visible = not game.story.subtitle.is_empty()
 	if is_instance_valid(room_status):
+		update_match_animation()
 		room_status.text = game.rooms.match_message if game.rooms.matching or not game.rooms.match_message.is_empty() else game.net.status
 	if is_instance_valid(quick_button): quick_button.text = localized("CANCEL SEARCH","取消搜索") if game.rooms.matching else localized("QUICK MATCH","快速匹配")
 

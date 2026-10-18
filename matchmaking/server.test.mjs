@@ -35,9 +35,9 @@ test('public rooms visible; private rooms code-only; owner-only heartbeat and de
 test('capacity and malformed rooms rejected; health and manual leave',async()=>{
  const a=await setup();try {
   const base={name:'Room',port:24711,max_players:4,public:true};
-  assert.equal((await a.api('POST','/v1/rooms',{...base,max_players:5})).status,400);
+  assert.equal((await a.api('POST','/v1/rooms',{...base,max_players:7})).status,400);
   assert.equal((await a.api('POST','/v1/rooms',{...base,port:0})).status,400);
-  assert.equal((await a.api('GET','/health')).body.protocol,22);
+  assert.equal((await a.api('GET','/health')).body.protocol,23);
   const room=(await a.api('POST','/v1/rooms',base)).body;
   assert.equal((await a.api('DELETE',`/v1/rooms/${room.code}`,{owner_token:'not-owner'})).status,403);
   assert.equal((await a.api('DELETE',`/v1/rooms/${room.code}`,{owner_token:room.owner_token})).status,200);
@@ -47,7 +47,7 @@ test('capacity and malformed rooms rejected; health and manual leave',async()=>{
 
 test('map selection retained for public listings, code joins and heartbeats; invalid maps rejected',async()=>{
  const a=await setup();try {
-  for(const map of [0,1]) {
+  for(const map of [0,1,2,3]) {
    const made=await a.api('POST','/v1/rooms',{name:'Map '+map,port:24711+map,max_players:4,public:true,map_id:map});
    assert.equal(made.status,201);assert.equal(made.body.map_id,map);
    const code=made.body.code;
@@ -56,7 +56,7 @@ test('map selection retained for public listings, code joins and heartbeats; inv
    assert.equal((await a.api('GET','/v1/rooms/'+code)).body.map_id,map);
   }
   const listed=(await a.api('GET','/v1/rooms')).body.rooms;
-  assert.deepEqual(listed.map(r=>r.map_id).sort(),[0,1]);
-  assert.equal((await a.api('POST','/v1/rooms',{port:24713,max_players:2,public:true,map_id:2})).status,400);
+  assert.deepEqual(listed.map(r=>r.map_id).sort(),[0,1,2,3]);
+  assert.equal((await a.api('POST','/v1/rooms',{port:24713,max_players:2,public:true,map_id:4})).status,400);
  }finally{a.close();}
 });

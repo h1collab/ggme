@@ -47,7 +47,13 @@ func record() -> void:
 	game.ui.intro_timer.stop()
 	game.net.leave()
 	game.set_process(false)
-	for map_id in [0,1]:
+	game.ui.menu()
+	for i in range(60): await frame()
+	game.ui.open_lobby()
+	game.ui._quick_match()
+	for i in range(30): await frame()
+	game.rooms.cancel_match()
+	for map_id in [0,1,2,3]:
 		game.ui.touch_preview = false
 		game.start_fps_arena(map_id)
 		game.player.set_physics_process(false)
@@ -91,7 +97,7 @@ func record() -> void:
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame
-	if total != 896: issues.append("Expected 896 actual consecutive native frames")
+	if total != 1882: issues.append("Expected 1882 actual consecutive native frames")
 	if not issues.is_empty():
 		for issue in issues: push_error(issue)
 		quit(1)

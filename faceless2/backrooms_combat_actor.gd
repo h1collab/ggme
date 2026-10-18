@@ -19,12 +19,13 @@ var aim_pitch := 0.0
 var hand_bone := -1
 var held_meshes: Array[Node] = []
 func configure(number: int) -> void:
-	seat = clampi(number,1,4)
-	model = Assets.fitted("vendor/fps_character_%d.glb" % seat,1.75)
+	seat = clampi(number,1,6)
+	var source := posmod(seat-1,4)+1
+	model = Assets.fitted("vendor/fps_character_%d.glb" % source,1.75)
 	# Source characters face +Z. Game forward is -Z.
 	model.rotation.y = PI
 	add_child(model)
-	set_meta("character_source","fps_character_%d.glb" % seat)
+	set_meta("character_source","fps_character_%d.glb" % source)
 	var skels := model.find_children("*","Skeleton3D",true,false)
 	if not skels.is_empty(): skeleton = skels[0] as Skeleton3D
 	var players := model.find_children("*","AnimationPlayer",true,false)
@@ -38,6 +39,15 @@ func configure(number: int) -> void:
 				attachment.bone_name = skeleton.get_bone_name(i)
 				skeleton.add_child(attachment)
 				break
+	# Seats five and six reuse licensed source meshes with distinct authored cloth palettes.
+	if seat > 4:
+		for mesh in model.find_children("*","MeshInstance3D",true,false):
+			for surface in range(mesh.mesh.get_surface_count()):
+				var original: Material = mesh.get_active_material(surface)
+				if original is StandardMaterial3D:
+					var tint := original.duplicate() as StandardMaterial3D
+					tint.albedo_color *= Color(.55,.85,1) if seat == 5 else Color(1,.68,.38)
+					mesh.set_surface_override_material(surface,tint)
 	meshes = model.find_children("*","MeshInstance3D",true,false)
 	skeleton.skeleton_updated.connect(_update_hand_weapon)
 	set_weapon(0)

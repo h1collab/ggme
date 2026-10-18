@@ -2,8 +2,8 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 22
-const MAX_CREW := 4
+const PROTOCOL := 23
+const MAX_CREW := 6
 const PEER_IDLE_LIMIT_MSEC := 15000
 var game: Node
 var peer: ENetMultiplayerPeer
@@ -26,7 +26,11 @@ var action_times: Dictionary = {}
 var pose_times: Dictionary = {}
 var closed_peers: Dictionary = {}
 var disconnected_count := 0
-var max_crew := 4
+var max_crew := 6
+var dedicated := false
+var travel_credit: Dictionary = {}
+var travel_clock: Dictionary = {}
+var rejected_movement := 0
 
 func _ready() -> void:
 	name = "DirectSession"
@@ -42,21 +46,22 @@ func _ready() -> void:
 func authoritative() -> bool:
 	return mode != "client"
 
-func host(selected_port: int, key: String, map_router: bool, slots: int = 4) -> Error:
+func host(selected_port: int, key: String, map_router: bool, slots: int = 6, dedicated_server: bool = false) -> Error:
 	leave()
+	dedicated = dedicated_server
 	port = selected_port
 	max_crew = clampi(slots, 2, MAX_CREW)
 	password = key.substr(0, 24)
 	peer = ENetMultiplayerPeer.new()
-	var result := peer.create_server(port, max_crew - 1, 3)
+	var result := peer.create_server(port, max_crew if dedicated else max_crew - 1, 3)
 	if result != OK:
 		peer = null
 		status = "Port unavailable. Choose another UDP port."
 		return result
 	multiplayer.multiplayer_peer = peer
 	mode = "host"
-	members = {1:true}
-	seats = {1:1}
+	members = {} if dedicated else {1:true}
+	seats = {} if dedicated else {1:1}
 	status = "Hosting / 1 of %d" % max_crew
 	if map_router and upnp_thread == null:
 		upnp_thread = Thread.new()
@@ -89,6 +94,9 @@ func leave() -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	peer = null
 	mode = "solo"
+	dedicated = false
+	travel_credit.clear()
+	travel_clock.clear()
 	members.clear()
 	poses.clear()
 	seats.clear()
@@ -152,6 +160,8 @@ func _peer_disconnected(id: int) -> void:
 	seats.erase(id)
 	monitor_flags.erase(id)
 	pose_times.erase(id)
+	travel_credit.erase(id)
+	travel_clock.erase(id)
 	action_times.erase(id)
 	disconnected_count += 1
 	game.remove_crew(id)
@@ -176,7 +186,7 @@ func _hello(version: int, key: String) -> void:
 		return
 	# A repeated handshake must never reset a living player's HP/ammo.
 	if members.has(id): return
-	var seat := 2
+	var seat := 1 if dedicated else 2
 	while seats.values().has(seat): seat += 1
 	if seat > max_crew: return
 	seats[id] = seat
@@ -184,6 +194,8 @@ func _hello(version: int, key: String) -> void:
 	poses[id] = {"p":game.fps_arena.spawn_for(seat) if game.fps_arena.visible else game.level.spawn + Vector3(0.9 * (members.size() - 1), 0, 0), "y":0.0,"pitch":0.0}
 	if game.fps_arena.visible: game.fps.register_peer(id)
 	pose_times[id] = Time.get_ticks_msec()
+	travel_clock[id] = Time.get_ticks_msec()
+	travel_credit[id] = .7
 	_welcome.rpc_id(id, game.snapshot(), poses[id].p)
 	if game.fps_arena.visible: _fps_join.rpc_id(id, poses[id].p,game.fps_arena.map_id,game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores,game.fps.combat_state())
 	if game.fps_arena.visible: broadcast_fps_state(game.fps.health_by_peer,game.fps.ammo_by_peer,game.fps.scores)
@@ -243,9 +255,9 @@ func _process(delta: float) -> void:
 		pose_elapsed = 0
 		var p: Vector3 = game.player.position
 		if mode == "client": _submit_pose.rpc_id(1, p, game.player.yaw, game.ui.monitoring,game.player.pitch)
-		else:
+		elif not dedicated:
 			poses[1] = {"p":p, "y":game.player.yaw,"pitch":game.player.pitch}
-			send_members("_pose_bundle",[poses])
+		if mode == "host": send_members("_pose_bundle",[poses])
 	if mode == "host" and state_elapsed >= 0.2:
 		state_elapsed = 0
 		send_members("_shared_state",[game.snapshot()])
@@ -265,10 +277,42 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool, pitch: float) -> v
 		if absf(pos.x) > 14.6 or pos.z < -29.6 or pos.z > 11.6 or pos.y < -0.5 or pos.y > 1.0: return
 	var speed_limit: float = game.player.FPS_SPRINT_SPEED + .8 if game.fps_arena.visible else 5.0
 	if pos.distance_to(old) > elapsed * speed_limit + 0.8: return
+	if game.fps_arena.visible:
+		var dt := clampf(float(now-int(travel_clock.get(id,now)))/1000.0,0,1)
+		travel_clock[id] = now
+		var credit := minf(1.4,float(travel_credit.get(id,.7))+dt*speed_limit)
+		var distance := Vector2(pos.x-old.x,pos.z-old.z).length()
+		if distance > credit or not movement_path_clear(old,pos):
+			rejected_movement += 1
+			_correct_pose.rpc_id(id,old)
+			return
+		travel_credit[id] = credit-distance
 	poses[id] = {"p":pos, "y":yaw,"pitch":pitch}
 	pose_times[id] = now
 	monitor_flags[id] = false
 	game.update_crew(poses)
+
+func movement_path_clear(from: Vector3, to: Vector3) -> bool:
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = .29
+	capsule.height = 1.65
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = capsule
+	query.collision_mask = 1
+	query.exclude = [game.player.get_rid()]
+	query.transform.origin = to+Vector3(0,.88,0)
+	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
+	if not space.intersect_shape(query,1).is_empty(): return false
+	query.transform.origin = from+Vector3(0,.88,0)
+	query.motion = to-from
+	var safe: PackedFloat32Array = space.cast_motion(query)
+	return safe.size() == 2 and safe[0] >= .999
+
+@rpc("authority", "call_remote", "unreliable_ordered", 1)
+func _correct_pose(at: Vector3) -> void:
+	if mode == "client" and at.is_finite():
+		game.player.position = at
+		game.player.velocity = Vector3.ZERO
 
 @rpc("authority", "call_remote", "unreliable_ordered", 1)
 func _pose_bundle(bundle: Dictionary) -> void:
@@ -372,7 +416,7 @@ func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Di
 @rpc("authority","call_remote","reliable",0)
 func _fps_join(spawn: Vector3, selected_map: int, hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
 	if mode != "client": return
-	if selected_map not in [0,1]: return
+	if selected_map not in [0,1,2,3]: return
 	game.start_fps_arena(selected_map)
 	# Actual authoritative peer spawn (ENet peer IDs are not seat numbers).
 	game.player.reset_to(spawn)

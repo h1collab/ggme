@@ -24,10 +24,15 @@ func run() -> void:
 	var fps: Node3D = game.fps
 	var player: CharacterBody3D = game.player
 	# The former native flank fixture was inside a real cargo collision.
-	for map_id in [0,1]:
+	var digests := {}
+	for map_id in [0,1,2,3]:
 		game.fps_arena.activate(map_id)
 		await physics_frame
 		await physics_frame
+		digests[game.fps_arena.geometry_digest()] = true
+		for seat in range(1,7):
+			var spawn: Vector3 = game.fps_arena.spawn_for(seat)
+			check(game.net.movement_path_clear(spawn,spawn),"All six spawns clear on every map")
 		var shape := CapsuleShape3D.new()
 		shape.radius = .32; shape.height = 1.72
 		var query := PhysicsShapeQueryParameters3D.new()
@@ -35,6 +40,8 @@ func run() -> void:
 		query.transform.origin = Vector3(33,1.0,45)
 		query.exclude = [player.get_rid()]
 		check(game.get_world_3d().direct_space_state.intersect_shape(query).is_empty(),"Both expanded flank preview locations clear actual cargo geometry")
+	check(not game.net.movement_path_clear(Vector3(14,.12,1),Vector3(14,.12,9)),"Swept server capsule rejects crossing actual cargo cover")
+	check(digests.size() == 4,"Four distinct authoritative map geometries")
 	game.fps_arena.activate(0)
 
 	fps.set_process(false)
@@ -134,7 +141,7 @@ func run() -> void:
 	print("THIRD_PERSON_RIFLE_VISIBLE_BOUND_POINTS ",visible_points,"/",total_points," camera=",player.camera.global_position," gun=",game.fps_arena.local_shadow.held.global_position," hand=",game.fps_arena.local_shadow.attachment.global_position)
 	player.set_third_person(false)
 	var sources := {}
-	for seat in range(1,5):
+	for seat in range(1,7):
 		var actor := preload("backrooms_combat_actor.gd").new()
 		game.add_child(actor)
 		actor.configure(seat)
@@ -146,7 +153,7 @@ func run() -> void:
 			actor.set_weapon(index)
 			check(actor.hand_contact_error() < .002,"Actual third-person hand bone remains attached to weapon grip")
 		actor.queue_free()
-	check(sources.size() == 4,"Every server seat uses a different original character")
+	check(sources.size() == 4,"Four licensed characters with six seat identities")
 	var hud: Control = game.ui.fps_corner_hud
 	game.ui.refresh()
 	check(hud.weapon_buttons.size() == 4 and hud.health_bar.value == fps.health,"HUD weapon slots and health bind real state")

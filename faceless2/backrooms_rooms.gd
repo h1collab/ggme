@@ -9,7 +9,7 @@ signal room_error(message: String)
 const DISCOVERY_PORT := 24717
 const DEFAULT_GAME_PORT := 24711
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-const VERSION := 22
+const VERSION := 23
 var game: Node
 var client: HTTPRequest
 var receiver: PacketPeerUDP
@@ -21,7 +21,7 @@ var owner_token := ""
 var room_key := ""
 var room_public := true
 var room_name := "Faceless 2"
-var max_players := 4
+var max_players := 6
 var state := "idle"
 var operation := ""
 var timer := 0.0
@@ -36,6 +36,7 @@ var match_message := ""
 var match_attempts := 0
 var pending_http: Dictionary = {}
 var http_retry := 0
+var managed_available := false
 
 func _ready() -> void:
 	name = "RoomDiscovery"
@@ -56,6 +57,7 @@ func configure(url: String) -> void:
 	var normalized := url.strip_edges().trim_suffix("/")
 	if normalized.is_empty() or normalized.begins_with("https://") or normalized.begins_with("http://127.0.0.1:"):
 		directory_url = normalized
+		managed_available = false
 	else:
 		room_error.emit("公共房间服务需要 HTTPS；局域网房间仍可使用")
 
@@ -67,14 +69,21 @@ func _new_code() -> String:
 
 func create_room(public_room: bool, slots: int, title: String = "", requested_map: int = -1) -> void:
 	if game.net.mode != "solo": game.net.leave()
+	var epoch := match_epoch
+	if not directory_url.is_empty():
+		_send("health",HTTPClient.METHOD_GET,"/health")
+		while operation == "health": await get_tree().create_timer(.05).timeout
+	if epoch != match_epoch: return
 	room_public = public_room
-	max_players = clampi(slots, 2, 4)
+	max_players = clampi(slots, 2, 6)
 	room_name = title.strip_edges().substr(0, 40) if not title.strip_edges().is_empty() else "Faceless 2 / Random Maps"
 	room_code = ""
 	owner_token = ""
 	room_key = ""
-	selected_map = requested_map if requested_map in [0,1] else game.fps_arena.random_map()
-	if not directory_url.is_empty():
+	selected_map = requested_map if requested_map in [0,1,2,3] else game.fps_arena.random_map()
+	if not directory_url.is_empty() and managed_available:
+		_send("managed",HTTPClient.METHOD_POST,"/v1/matches",{"max_players":max_players,"map_id":selected_map,"public":room_public})
+	elif not directory_url.is_empty():
 		_send("create", HTTPClient.METHOD_POST, "/v1/rooms", {"name":room_name,"port":game_port,"public":room_public,"max_players":max_players,"map_id":selected_map})
 	else:
 		_finish_create(_new_code(), _new_code())
@@ -121,7 +130,7 @@ func cancel_match() -> void:
 	match_epoch += 1
 	matching = false
 	match_message = game.ui.localized("Search cancelled","已取消搜索") if was_matching else ""
-	if operation in ["list","resolve","create"]:
+	if operation in ["health","list","resolve","create","managed"]:
 		client.cancel_request()
 		operation = ""
 	if game.net.mode == "client" and game.net.members.is_empty(): game.net.leave()
@@ -170,12 +179,12 @@ func quick_match() -> void:
 		game.net.leave()
 	if ticket != match_epoch: return
 	match_message = game.ui.localized("Opening a room · waiting for player 2","正在建房 · 等待第 2 人")
-	create_room(true,4,"Faceless 2 / Random Maps")
+	await create_room(true,6,"Faceless 2 / Random Maps")
 	# Keep the single-flight lock until actual directory creation completes.
-	while ticket == match_epoch and operation == "create": await get_tree().create_timer(.1).timeout
+	while ticket == match_epoch and operation in ["create","managed"]: await get_tree().create_timer(.1).timeout
 	if ticket == match_epoch:
 		matching = false
-		if game.net.mode != "host": match_message = game.ui.localized("Directory unavailable · retry or use LAN","目录暂不可用 · 请重试或使用局域网")
+		if game.net.mode not in ["host","client"]: match_message = game.ui.localized("Directory unavailable · retry or use LAN","目录暂不可用 · 请重试或使用局域网")
 
 func join_code(input_code: String) -> void:
 	if not matching: match_message = ""
@@ -199,7 +208,7 @@ func valid_code(code: String) -> bool:
 	return true
 
 func _join_endpoint(target: Dictionary) -> void:
-	if not valid_code(str(target.get("code",""))) or str(target.get("address","")).is_empty() or int(target.get("port",0)) < 1024 or int(target.get("port",0)) > 65535 or str(target.get("key","")).is_empty() or not int(target.get("map_id",-1)) in [0,1]:
+	if not valid_code(str(target.get("code",""))) or str(target.get("address","")).is_empty() or int(target.get("port",0)) < 1024 or int(target.get("port",0)) > 65535 or str(target.get("key","")).is_empty() or not int(target.get("map_id",-1)) in [0,1,2,3]:
 		room_error.emit("Invalid room endpoint")
 		return
 	# Directory/LAN counts can be stale immediately after a disconnect.
@@ -207,7 +216,7 @@ func _join_endpoint(target: Dictionary) -> void:
 	var result: Error = game.net.join(String(target.get("address", "")), int(target.get("port", DEFAULT_GAME_PORT)), String(target.get("key", "")))
 	if result != OK: room_error.emit("无法连接房主的 UDP 地址；检查端口映射或网络")
 	else:
-		game.net.max_crew = clampi(int(target.get("max_players",4)),2,4)
+		game.net.max_crew = clampi(int(target.get("max_players",4)),2,6)
 		selected_map = int(target.get("map_id",-1))
 		room_code = String(target.get("code", pending_code))
 		state = "client"
@@ -218,6 +227,7 @@ func _send(kind: String, method: HTTPClient.Method, path: String, content: Dicti
 		if kind != "heartbeat": room_error.emit("房间服务正忙，稍后重试")
 		return
 	operation = kind
+	client.timeout = 20.0 if kind == "managed" else 7.0
 	http_retry = 0
 	pending_http = {"kind":kind,"method":method,"path":path,"content":content.duplicate(true)}
 	var body := JSON.stringify(content) if method != HTTPClient.METHOD_GET else ""
@@ -247,6 +257,8 @@ func _http_complete(_result: int, status_code: int, _headers: PackedStringArray,
 		if op != "heartbeat": room_error.emit(game.ui.localized("Room directory unavailable · retry or use LAN","房间服务暂不可用 · 请重试或使用局域网"))
 		return
 	match op:
+		"health": managed_available = bool(response.get("managed",false)) and int(response.get("protocol",-1)) == VERSION
+		"managed": _join_endpoint(response)
 		"create":
 			if not valid_code(str(response.get("code",""))) or str(response.get("key","")).is_empty() or str(response.get("owner_token","")).is_empty():
 				room_error.emit("Invalid room creation response")
@@ -260,7 +272,7 @@ func _http_complete(_result: int, status_code: int, _headers: PackedStringArray,
 			remote_public.clear()
 			if not response.get("rooms",[]) is Array: return
 			for item in response.get("rooms",[]):
-				if item is Dictionary and valid_code(str(item.get("code",""))) and int(item.get("max_players",0)) in [2,3,4] and int(item.get("map_id",-1)) in [0,1]: remote_public.append(item.duplicate())
+				if item is Dictionary and valid_code(str(item.get("code",""))) and int(item.get("max_players",0)) in [2,3,4,5,6] and int(item.get("map_id",-1)) in [0,1,2,3]: remote_public.append(item.duplicate())
 			rooms_changed.emit(public_rooms())
 		"resolve": _join_endpoint(response)
 

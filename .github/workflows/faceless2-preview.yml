@@ -194,11 +194,11 @@ jobs:
           timeout 900 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1 || { tail -80 preview_frames/video.log; exit 1; }
           grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
           ! grep -E "ERROR:|FAIL:" preview_frames/video.log
-          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v037-godot-real-gameplay.mp4
+          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v038-godot-real-gameplay.mp4
           python - <<'VERIFY'
           from pathlib import Path
           import json,subprocess
-          p=Path("preview_frames/faceless2-v037-godot-real-gameplay.mp4")
+          p=Path("preview_frames/faceless2-v038-godot-real-gameplay.mp4")
           assert p.stat().st_size>120000,"MP4 missing or tiny"
           d=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=codec_name,nb_frames,width,height","-of","json",str(p)]))
           stream=d["streams"][0]

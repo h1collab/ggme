@@ -260,7 +260,7 @@ func open_backrooms_level(level_number: int) -> void:
 
 func start_fps_arena(selected_map: int = -1) -> void:
 	if selected_map == -1: selected_map = fps_arena.random_map()
-	if selected_map < 0 or selected_map > 1: return
+	if selected_map < 0 or selected_map > 3: return
 	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(prologue_room): prologue_room.visible = false
@@ -546,7 +546,7 @@ func receive_state(state: Dictionary) -> void:
 	if int(state.get("revision", -1)) < revision: return
 	if bool(state.get("fps_active",false)):
 		var selected_map := int(state.get("fps_map",-1))
-		if selected_map not in [0,1]: return
+		if selected_map not in [0,1,2,3]: return
 		if not fps_arena.visible or fps_arena.map_id != selected_map: start_fps_arena(selected_map)
 		revision = int(state.get("revision",0))
 		running = bool(state.get("running",true))

@@ -5,6 +5,10 @@ const FPS_SPRINT_SPEED := 6.2
 const Assets = preload("backrooms_assets.gd")
 var third_person := false
 var camera_clearance := 3.0
+var shoulder := 1.0
+var camera_sphere := SphereShape3D.new()
+var ground_grace := 0.0
+var jump_buffer := 0.0
 var game: Node
 var viewmodel_root: Node3D
 var walk_animation: AnimationPlayer
@@ -50,6 +54,10 @@ var flash_smiler_exposure := 0.0
 
 func _ready() -> void:
 	name = "LocalCrew"
+	floor_snap_length = .25
+	floor_stop_on_slope = true
+	floor_max_angle = deg_to_rad(46)
+	camera_sphere.radius = .20
 	var collision := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = COLLISION_RADIUS
@@ -215,6 +223,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_R: if is_instance_valid(game.fps): game.fps.reload()
 			KEY_T: if is_instance_valid(game.fps): game.fps.toggle_training()
 			KEY_V: set_third_person(not third_person)
+			KEY_Q: shoulder *= -1.0
 			KEY_1:
 				if is_instance_valid(game.fps):
 					if game.fps.level_id == -2: game.fps.select_weapon(0)
@@ -248,7 +257,8 @@ func update_combat_camera(delta: float) -> void:
 	if not third_person: return
 	var pivot := eye_position()
 	var orientation := global_basis*Basis(Vector3.RIGHT,pitch)
-	var offset := orientation*Vector3(1.2,.18,2.8)
+	var aiming: bool = game.fps.aiming
+	var offset := orientation*Vector3((.72 if aiming else 1.05)*shoulder,.18,1.85 if aiming else 2.8)
 	var desired := pivot+offset
 	var fraction := 1.0
 	# A five-ray swept near-plane approximation prevents a shoulder camera
@@ -259,8 +269,17 @@ func update_combat_camera(delta: float) -> void:
 		query.exclude = [get_rid()]
 		var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
 		if not hit.is_empty(): fraction = minf(fraction,maxf(.0,pivot.distance_to(hit.position-shift)-.20)/offset.length())
+	# Sweep a real volume so an edge cannot slip between the five ray samples.
+	var sweep := PhysicsShapeQueryParameters3D.new()
+	sweep.shape = camera_sphere
+	sweep.collision_mask = 1
+	sweep.exclude = [get_rid()]
+	sweep.transform.origin = pivot
+	sweep.motion = offset
+	var safe := get_world_3d().direct_space_state.cast_motion(sweep)
+	if safe.size() == 2: fraction = minf(fraction,maxf(0,safe[0]-.025))
 	var length := offset.length()*fraction
-	camera_clearance = length if length < camera_clearance else lerpf(camera_clearance,length,minf(1,delta*8))
+	camera_clearance = length if length < camera_clearance else lerpf(camera_clearance,length,minf(1,1.0-exp(-delta*8)))
 	camera.global_position = pivot+offset.normalized()*camera_clearance
 	camera.rotation = Vector3(pitch,0,0)
 	# At extreme proximity hide the body rather than putting a camera in it.
@@ -367,12 +386,18 @@ func _physics_process(delta: float) -> void:
 	stamina = clampf(stamina + (-18.0 if sprinting else 12.0) * delta, 0, 100)
 	var direction := transform.basis * Vector3(input.x, 0, input.y)
 	var speed := (FPS_SPRINT_SPEED if sprinting else FPS_WALK_SPEED) if fps_mode else (4.3 if sprinting else 2.6)
-	velocity.x = move_toward(velocity.x, direction.x * speed, delta * 14)
-	velocity.z = move_toward(velocity.z, direction.z * speed, delta * 14)
+	var acceleration := (20.0 if input.length() < .1 else 16.0) if is_on_floor() else 5.0
+	velocity.x = move_toward(velocity.x, direction.x * speed, delta * (acceleration if fps_mode else 14.0))
+	velocity.z = move_toward(velocity.z, direction.z * speed, delta * (acceleration if fps_mode else 14.0))
+	ground_grace = .10 if is_on_floor() else maxf(0,ground_grace-delta)
+	jump_buffer = .12 if jump_requested else maxf(0,jump_buffer-delta)
 	if not is_on_floor(): velocity.y -= 18.0 * delta
-	else:
-		velocity.y = 5.1 if jump_requested and not lift_riding else -0.1
-		if jump_requested and not lift_riding: jump_count += 1
+	else: velocity.y = -.1
+	if jump_buffer > 0 and ground_grace > 0 and not lift_riding:
+		velocity.y = 5.1
+		jump_count += 1
+		jump_buffer = 0.0
+		ground_grace = 0.0
 	jump_requested = false
 	move_and_slide()
 	if fps_mode:

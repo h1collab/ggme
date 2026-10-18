@@ -57,7 +57,14 @@ func run() -> void:
 	await interface_shot("02_lobby")
 	game.ui.open_settings()
 	await interface_shot("03_settings")
-	for map_id in [0,1]:
+	game.ui.menu()
+	for i in range(30): await process_frame
+	await interface_shot("04_rotating_home")
+	game.ui.open_lobby()
+	game.ui._quick_match()
+	await interface_shot("05_match_search")
+	game.rooms.cancel_match()
+	for map_id in [0,1,2,3]:
 		game.ui.touch_preview = false
 		game.start_fps_arena(map_id)
 		game.player.set_physics_process(false)

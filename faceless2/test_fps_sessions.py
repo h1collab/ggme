@@ -93,13 +93,13 @@ def main():
         for _ in range(100):
             try:
                 with urlopen(url+'/health', timeout=.5) as response:
-                    assert json.load(response)['protocol'] == 22
+                    assert json.load(response)['protocol'] == 23
                 break
             except OSError:
                 time.sleep(.05)
         else:
             raise AssertionError('Node directory did not start')
-        for slots, map_id in ((2,0),(2,1),(3,0),(3,1),(4,0),(4,1)):
+        for slots, map_id in ((2,0),(2,1),(3,0),(3,1),(4,0),(4,1),(6,0),(6,1),(6,2),(6,3)):
             with tempfile.TemporaryDirectory(prefix=f'fps-{slots}-map{map_id}-', dir=output) as folder:
                 work = Path(folder)
                 processes, handles = {}, []
@@ -153,7 +153,7 @@ def main():
                                  f'combat roster {count} replicated')
                             snapshot=wait(label,lambda x:len(x.get('avatars',{}))==count-1,'remote original character models instantiated')
                             for peer_id,file in snapshot['avatars'].items():
-                                assert file==f"fps_character_{snapshot['seats'][peer_id]}.glb"
+                                assert file==f"fps_character_{(snapshot['seats'][peer_id]-1)%4+1}.glb"
 
                 try:
                     spawn('host', 'host')
@@ -443,7 +443,7 @@ def main():
                         handle.close()
         (output/'fps-session-results.json').write_text(json.dumps(results, indent=2)+'\n')
         test_lan(args,output,project,script)
-        print('FPS_REAL_MULTIPROCESS_UDP_PASS both maps, capacities 2/3/4, four weapons, sniper damage, deaths, finite inventories, late join, invalid RPC, disconnect and reconnect')
+        print('FPS_REAL_MULTIPROCESS_UDP_PASS four maps, capacities 2/3/4/6, four weapons, sniper damage, deaths, finite inventories, late join, invalid RPC, disconnect and reconnect')
     finally:
         service.terminate()
         service.wait(timeout=4)

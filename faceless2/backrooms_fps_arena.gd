@@ -1,11 +1,11 @@
 extends Node3D
-# Two independent authored-GLB FPS maps, selected once by the authoritative host.
+# Four independent authored-GLB FPS maps, selected once by the authoritative host.
 const Assets = preload("backrooms_assets.gd")
 const WIDTH := 72.0
 const LENGTH := 96.0
 const TILE := 12.0
-const MAP_NAMES := ["CARGO COURTYARD", "MAINTENANCE HANGAR"]
-const MAP_NAMES_ZH := ["货运庭院", "维修仓库"]
+const MAP_NAMES := ["CARGO COURTYARD", "MAINTENANCE HANGAR", "RELAY DEPOT", "FOUNDRY CROSSING"]
+const MAP_NAMES_ZH := ["货运庭院", "维修机库", "中继货站", "铸造交汇"]
 var map_id := 0
 var ground: StaticBody3D
 var light: DirectionalLight3D
@@ -18,13 +18,13 @@ var shadow_animations: Array[Node] = []
 var layout_digest := ""
 
 func _ready() -> void:
-	name = "TwoStandalone_FPS_Maps_NoNarrativeLevels"
+	name = "FourStandalone_FPS_Maps_NoNarrativeLevels"
 	visible = false
 	set_process(false)
 
 func random_map() -> int:
-	# Exactly two outcomes: no modulo bias, never seeded by a joining client.
-	return int(Crypto.new().generate_random_bytes(1)[0]) % 2
+	# Four equiprobable outcomes: no modulo bias, never seeded by a joining client.
+	return int(Crypto.new().generate_random_bytes(1)[0]) % 4
 
 func map_title(chinese: bool = false) -> String:
 	return MAP_NAMES_ZH[map_id] if chinese else MAP_NAMES[map_id]
@@ -105,7 +105,7 @@ func _roof(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish: 
 
 func _build_map(index: int) -> void:
 	var layout := Node3D.new()
-	layout.name = "CargoCourtyard" if index == 0 else "MaintenanceHangar"
+	layout.name = ["CargoCourtyard","MaintenanceHangar","RelayDepot","FoundryCrossing"][index]
 	add_child(layout)
 	map_roots.append(layout)
 	var plaster := _pbr("concrete_floor",Color(.83,.80,.73),.30)
@@ -148,7 +148,7 @@ func _build_map(index: int) -> void:
 			number.rotation.y = PI if depth>0 else 0.0
 			layout.add_child(number)
 			_prop(layout,"LaneLowCover_%s_%s" % [side,depth],"wakeup_wall.glb",Vector3(side*3.2,0,depth*13.5),.95,PI*.5,plaster,Vector2(.34,3.2))
-	if index == 0:
+	if index in [0,2]:
 		for depth in [-1.0,1.0]:
 			_panel(layout,"LoadingBay_%s" % depth,Vector3(0,1.6,depth*18),Vector3(10,3.2,.30),metal)
 			_prop(layout,"UtilityPipe_%s" % depth,"wakeup_pipe.glb",Vector3(-19,0,depth*13),2.4,PI*.5,metal)
@@ -203,6 +203,24 @@ func _build_map(index: int) -> void:
 					lamp.omni_range = 15
 					layout.add_child(lamp)
 
+	if index == 2:
+		# Relay depot: lateral cargo trains and offset bridge-gates produce long
+		# flank routes with crossfire windows, rather than just recoloring map 0.
+		for side in [-1.0,1.0]:
+			for z in [-32.0,-20.0,20.0,32.0]:
+				_prop(layout,"RelayCargo_%s_%s" % [side,z],"wakeup_container_tall.glb",Vector3(side*26,0,z),2.6,0,metal,Vector2(5,7))
+			for z in [-10.0,10.0]:
+				_panel(layout,"RelayGate_%s_%s" % [side,z],Vector3(side*25,3.6,z),Vector3(12,.35,.5),metal)
+				_prop(layout,"RelayMast_%s_%s" % [side,z],"wakeup_wall_pillar.glb",Vector3(side*31,0,z),4.0,0,metal,Vector2(.65,.65))
+	elif index == 3:
+		# Foundry: alternating outer machine cells, open central skylight and
+		# narrow cross-links; rear-sector route remains accessible on both ends.
+		for side in [-1.0,1.0]:
+			for z in [-31.0,-21.0,21.0,31.0]:
+				_panel(layout,"FoundryCell_%s_%s" % [side,z],Vector3(side*27,1.5,z),Vector3(8,3,.35),metal)
+				_prop(layout,"FoundryDuct_%s_%s" % [side,z],"wakeup_pipe.glb",Vector3(side*22,0,z+3),3.3,0,metal)
+				_prop(layout,"FoundryConsole_%s_%s" % [side,z],"wakeup_computer_screen.glb",Vector3(side*25,0,z+2),1.1)
+
 func build() -> void:
 	if built: return
 	built = true
@@ -227,8 +245,7 @@ func build() -> void:
 	horizon.scale = Vector3(384.0/horizon_dimensions.x,1,384.0/horizon_dimensions.z)
 	horizon.position.y = -.19
 	add_child(horizon)
-	_build_map(0)
-	_build_map(1)
+	for index in range(MAP_NAMES.size()): _build_map(index)
 	light = DirectionalLight3D.new()
 	light.name = "Sun_QualityShadows"
 	light.rotation_degrees = Vector3(-38,-32,0)
@@ -327,5 +344,5 @@ func deactivate() -> void:
 		for body in layout.find_children("*","StaticBody3D",true,false): (body as StaticBody3D).collision_layer = 0
 
 func spawn_for(slot: int) -> Vector3:
-	var locations: Array[Vector3] = [Vector3(-7,.12,7),Vector3(7,.12,-7),Vector3(7,.12,7),Vector3(-7,.12,-7)]
+	var locations: Array[Vector3] = [Vector3(-7,.12,7),Vector3(7,.12,-7),Vector3(7,.12,7),Vector3(-7,.12,-7),Vector3(-27,.12,0),Vector3(27,.12,0)]
 	return locations[posmod(slot-1,locations.size())]

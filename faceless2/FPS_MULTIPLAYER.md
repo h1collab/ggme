@@ -1,3 +1,52 @@
+# v0.38 / SIGNAL · four sectors, six seats
+
+Source protocol is **23**, incompatible with protocol 22. Four host-selected maps:
+Cargo Courtyard, Maintenance Hangar, Relay Depot, Foundry Crossing. Six distinct
+spawn seats on each 72×96m map; two real players start in rooms capped at 2–6.
+Seats 5/6 reuse original licensed character meshes 1/2 with cyan/copper material
+tints. There are four original character meshes, not six new authored characters.
+
+Home atlas rings rotate at capped 30Hz while visible; actual search state enables
+the lobby scanner. Third-person has a swept 20cm camera sphere in addition to
+near-plane rays, shorter ADS boom, Q/touch shoulder switching and exponential
+return smoothing. Movement adds ground snap, limited air acceleration, 100ms
+coyote time and 120ms landing jump buffer. These are handling changes, not a claim
+of complete physical simulation or AAA quality.
+
+## Cross-network JS-managed rooms
+
+The directory can now supervise dedicated authoritative `godot --headless`
+processes. The game server takes **zero** seats: one client waits, two clients play,
+six clients fill the room. Only fixed configured binary/project paths are run;
+players cannot submit executable paths/commands. Room keys go to native stdin,
+never process command lines. Startup deadlines, process count/port bounds,
+empty-room expiry and shutdown cleanup bound resource use. Native server counts
+populate listings; client HTTP cannot mutate or delete a managed room.
+
+Configure/deploy using [matchmaking deployment instructions](../matchmaking/DEPLOYMENT.md).
+Client creates a managed room when HTTPS `/health` reports protocol 23 and
+`managed:true`; legacy direct-host/LAN rooms remain supported. A JS directory
+alone still cannot relay UDP or bypass NAT. **No public service URL is embedded
+or deployed by this commit.** Public end-to-end mobile/Wi-Fi testing is pending.
+
+## Authority and limits
+
+Host checks membership, map bounds, finite values, movement-speed budget and
+swept player-capsule wall collision. Invalid wall/speed movement is corrected to
+the last accepted pose. Existing authoritative ammo, cooldown, reload, weapon,
+hits, occlusion, score, round/death/respawn checks stay enabled. Six-seat tests
+extend the existing independent-process ENet regression rather than replacing it.
+
+HTTPS protects directory traffic when deployed with a valid certificate. Native
+ENet gameplay in this version remains **unencrypted UDP**. Packet capture cannot
+be made impossible on a player-controlled device. This is not kernel anti-cheat,
+full server movement simulation, ranked identity authentication or protection
+against every malicious host, aim assist, fly hack or traffic attack. Production
+hosting needs network/DDoS controls and operational monitoring.
+
+Previous release notes and test scope follow for history; current protocol,
+capacity and map counts above supersede earlier limits.
+
 # Faceless 2 standalone FPS / headless network notes (v0.37)
 
 The FPS playfield is **two independent 72m x 96m FPS maps**, Cargo Courtyard and Maintenance Hangar. Both use 48 licensed Kenney CC0 floor GLBs, authored Kenney structural/cover GLBs, original Poly Haven scanned props and source-verified PBR textures. Courtyard is open with loading bays; Hangar has original GLB roof wings, an open skylight, pillars, service consoles and warm source lamp fixtures. Invisible collision proxies match visible structures. It is not Level 2 and does not contain elevators, story objectives or passive Backrooms entities. Legacy source is kept for regression but is not a prerequisite to playing an FPS match.

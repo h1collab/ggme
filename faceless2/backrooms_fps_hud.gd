@@ -8,6 +8,7 @@ var feed: Label
 var timer_text: Label
 var health_bar: ProgressBar
 var weapon_buttons: Array[Button] = []
+var shoulder_button: Button
 var view_button: Button
 var health_text: Label
 var ammo_text: Label
@@ -112,6 +113,7 @@ func build(owner_ui: Control) -> void:
 	timer_text = ui._label(timer_card,"",Vector2(10,10),270,23)
 	timer_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	view_button = ui._button(self,"",Rect2(28,180,164,48),func(): ui.game.player.set_third_person(not ui.game.player.third_person),true)
+	shoulder_button = ui._button(self,ui.localized("SHOULDER / Q","换肩 / Q"),Rect2(206,180,164,48),func(): ui.game.player.shoulder *= -1.0,true)
 	for index in range(4):
 		var selected := index
 		var button: Button = ui._button(self,"",Rect2(510+index*146,808,136,58),func(): ui.game.fps.select_weapon(selected),true)
@@ -131,6 +133,7 @@ func build(owner_ui: Control) -> void:
 	scoreboard_text.size.y = 320
 	scoreboard.visible = false
 func refresh(delta: float) -> void:
+	shoulder_button.visible = ui.game.player.third_person
 	var game: Node = ui.game
 	var fps: Node3D = game.fps
 	visible = fps.active and not ui.modal
