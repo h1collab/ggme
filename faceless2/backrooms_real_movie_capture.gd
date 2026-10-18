@@ -33,9 +33,12 @@ func fire(ads: bool) -> void:
 	camera.look_at(Vector3(0,1.6,-18))
 	game.fps.set_aim(ads)
 	for i in range(12): await frame()
+	var before: int = game.fps.magazine
 	for i in range(30):
 		if i%3 == 0: game.fps.fire()
 		await frame()
+	if game.fps.magazine >= before:
+		issues.append("Native firing sequence did not consume ammunition")
 func record() -> void:
 	root.size = Vector2i(960,540) # render movie at its delivered size; no 1600px readback waste
 	output_dir = OS.get_environment("F2_CAPTURE_DIR")
@@ -53,6 +56,11 @@ func record() -> void:
 	game.ui._quick_match()
 	for i in range(30): await frame()
 	game.rooms.cancel_match()
+	# Software rendering can take longer than the real search deadline, so
+	# quick-match may already have opened a one-person room. Leave it before
+	# the offline showcase; do not relax the two-player competitive fire lock.
+	game.net.leave()
+	if game.net.mode != "solo": issues.append("Native showcase did not leave matchmaking")
 	for map_id in [0,1,2,3]:
 		game.ui.touch_preview = false
 		game.start_fps_arena(map_id)
