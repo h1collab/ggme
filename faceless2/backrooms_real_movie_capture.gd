@@ -60,6 +60,27 @@ func record() -> void:
 		camera = game.player.camera
 		camera.make_current()
 		print("GODOT_NATIVE_MAP_SEGMENT ",map_id," BEGIN_FRAME ",total)
+		if map_id >= 2:
+			# New sectors get their distinct OUTER routes, rather than duplicating
+			# the same four-weapon choreography already covered on maps 0/1.
+			# All four weapons/near-wall stills remain rendered on every map.
+			await move(Vector3(33,.12,15),Vector3(33,.12,21),Vector3(26,1.6,20),Vector3(26,1.6,32),30)
+			game.player.set_third_person(true)
+			game.player.yaw = 0; game.player.rotation.y = 0; game.player.pitch = -.12
+			for i in range(40):
+				game.player.global_position = Vector3(0,.12,25-float(i)*.08)
+				game.player.velocity = Vector3(0,0,-1.6)
+				game.player.update_combat_camera(.05)
+				game.fps_arena.update_local_actor(.05)
+				var torso: Vector3 = game.player.global_position+Vector3(0,1.0,0)
+				if camera.is_position_behind(torso) or not camera.get_viewport().get_visible_rect().has_point(camera.unproject_position(torso)):
+					issues.append("Third-person actor outside actual movie viewport")
+				await frame()
+			game.player.set_third_person(false)
+			game.ui.touch_preview = true
+			game.ui.prologue_finished()
+			await move(Vector3(0,.12,0),Vector3(0,.12,1),Vector3(0,.25,-3),Vector3(5,1.6,-18),20)
+			continue
 		await move(Vector3(-7,.12,7),Vector3(-3,.12,3),Vector3(8,1.6,-13),Vector3(0,1.6,-18),50)
 		await fire(false)
 		await fire(true)
@@ -97,7 +118,7 @@ func record() -> void:
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame
-	if total != 1882: issues.append("Expected 1882 actual consecutive native frames")
+	if total != 1166: issues.append("Expected 1166 actual consecutive native frames")
 	if not issues.is_empty():
 		for issue in issues: push_error(issue)
 		quit(1)
