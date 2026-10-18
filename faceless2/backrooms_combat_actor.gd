@@ -18,6 +18,7 @@ var last_position := Vector3.INF
 var aim_pitch := 0.0
 var hand_bone := -1
 var held_meshes: Array[Node] = []
+var clip_paths: Dictionary = {}
 func configure(number: int) -> void:
 	seat = clampi(number,1,6)
 	var source := posmod(seat-1,4)+1
@@ -29,7 +30,9 @@ func configure(number: int) -> void:
 	var skels := model.find_children("*","Skeleton3D",true,false)
 	if not skels.is_empty(): skeleton = skels[0] as Skeleton3D
 	var players := model.find_children("*","AnimationPlayer",true,false)
-	if not players.is_empty(): animation = players[0] as AnimationPlayer
+	if not players.is_empty():
+		animation = players[0] as AnimationPlayer
+		for clip in animation.get_animation_list(): clip_paths[str(clip).get_file()] = str(clip)
 	if is_instance_valid(skeleton):
 		for i in range(skeleton.get_bone_count()):
 			var key := skeleton.get_bone_name(i).to_lower()
@@ -75,13 +78,11 @@ func hand_contact_error() -> float:
 
 func play_clip(key: String) -> void:
 	if not is_instance_valid(animation): return
-	for clip in animation.get_animation_list():
-		if str(clip).get_file() != key: continue
-		if current_clip != str(clip):
-			current_clip = str(clip)
-			animation.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
-			animation.play(clip,.12)
-		return
+	var clip: String = clip_paths.get(key,"")
+	if clip.is_empty() or current_clip == clip: return
+	current_clip = clip
+	animation.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+	animation.play(clip,.12)
 func update_combat(speed: float, airborne: bool, weapon: int, serial: int, delta: float, pitch: float = 0.0) -> void:
 	aim_pitch = clampf(pitch,-1.36,1.30)
 	set_weapon(weapon)

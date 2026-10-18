@@ -277,3 +277,12 @@ code. New sectors reuse the existing verified original Kenney/Poly Haven GLBs/PB
 without changing source hashes. Seats 5/6 reuse Quaternius source characters 1/2
 with original runtime cyan/copper material tint derivatives; meshes, skins, UVs
 and source licenses are preserved. No newly downloaded or AI-generated models.
+
+### v0.39 static rendering batches
+
+Runtime MultiMesh groups reuse the exact previously credited imported GLB Mesh
+resources, materials, indices, UVs and normals with the authored world transforms.
+No source models, author credits, licenses or pinned source hashes are replaced.
+Spatial batch buffers and retained source nodes are checked against one another
+in headless/native QA. Mobile low-quality material simplification retains the
+credited source textures in the package.

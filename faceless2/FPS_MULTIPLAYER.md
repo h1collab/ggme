@@ -1,3 +1,29 @@
+# v0.39 performance pass (protocol 23 unchanged)
+
+Spatial MultiMesh batches reuse **exact original licensed meshes/materials**;
+24m cells preserve bounded culling, source nodes and collision proxies remain
+available for parity tests. Source meshes in a batch are hidden to avoid double
+drawing. The native preview compares actual GPU instance transforms with source
+transforms, and records scene-only visible draw calls and frame times against
+`7dbb958eaecec89573f6013836986de2b86111ed` on the same Linux runner. Headless tests
+inspect the exact submitted transform buffer because the dummy renderer does not
+retain GPU buffer getters. A lower submission count alone is not proof of faster
+Android FPS.
+
+On Android, presets cap 3D render pixels at 0.6 / 0.9 / 1.4 million while retaining
+the full-resolution 2D HUD and touch coordinates. There is an 8s startup grace,
+2.5s sustained-overload threshold, 6s resize cooldown and 12s stable recovery
+threshold. Opening a menu pauses adaptation. Quality presets still exist; low
+quality uses original albedo with simpler material lighting, balanced/high retain
+normal and roughness maps. Nearby lamps fade influence smoothly with distance;
+geometry and collision never disappear for this purpose. The HDR sky and shared
+PBR materials are cached across map changes; animation names are resolved once.
+Relay Depot also gets the intended outdoor sunlight instead of hangar exposure.
+
+**Not verified:** Android device FPS, thermal behavior, public deployment/NAT,
+complete anti-cheat, AAA/photoreal quality or absence of all bugs. Native diagnostic
+frame times are CI software-renderer measurements, not phone performance claims.
+
 # v0.38 / SIGNAL · four sectors, six seats
 
 Source protocol is **23**, incompatible with protocol 22. Four host-selected maps:

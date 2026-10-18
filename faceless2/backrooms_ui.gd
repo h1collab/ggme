@@ -839,7 +839,7 @@ func open_settings() -> void:
 		var choice := i
 		var button := _button(panels,labels[i],Rect2(100,444+i*92,636,70),func(): game.set_quality(choice); open_settings())
 		button.set_selection(game.quality == i)
-	_label(panels,localized("Choose a preset that suits your device.","选择适合设备的画质。"),Vector2(102,748),630,19,MUTED)
+	_label(panels,localized("3D SCALE %d%% · AUTO MOBILE PIXEL BUDGET","3D 分辨率 %d%% · 手机自动像素预算") % roundi(game.get_viewport().scaling_3d_scale*100),Vector2(102,748),630,19,MUTED)
 	_label(panels,localized("02  /  FEEL & SOUND","02  /  操作与声音"),Vector2(826,234),660,24,ACCENT)
 	_label(panels,localized("LOOK SENSITIVITY","视角灵敏度"),Vector2(828,302),630,20,MUTED)
 	var sensitivity := HSlider.new()

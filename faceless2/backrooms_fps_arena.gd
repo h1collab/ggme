@@ -1,6 +1,7 @@
 extends Node3D
 # Four independent authored-GLB FPS maps, selected once by the authoritative host.
 const Assets = preload("backrooms_assets.gd")
+const StaticBatch = preload("backrooms_static_batch.gd")
 const WIDTH := 72.0
 const LENGTH := 96.0
 const TILE := 12.0
@@ -16,6 +17,11 @@ var built := false
 var local_shadow: Node3D
 var shadow_animations: Array[Node] = []
 var layout_digest := ""
+var material_cache: Dictionary = {}
+var batch_stats: Array[Dictionary] = []
+var floor_root: Node3D
+var floor_batch: Dictionary = {}
+var cached_sky: Sky
 
 func _ready() -> void:
 	name = "FourStandalone_FPS_Maps_NoNarrativeLevels"
@@ -30,6 +36,8 @@ func map_title(chinese: bool = false) -> String:
 	return MAP_NAMES_ZH[map_id] if chinese else MAP_NAMES[map_id]
 
 func _pbr(surface: String, tint: Color, density: float, metallic: float = 0.0) -> Material:
+	var key := "%s:%s:%s:%s" % [surface,tint,density,metallic]
+	if material_cache.has(key): return material_cache[key]
 	var material := StandardMaterial3D.new()
 	material.albedo_color = tint
 	material.roughness = .80
@@ -46,7 +54,9 @@ func _pbr(surface: String, tint: Color, density: float, metallic: float = 0.0) -
 				material.normal_scale = .45
 			else: material.roughness_texture = load(path)
 			break
-	return Assets.projected_pbr(material,density)
+	var projected := Assets.projected_pbr(material,density)
+	material_cache[key] = projected
+	return projected
 
 func _collider(body: StaticBody3D, at: Vector3, size: Vector3) -> void:
 	var collision := CollisionShape3D.new()
@@ -228,6 +238,9 @@ func build() -> void:
 	ground.name = "Invisible_FloorAndBoundary_Physics_Only"
 	add_child(ground)
 	_collider(ground,Vector3(0,-.31,0),Vector3(WIDTH,.64,LENGTH))
+	floor_root = Node3D.new()
+	floor_root.name = "OriginalGLB_Floor_Batches"
+	add_child(floor_root)
 	var finish := _pbr("large_grey_tiles",Color(.8,.83,.86),.32)
 	for x in range(6):
 		for z in range(8):
@@ -238,14 +251,16 @@ func build() -> void:
 			for mesh in tile.find_children("*","MeshInstance3D",true,false):
 				(mesh as MeshInstance3D).material_override = finish
 				(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(tile)
+			floor_root.add_child(tile)
 			floor_modules.append(tile)
 	horizon = Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
 	var horizon_dimensions: Vector3 = horizon.get_meta("dimensions",Vector3.ONE)
 	horizon.scale = Vector3(384.0/horizon_dimensions.x,1,384.0/horizon_dimensions.z)
 	horizon.position.y = -.19
-	add_child(horizon)
+	floor_root.add_child(horizon)
 	for index in range(MAP_NAMES.size()): _build_map(index)
+	floor_batch = StaticBatch.build(floor_root)
+	for layout in map_roots: batch_stats.append(StaticBatch.build(layout))
 	light = DirectionalLight3D.new()
 	light.name = "Sun_QualityShadows"
 	light.rotation_degrees = Vector3(-38,-32,0)
@@ -284,7 +299,18 @@ func update_local_actor(delta: float) -> void:
 func apply_quality(quality: int) -> void:
 	if not is_instance_valid(light): return
 	light.shadow_enabled = quality > 0
-	light.directional_shadow_max_distance = 24.0 if OS.has_feature("android") else 45.0
+	light.directional_shadow_max_distance = float([0,20,28][quality]) if OS.has_feature("android") else 45.0
+	# Small props fade LIGHT influence, not geometry: no holes or gameplay pop-in.
+	for layout in map_roots:
+		for lamp in layout.find_children("*","OmniLight3D",true,false):
+			lamp.distance_fade_enabled = true
+			lamp.distance_fade_begin = float([16,24,36][quality])
+			lamp.distance_fade_length = 8.0
+	for material in material_cache.values():
+		var pbr := material as StandardMaterial3D
+		if not pbr.has_meta("source_roughness"): pbr.set_meta("source_roughness",{"texture":pbr.roughness_texture})
+		pbr.normal_enabled = quality > 0 and pbr.normal_texture != null
+		pbr.roughness_texture = pbr.get_meta("source_roughness").texture if quality > 0 else null
 
 func _process(delta: float) -> void:
 	update_local_actor(delta)
@@ -305,23 +331,25 @@ func activate(selected: int = 0) -> void:
 	var finish := _pbr("concrete_floor" if map_id==0 else "large_grey_tiles",Color(.73,.77,.8),.36 if map_id==0 else .32)
 	for tile in floor_modules+[horizon]:
 		for mesh in tile.find_children("*","MeshInstance3D",true,false): (mesh as MeshInstance3D).material_override = finish
-	light.light_energy = .90 if map_id == 0 else .65
+	for batch in floor_batch.get("batches",[]): batch.material_override = finish
+	light.light_energy = .90 if map_id in [0,2] else .65
 	apply_quality(get_parent().quality)
 	var world: WorldEnvironment = get_parent().environment
-	var sky_material := PanoramaSkyMaterial.new()
-	var sky_path := Assets.path("vendor/fps_daylight_sky.hdr")
-	if ResourceLoader.exists(sky_path): sky_material.panorama = load(sky_path)
-	else: push_error("Verified original CC0 HDR sky is not packaged")
-	sky_material.energy_multiplier = .50
-	var sky := Sky.new()
-	sky.sky_material = sky_material
-	world.environment.sky = sky
+	if cached_sky == null:
+		var sky_material := PanoramaSkyMaterial.new()
+		var sky_path := Assets.path("vendor/fps_daylight_sky.hdr")
+		if ResourceLoader.exists(sky_path): sky_material.panorama = load(sky_path)
+		else: push_error("Verified original CC0 HDR sky is not packaged")
+		sky_material.energy_multiplier = .50
+		cached_sky = Sky.new()
+		cached_sky.sky_material = sky_material
+	world.environment.sky = cached_sky
 	world.environment.background_mode = Environment.BG_SKY
 	world.environment.fog_enabled = false
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	world.environment.ambient_light_color = Color(.62,.70,.80)
 	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	world.environment.ambient_light_energy = .44 if map_id == 0 else .56
+	world.environment.ambient_light_energy = .44 if map_id in [0,2] else .56
 	world.environment.tonemap_exposure = .90
 	layout_digest = geometry_digest()
 

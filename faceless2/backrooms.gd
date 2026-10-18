@@ -12,6 +12,7 @@ const ExtraLevelsScript = preload("backrooms_extra_levels.gd")
 const FpsScript = preload("backrooms_fps.gd")
 const ArenaScript = preload("backrooms_fps_arena.gd")
 const RoomsScript = preload("backrooms_rooms.gd")
+const RenderBudget = preload("backrooms_render_budget.gd")
 const Assets = preload("backrooms_assets.gd")
 const SHIFT_SECONDS := 0.0  # Exploration has no forced survival clock
 var level: Node3D
@@ -71,6 +72,7 @@ var lift_motor_started := false
 var lift_close_started := false
 var frame_ema := 0.0167
 var auto_scale_timer := 0.0
+var render_budget := RenderBudget.new()
 var story: Node3D
 var prologue: Node3D
 var prologue_room: Node3D
@@ -147,6 +149,8 @@ func _ready() -> void:
 		rooms.configure(String(config.get_value("network", "directory_url", "")))
 	set_audio_volume(audio_volume)
 	set_quality(quality)
+	get_viewport().size_changed.connect(_refresh_render_budget)
+	if OS.has_feature("android"): Engine.max_fps = 60
 	show_title_room()
 	ui.intro()
 
@@ -374,17 +378,9 @@ func _process(delta: float) -> void:
 	if running and not fps_arena.visible and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible) and net.authoritative() and not failed and not completed:
 		if not (net.mode == "solo" and ui.modal): _tick(delta)
 	if OS.has_feature("android") and running:
-		# Bound resolution changes and avoid rapid frame-to-frame quality pumping.
-		frame_ema = lerpf(frame_ema, minf(delta, 0.1), 0.025)
-		auto_scale_timer += delta
-		if auto_scale_timer > 3.0:
-			auto_scale_timer = 0
-			var target: float = [0.58, 0.74, 0.91][quality]
-			var lower: float = [0.52, 0.62, 0.73][quality]
-			if frame_ema > 0.023 and get_viewport().scaling_3d_scale > lower:
-				get_viewport().scaling_3d_scale = maxf(lower, get_viewport().scaling_3d_scale - 0.045)
-			elif frame_ema < 0.017 and get_viewport().scaling_3d_scale < target:
-				get_viewport().scaling_3d_scale = minf(target, get_viewport().scaling_3d_scale + 0.025)
+		var scale: float = render_budget.sample(delta,ui.modal)
+		if not is_equal_approx(get_viewport().scaling_3d_scale,scale):
+			get_viewport().scaling_3d_scale = scale
 	# The hidden four-floor legacy simulation must not consume CPU while exploring
 	# the new underground facility: especially ripple buffers, objectives, AI and audio.
 	if running and not fps_arena.visible and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible):
@@ -686,7 +682,7 @@ func set_quality(value: int) -> void:
 	quality = clampi(value, 0, 2)
 	frame_ema = 0.0167
 	auto_scale_timer = 0
-	get_viewport().scaling_3d_scale = [0.58, 0.74, 0.91][quality] if OS.has_feature("android") else [0.75, 1.0, 1.0][quality]
+	_refresh_render_budget()
 	get_viewport().msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_DISABLED, Viewport.MSAA_2X][quality] if OS.has_feature("android") else [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X][quality]
 	# Shadow casting is desktop quality-only. Mobile beam uses compact unshadowed cone.
 	player.torch.shadow_enabled = quality == 2 and not OS.has_feature("android")
@@ -694,6 +690,9 @@ func set_quality(value: int) -> void:
 	player.torch.light_energy = [1.45,1.9,2.15][quality]
 	if is_instance_valid(fps_arena): fps_arena.apply_quality(quality)
 	save_settings()
+
+func _refresh_render_budget() -> void:
+	get_viewport().scaling_3d_scale = render_budget.configure(quality,get_viewport().size,OS.has_feature("android"))
 
 func save_settings() -> void:
 	var config := ConfigFile.new()

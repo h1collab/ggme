@@ -53,7 +53,7 @@ concurrency:
 jobs:
   desktop-preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Verify Sketchfab licensing importer without network or secrets
@@ -146,6 +146,22 @@ jobs:
           godot --headless --path app --import
           godot --headless --path app --script scripts/backrooms_bake_rifle.gd
           godot --headless --path app --import
+      - name: Compare native rendering against v0.38 on the same Linux runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p preview_frames/performance/reference preview_frames/performance/optimized benchmark_current
+          git fetch --depth=1 origin 7dbb958eaecec89573f6013836986de2b86111ed
+          for name in backrooms.gd backrooms_fps_arena.gd backrooms_combat_actor.gd backrooms_ui.gd; do
+            cp "app/scripts/$name" "benchmark_current/$name"
+            git show "7dbb958eaecec89573f6013836986de2b86111ed:faceless2/$name" > "app/scripts/$name"
+          done
+          F2_BENCHMARK_LABEL=reference F2_BENCHMARK_SHA=7dbb958eaecec89573f6013836986de2b86111ed F2_BENCHMARK_DIR="$GITHUB_WORKSPACE/preview_frames/performance/reference" timeout 480 xvfb-run -a godot --audio-driver Dummy --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_render_benchmark.gd > preview_frames/performance/reference.log 2>&1
+          cp benchmark_current/* app/scripts/
+          F2_BENCHMARK_LABEL=optimized F2_BENCHMARK_SHA="$GITHUB_SHA" F2_BENCHMARK_DIR="$GITHUB_WORKSPACE/preview_frames/performance/optimized" timeout 480 xvfb-run -a godot --audio-driver Dummy --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_render_benchmark.gd > preview_frames/performance/optimized.log 2>&1
+          grep -F FPS_NATIVE_BENCHMARK_CAPTURE_PASS preview_frames/performance/reference.log
+          grep -F FPS_NATIVE_BENCHMARK_CAPTURE_PASS preview_frames/performance/optimized.log
+          ! grep -E "ERROR:|FAIL:" preview_frames/performance/reference.log preview_frames/performance/optimized.log
       - name: Preserve reproducible authored-asset project for headless QA
         shell: bash
         run: |
@@ -194,11 +210,11 @@ jobs:
           timeout 1200 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1 || { tail -80 preview_frames/video.log; exit 1; }
           grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
           ! grep -E "ERROR:|FAIL:" preview_frames/video.log
-          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v038-godot-real-gameplay.mp4
+          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v039-godot-real-gameplay.mp4
           python - <<'VERIFY'
           from pathlib import Path
           import json,subprocess
-          p=Path("preview_frames/faceless2-v038-godot-real-gameplay.mp4")
+          p=Path("preview_frames/faceless2-v039-godot-real-gameplay.mp4")
           assert p.stat().st_size>120000,"MP4 missing or tiny"
           d=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=codec_name,nb_frames,width,height","-of","json",str(p)]))
           stream=d["streams"][0]
