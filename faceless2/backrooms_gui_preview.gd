@@ -30,7 +30,9 @@ func wait_switch() -> void:
 	var deadline := Time.get_ticks_msec()+1100
 	while Time.get_ticks_msec() < deadline: await process_frame
 func interface_shot(label: String) -> void:
-	for i in range(4): await process_frame
+	for i in range(4):
+		game.ui.refresh()
+		await process_frame
 	await RenderingServer.frame_post_draw
 	var image: Image = root.get_texture().get_image()
 	if image.save_png(output_dir.path_join("interface_"+label+".png")) != OK: issues.append(label)

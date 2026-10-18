@@ -1,5 +1,5 @@
 """JS-supervised native server + six actual headless ENet clients, no dummy host."""
-import argparse,json,os,socket,subprocess,time
+import argparse,json,os,socket,subprocess,time,shutil
 from pathlib import Path
 from urllib.request import Request,urlopen
 p=argparse.ArgumentParser();p.add_argument('--godot',required=True);p.add_argument('--project',required=True);p.add_argument('--output',default='qa');a=p.parse_args()
@@ -8,7 +8,7 @@ work=out/'managed-control';work.mkdir(exist_ok=True)
 with socket.socket() as s:s.bind(('127.0.0.1',0));http=s.getsockname()[1]
 with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:s.bind(('127.0.0.1',0));udp=s.getsockname()[1]
 url=f'http://127.0.0.1:{http}'
-env={**os.environ,'PORT':str(http),'GODOT_SERVER_BINARY':str(Path(a.godot).resolve()),'GODOT_SERVER_PROJECT':str(Path(a.project).resolve()),'GAME_PUBLIC_ADDRESS':'127.0.0.1','GAME_FIRST_PORT':str(udp),'GAME_ROOM_LIMIT':'1'}
+env={**os.environ,'PORT':str(http),'GODOT_SERVER_BINARY':str(Path(shutil.which(a.godot) or a.godot).resolve()),'GODOT_SERVER_PROJECT':str(Path(a.project).resolve()),'GAME_PUBLIC_ADDRESS':'127.0.0.1','GAME_FIRST_PORT':str(udp),'GAME_ROOM_LIMIT':'1'}
 log=(out/'managed-service.log').open('w');server=subprocess.Popen(['node','matchmaking/server.mjs'],env=env,stdout=log,stderr=subprocess.STDOUT)
 peers=[];handles=[]
 def api(path,body=None):
