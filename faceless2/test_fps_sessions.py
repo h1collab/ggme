@@ -213,7 +213,10 @@ def main():
                         time.sleep(1.1)  # current weapon's real cooldown cannot be shortened by switching
                         command('c1','weapon',weapon=weapon,count=4)
                         switched=wait('c1',lambda x:x.get('weapons',{}).get(shooter)==weapon,'weapon selection replicated')
-                        assert state('host')['weapons'][shooter]==weapon
+                        # Each process publishes on its own 100ms cadence. A client
+                        # receiving the host snapshot does not refresh the host's file.
+                        wait('host',lambda x:x.get('weapons',{}).get(shooter)==weapon,
+                             'authoritative weapon selection published')
                         expected=(24,12,5,0)[weapon]
                         assert switched['ammo'][shooter]==expected
                         if weapon != 0:
