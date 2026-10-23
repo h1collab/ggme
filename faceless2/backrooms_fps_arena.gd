@@ -266,9 +266,10 @@ func build() -> void:
 	light.name = "Sun_QualityShadows"
 	light.rotation_degrees = Vector3(-38,-32,0)
 	light.light_color = Color(1,.93,.82)
-	light.shadow_bias = .04
+	# Flat cel colors make self-shadow acne especially visible on broad surfaces.
+	light.shadow_bias = .16
 	light.light_angular_distance = .65
-	light.shadow_normal_bias = 1.0
+	light.shadow_normal_bias = 2.0
 	light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	add_child(light)
 	local_shadow = preload("backrooms_combat_actor.gd").new()
