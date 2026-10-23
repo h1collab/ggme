@@ -7,6 +7,7 @@ var third_person := false
 var camera_clearance := 3.0
 var shoulder := 1.0
 var shoulder_offset := Vector3(1.2,.24,2.8)
+var camera_body_visible := true
 var camera_sphere := SphereShape3D.new()
 var ground_grace := 0.0
 var jump_buffer := 0.0
@@ -247,9 +248,11 @@ func set_third_person(value: bool) -> void:
 	third_person = value and is_instance_valid(game.fps) and game.fps.active
 	aim_pointer = -1
 	camera.position = Vector3(0,1.58,0)
-	camera_clearance = 3.3
+	camera_clearance = 0.0
+	camera_body_visible = true
 	shoulder_offset = Vector3(1.2*shoulder,.24,2.8)
 	if is_instance_valid(game.fps.weapon_pivot): game.fps.weapon_pivot.visible = game.fps.equipped and not third_person
+	if third_person: update_combat_camera(0.0)
 	if is_instance_valid(game.fps_arena): game.fps_arena.update_local_actor(0.0)
 
 func update_combat_camera(delta: float) -> void:
@@ -257,7 +260,7 @@ func update_combat_camera(delta: float) -> void:
 	var pivot := eye_position()
 	var orientation := global_basis*Basis(Vector3.RIGHT,pitch)
 	var aiming: bool = game.fps.aiming
-	var desired_shoulder := Vector3((.72 if aiming else 1.2)*shoulder,.18 if aiming else .24,1.85 if aiming else 2.8)
+	var desired_shoulder := Vector3((1.02 if aiming else 1.2)*shoulder,.18 if aiming else .24,2.25 if aiming else 2.8)
 	shoulder_offset = shoulder_offset.lerp(desired_shoulder,1.0-exp(-delta*10.0))
 	var offset := orientation*shoulder_offset
 	var desired := pivot+offset
@@ -280,11 +283,13 @@ func update_combat_camera(delta: float) -> void:
 	var safe := get_world_3d().direct_space_state.cast_motion(sweep)
 	if safe.size() == 2: fraction = minf(fraction,maxf(0,safe[0]-.025))
 	var length := offset.length()*fraction
-	camera_clearance = length if length < camera_clearance else lerpf(camera_clearance,length,minf(1,1.0-exp(-delta*8)))
+	camera_clearance = length if delta <= 0.0 or length < camera_clearance else lerpf(camera_clearance,length,1.0-exp(-delta*8))
 	camera.global_position = pivot+offset.normalized()*camera_clearance
 	camera.rotation = Vector3(pitch,0,0)
-	# At extreme proximity hide the body rather than putting a camera in it.
-	game.fps_arena.local_shadow.visible = camera_clearance > .65
+	# Hysteresis stops the body flickering at a wall or a narrow corner.
+	if camera_clearance < .85: camera_body_visible = false
+	elif camera_clearance > 1.05: camera_body_visible = true
+	game.fps_arena.local_shadow.visible = camera_body_visible
 
 func request_fire() -> void:
 	# A press just before cooldown ends is retained, never resets host timing.

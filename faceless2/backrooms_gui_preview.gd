@@ -123,6 +123,21 @@ func run() -> void:
 		for frame in range(4): await process_frame
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(output_dir.path_join(prefix+"15_third_person_extended_sector.png"))
+		if map_id == 0:
+			for frame_case in ["rifle_aim","sniper_aim","left_shoulder"]:
+				await wait_switch()
+				game.fps.select_weapon(2 if frame_case == "sniper_aim" else 0)
+				game.fps.set_aim(true)
+				game.player.shoulder = -1.0 if frame_case == "left_shoulder" else 1.0
+				for frame in range(60):
+					game.fps.advance(1.0/60.0)
+					game.player.update_combat_camera(1.0/60.0)
+				game.fps_arena.update_local_actor(.1)
+				await interface_shot("third_"+frame_case)
+			game.fps.set_aim(false)
+			await wait_switch()
+			game.fps.select_weapon(0)
+			game.player.shoulder = 1.0
 		game.player.set_third_person(false)
 		await shot(prefix+"16_extended_flank",Vector3(33,.12,45),Vector3(16,1.6,25))
 		game.fps.measure_grip()

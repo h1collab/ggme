@@ -1,10 +1,17 @@
-# v0.40 monochrome fractured alleys (protocol 24)
+# v0.41 minimal monochrome HUD and fractured alleys (protocol 24)
+
+
+The monochrome HUD consolidates match details and removes the duplicate solo title. Borderless status cards and the compact weapon bar keep the center clear; touch targets and safe-area fitting remain intact. The menu background is static except for active matchmaking. Third-person bodies use grayscale cel palettes. The anime void hands/feet and weapon finishes remain.
+
+Third-person shoulder aim uses its own 64-degree FOV (56 for sniper), avoiding first-person 24-degree scope zoom. Camera collision fitting runs before displaying the third-person body. Separate hide/show distances prevent wall-edge visibility flicker.
+
+This v0.41 update changes presentation only; collision and protocol 24 remain compatible with v0.40.
 
 Four authoritative maps now use a connected urban alley layout: narrow central and side lanes, cross streets, solid buildings and stacked collidable crates. Crate/floor source GLBs and bounded static batches are retained. Building facades use one shared 12-triangle BoxMesh rather than stretching decorative floor GLBs into large solid blocks; visible architecture and collision share the same extents. Black/white fracture masks are computed in the existing opaque surface shader; no particle cloud or animated fullscreen distortion. Map-specific return walls and overhead bridges vary sightlines. All six spawn pockets and the central training lane remain clear.
 
 First-person feet use the same anime void shader as the hands, including in FPS mode when looking down. Third-person source rigs keep their bones and animations, with texture-free cel palettes, ink outlines and seat accents. The shoulder offset blends across aim/side changes before the existing collision sweep, preserving immediate inward wall retraction and gradual outward recovery.
 
-Protocol 24 intentionally rejects old protocol 23 clients because alley collision/layouts differ. Update the room service with the client. Android version 0.40.0 / versionCode40.
+Protocol 24 intentionally rejects old protocol 23 clients because alley collision/layouts differ. Update the room service with the client. Android version 0.41.0 / versionCode41.
 
 # v0.39 anime art direction (protocol 23 unchanged)
 

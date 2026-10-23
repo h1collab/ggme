@@ -33,17 +33,19 @@ func run() -> void:
 	game.ui.refresh()
 	check(game.ui.fps_corner_hud.stamina_bar.size.y <= 5 and game.ui.fps_corner_hud.reload_bar.size.y <= 5,"Actual themed status bars retain compact height after deferred layout")
 	var skin: Control = game.ui.fps_corner_hud
+	check(not skin.timer_card.visible and skin.map_text.text != "","Solo HUD shows one map/mode heading without a duplicate central title")
+	check(skin.weapon_buttons[3].position.x+skin.weapon_buttons[3].size.x < game.ui.reload_button.position.x,"Compact weapon row leaves the right-hand action cluster clear")
 	var layout_before: int = skin.static_layout_updates
 	var paint_before: int = skin.weapon_presentation_updates
 	for i in range(300): skin.refresh(0.0)
 	check(skin.static_layout_updates == layout_before and skin.weapon_presentation_updates == paint_before,"Stable HUD avoids 300 repeated layout/style rebuilds")
 	for button in skin.weapon_buttons:
 		check(button.modulate == Color.WHITE and button.get_theme_color("font_color") == Color.WHITE,"All weapon names retain white text and full opacity")
-		check(button.get_theme_color("font_disabled_color").b > .9 and button.get_theme_color("font_disabled_color").r < .8,"Disabled text stays cyan, never theme-default gray")
+		check(button.get_theme_color("font_disabled_color").r > .6 and is_equal_approx(button.get_theme_color("font_disabled_color").r,button.get_theme_color("font_disabled_color").b),"Disabled text retains readable grayscale contrast")
 		check(button.has_method("set_selection"),"Weapon controls use original signal skin")
 	check(not game.ui.theme.has_stylebox("normal","Label"),"Typography keeps transparent label backgrounds")
 	check(game.ui.theme.get_icon("checked","CheckBox") != null,"Custom vector settings marks are installed")
-	print("FPS_SIGNAL_INTERFACE_PASS white/cyan typography, original vector skin, stable HUD cache")
+	print("FPS_SIGNAL_INTERFACE_PASS monochrome typography, original vector skin, stable HUD cache")
 	var controls: Array[Control] = [game.ui.joystick,game.ui.sprint_button,game.ui.jump_button,game.ui.shoot_button,game.ui.aim_button,game.ui.reload_button,game.ui.pause_button,game.ui.fps_corner_hud.view_button]
 	for slot in game.ui.fps_corner_hud.weapon_buttons: controls.append(slot)
 	for extent in [Vector2i(1600,900),Vector2i(1280,720),Vector2i(2560,1080)]:

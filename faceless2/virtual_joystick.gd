@@ -38,13 +38,13 @@ func _update_value(local_position: Vector2) -> void:
 
 func _draw() -> void:
 	var c := size*.5
-	draw_circle(c,94,Color(.02,.065,.12,.82))
+	draw_circle(c,94,Color(.04,.04,.04,.65))
 	for segment in range(4):
 		var start := segment*PI*.5+.12
-		draw_arc(c,87,start,start+PI*.5-.24,20,Color("58efff"),2,true)
+		draw_arc(c,87,start,start+PI*.5-.24,20,Color(.8,.8,.8,.7),2,true)
 	for direction in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:
-		draw_line(c+direction*73,c+direction*81,Color("ffda56"),3,true)
+		draw_line(c+direction*73,c+direction*81,Color(.6,.6,.6,.7),3,true)
 	var knob := c+value*58
-	draw_circle(knob,30,Color("1262ce"))
-	draw_circle(knob,30,Color("58efff"),false,2,true)
+	draw_circle(knob,30,Color(.18,.18,.18,.85))
+	draw_circle(knob,30,Color(.8,.8,.8,.7),false,2,true)
 	draw_circle(knob,5,Color.WHITE)

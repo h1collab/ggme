@@ -34,13 +34,13 @@ static func weapon(root: Node3D) -> void:
 	for node in root.find_children("*","MeshInstance3D",true,false): weapon_mesh(node as MeshInstance3D)
 
 static func character(root: Node3D, seat: int) -> void:
-	var accents := [Color(.48,.32,.84),Color(.23,.64,.78),Color(.72,.38,.58),Color(.67,.62,.36),Color(.42,.57,.85),Color(.82,.48,.31)]
+	var accents := [Color(.58,.58,.58),Color(.72,.72,.72),Color(.46,.46,.46),Color(.65,.65,.65),Color(.52,.52,.52),Color(.8,.8,.8)]
 	for node in root.find_children("*","MeshInstance3D",true,false):
 		var mesh := node as MeshInstance3D
 		for surface in range(mesh.mesh.get_surface_count()):
 			var original := mesh.get_active_material(surface) as StandardMaterial3D
-			var color := Color(.85,.85,.90)
+			var color := Color(.88,.88,.88)
 			if original != null:
 				var luminance := original.albedo_color.get_luminance()
-				color = Color(.045,.04,.075) if luminance < .16 else (accents[posmod(seat-1,6)] if luminance < .6 else Color(.86,.87,.94))
+				color = Color(.055,.055,.055) if luminance < .16 else (accents[posmod(seat-1,6)] if luminance < .6 else Color(.92,.92,.92))
 			mesh.set_surface_override_material(surface,material(color,true))

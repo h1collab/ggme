@@ -5,6 +5,7 @@ var map_text: Label
 var room_text: Label
 var score_text: Label
 var feed: Label
+var timer_card: Panel
 var timer_text: Label
 var health_bar: ProgressBar
 var weapon_buttons: Array[Button] = []
@@ -46,18 +47,23 @@ func icon(parent: Control, key: String, at: Vector2, extent: Vector2) -> void:
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(picture)
 func card(rect: Rect2) -> Panel:
-	var panel: Panel = ui._card(self,rect,Color(.02,.065,.12,.86))
+	var panel: Panel = ui._card(self,rect,Color(.025,.025,.025,.72))
+	var skin := StyleBoxFlat.new()
+	skin.bg_color = Color(.025,.025,.025,.72)
+	panel.add_theme_stylebox_override("panel",skin)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return panel
 func build(owner_ui: Control) -> void:
 	ui = owner_ui
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = Vector2(1600,900)
-	var left := card(Rect2(26,24,380,78))
-	icon(left,"map",Vector2(12,10),Vector2(25,25))
-	map_text = ui._label(left,"",Vector2(48,8),320,18)
-	icon(left,"people",Vector2(12,43),Vector2(23,23))
-	room_text = ui._label(left,"",Vector2(48,44),320,16)
+	var left := card(Rect2(32,24,340,100))
+	map_text = ui._label(left,"",Vector2(14,8),312,20)
+	room_text = ui._label(left,"",Vector2(14,38),312,14,Color(.7,.7,.7))
+	score_text = ui._label(left,"",Vector2(14,66),312,16)
+	map_text.size.y = 26
+	room_text.size.y = 22
+	score_text.size.y = 24
 	result_panel = card(Rect2(420,200,760,460))
 	result_panel.add_theme_stylebox_override("panel",ui._style(Color(.012,.018,.024,.88)))
 	result_text = ui._label(result_panel,"",Vector2(24,24),712,23)
@@ -65,9 +71,6 @@ func build(owner_ui: Control) -> void:
 	result_text.size.y = 350
 	ready_button = ui._button(result_panel,"",Rect2(250,380,260,58),func(): ui.game.net.request_fps_ready(),true)
 	result_panel.visible = false
-	var right := card(Rect2(26,112,380,48))
-	icon(right,"score",Vector2(12,10),Vector2(25,25))
-	score_text = ui._label(right,"",Vector2(47,12),320,18)
 	feed = ui._label(self,"",Vector2(1100,178),452,16)
 	feed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	feed.size.y = 140
@@ -81,49 +84,49 @@ func build(owner_ui: Control) -> void:
 		victim.size.y = 24
 		row.visible = false
 		kill_rows.append({"row":row,"killer":killer,"victim":victim})
-	health_card = card(Rect2(28,795,240,80))
-	icon(health_card,"health",Vector2(12,10),Vector2(26,26))
-	health_text = ui._label(health_card,"",Vector2(50,4),130,36)
-	ammo_card = card(Rect2(1292,786,260,88))
-	icon(ammo_card,"weapon",Vector2(12,7),Vector2(68,25))
-	ammo_text = ui._label(ammo_card,"",Vector2(85,3),160,32)
-	ammo_hint = ui._label(ammo_card,"",Vector2(12,44),204,14)
+	health_card = card(Rect2(32,798,196,66))
+	icon(health_card,"health",Vector2(12,8),Vector2(22,22))
+	health_text = ui._label(health_card,"",Vector2(44,0),140,30)
+	ammo_card = card(Rect2(1360,798,208,66))
+	icon(ammo_card,"weapon",Vector2(12,8),Vector2(36,18))
+	ammo_text = ui._label(ammo_card,"",Vector2(60,0),140,28)
+	ammo_hint = ui._label(ammo_card,"",Vector2(12,36),184,14)
 	reload_bar = ProgressBar.new()
-	reload_bar.position = Vector2(12,74)
-	reload_bar.size = Vector2(236,3)
+	reload_bar.position = Vector2(12,58)
+	reload_bar.size = Vector2(184,2)
 	reload_bar.show_percentage = false
 	_style_bar(reload_bar)
 	reload_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ammo_card.add_child(reload_bar)
 	stamina_bar = ProgressBar.new()
-	stamina_bar.position = Vector2(12,68)
-	stamina_bar.size = Vector2(216,3)
+	stamina_bar.position = Vector2(12,54)
+	stamina_bar.size = Vector2(172,2)
 	stamina_bar.show_percentage = false
 	_style_bar(stamina_bar)
 	stamina_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	health_card.add_child(stamina_bar)
 	health_bar = ProgressBar.new()
-	health_bar.position = Vector2(12,48)
-	health_bar.size = Vector2(216,8)
+	health_bar.position = Vector2(12,42)
+	health_bar.size = Vector2(172,4)
 	health_bar.show_percentage = false
 	health_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_style_bar(health_bar,8.0)
+	_style_bar(health_bar,4.0)
 	health_card.add_child(health_bar)
-	var timer_card := card(Rect2(655,24,290,60))
-	timer_text = ui._label(timer_card,"",Vector2(10,10),270,23)
+	timer_card = card(Rect2(690,24,220,44))
+	timer_text = ui._label(timer_card,"",Vector2(8,7),204,20)
 	timer_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	view_button = ui._button(self,"",Rect2(28,180,164,48),func(): ui.game.player.set_third_person(not ui.game.player.third_person),true)
-	shoulder_button = ui._button(self,ui.localized("SHOULDER / Q","换肩 / Q"),Rect2(206,180,164,48),func(): ui.game.player.shoulder *= -1.0,true)
+	view_button = ui._button(self,"",Rect2(1090,30,140,48),func(): ui.game.player.set_third_person(not ui.game.player.third_person),true)
+	shoulder_button = ui._button(self,ui.localized("SHOULDER / Q","换肩 / Q"),Rect2(1242,30,166,48),func(): ui.game.player.shoulder *= -1.0,true)
 	for index in range(4):
 		var selected := index
-		var button: Button = ui._button(self,"",Rect2(510+index*146,808,136,58),func(): ui.game.fps.select_weapon(selected),true)
+		var button: Button = ui._button(self,"",Rect2(544+index*130,822,120,44),func(): ui.game.fps.select_weapon(selected),true)
 		button.add_theme_font_size_override("font_size",15)
 		weapon_buttons.append(button)
 	health_fill = health_bar.get_theme_stylebox("fill") as StyleBoxFlat
 	stamina_fill = stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat
 	score_toggle = Button.new()
-	score_toggle.position = right.position
-	score_toggle.size = right.size
+	score_toggle.position = left.position+Vector2(0,60)
+	score_toggle.size = Vector2(340,40)
 	score_toggle.flat = true
 	score_toggle.tooltip_text = ui.localized("Scoreboard / TAB","计分板 / TAB")
 	add_child(score_toggle)
@@ -149,6 +152,7 @@ func refresh(delta: float) -> void:
 		var own: int = game.multiplayer.get_unique_id()
 		ready_button.text = ui.localized("READY","已准备") if fps.round_ready.has(own) else ui.localized("READY / ENTER","准备再战 / 回车")
 		ready_button.disabled = fps.round_ready.has(own)
+	timer_card.visible = game.net.mode != "solo"
 	var mobile: bool = ui.touch_controls_enabled()
 	stamina_bar.value = game.player.stamina
 	stamina_fill.bg_color = ui.SignalTheme.GOLD if game.player.stamina < 20 else ui.SignalTheme.BLUE
@@ -159,11 +163,11 @@ func refresh(delta: float) -> void:
 	if cached_touch_mode != int(mobile):
 		cached_touch_mode = int(mobile)
 		static_layout_updates += 1
-		health_card.position.y = 558 if mobile else 795
-		ammo_card.position.y = 553 if mobile else 786
-		for button in weapon_buttons: button.position.y = 808
+		health_card.position.y = 558 if mobile else 798
+		ammo_card.position.y = 553 if mobile else 798
+		for button in weapon_buttons: button.position.y = 822
 	health_bar.value = fps.health
-	health_fill.bg_color = Color("ff695a") if fps.health <= 25 else ui.SignalTheme.CYAN
+	health_fill.bg_color = Color(.6,.6,.6) if fps.health <= 25 else ui.SignalTheme.CYAN
 	view_button.text = ui.localized("FIRST / V","第一人称 / V") if game.player.third_person else ui.localized("THIRD / V","第三人称 / V")
 	var signature := "%s:%d:%s:%s" % [game.language,fps.selected_weapon,fps.round_over,fps.reload_time > 0]
 	if weapon_signature != signature:
@@ -190,13 +194,13 @@ func refresh(delta: float) -> void:
 			var seconds: int = ceili(fps.round_remaining)
 			room_text.text += " · %02d:%02d" % [seconds/60,seconds%60]
 	var id: int = game.multiplayer.get_unique_id() if game.net.mode != "solo" else 1
-	score_text.text = ui.localized("K %d   D %d   SCORE %d","击杀 %d   死亡 %d   得分 %d") % [int(fps.scores.get(id,0)),int(fps.deaths.get(id,0)),int(fps.scores.get(id,0))*100]
+	score_text.text = ui.localized("K %d   /   D %d","击杀 %d   /   死亡 %d") % [int(fps.scores.get(id,0)),int(fps.deaths.get(id,0))]
 	if fps.training_enabled: score_text.text = "%02ds  ·  %d HIT  ·  %d%%" % [ceili(fps.training_time),fps.training_hits,fps.training_accuracy()]
 	elif fps.training_finished: score_text.text = ui.localized("RESULT %d  ·  BEST %d","成绩 %d  ·  纪录 %d") % [fps.training_hits,fps.training_best]
 	health_text.text = str(fps.health)
-	health_text.modulate = Color(1,.37,.29) if fps.health <= 25 else Color.WHITE
+	health_text.modulate = Color(.75,.75,.75) if fps.health <= 25 else Color.WHITE
 	ammo_text.text = "— / ∞" if fps.selected_weapon == 3 else "%d / %d" % [fps.magazine,fps.reserve]
-	ammo_text.modulate = Color(1,.68,.33) if (fps.selected_weapon != 3 and fps.magazine <= maxi(1,ceili(float(fps.weapon_spec().capacity)*.2))) else Color.WHITE
+	ammo_text.modulate = Color(.75,.75,.75) if (fps.selected_weapon != 3 and fps.magazine <= maxi(1,ceili(float(fps.weapon_spec().capacity)*.2))) else Color.WHITE
 	reload_bar.visible = fps.reload_time > 0
 	reload_bar.value = 100.0*(1.0-clampf(fps.reload_time/maxf(.01,float(fps.weapon_spec().reload)),0,1))
 	if fps.reload_time > 0: ammo_hint.text = ui.localized("RELOADING %.1fs","装弹中 %.1f 秒") % fps.reload_time
@@ -240,10 +244,10 @@ func ranking_text() -> String:
 		rows.append("%d.     P%d        %d / %d        %d" % [index+1,int(game.net.seats.get(peer_id,1)),int(fps.scores.get(peer_id,0)),int(fps.deaths.get(peer_id,0)),int(fps.scores.get(peer_id,0))*100])
 	return "\n".join(rows)
 
-func _style_bar(bar: ProgressBar, height: float = 3.0) -> void:
+func _style_bar(bar: ProgressBar, height: float = 2.0) -> void:
 	bar.add_theme_font_size_override("font_size",1)
 	var back := StyleBoxFlat.new()
-	back.bg_color = Color("163b59")
+	back.bg_color = Color("3a3a3a")
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = ui.SignalTheme.CYAN
 	bar.add_theme_stylebox_override("background",back)
@@ -263,16 +267,17 @@ func _draw() -> void:
 		draw_line(center+Vector2(0,-350),center+Vector2(0,350),Color(.015,.018,.02),1.5,true)
 		for step in range(1,6):
 			draw_line(center+Vector2(-5,step*30),center+Vector2(5,step*30),Color(.015,.018,.02),1,true)
-		draw_circle(center,2,Color(.9,.22,.1))
+		draw_circle(center,2,Color.WHITE)
 	if not fps.aiming or ui.game.player.third_person:
 		var motion: float = Vector2(ui.game.player.velocity.x,ui.game.player.velocity.z).length()
 		var gap: float = 5.0+motion*.65+fps.visual_recoil*10
 		for axis in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:
+			draw_line(center+axis*(gap-1),center+axis*(gap+7),Color.BLACK,3.5,true)
 			draw_line(center+axis*gap,center+axis*(gap+6),Color.WHITE,1.5,true)
 	if fps.hit_feedback_time > 0:
 		for axis in [Vector2(-1,-1),Vector2(-1,1),Vector2(1,-1),Vector2(1,1)]:
-			draw_line(center+axis*7,center+axis*13,Color(1,.88,.55),2,true)
+			draw_line(center+axis*7,center+axis*13,Color.WHITE,2,true)
 	if fps.damage_feedback_time > 0:
 		var alpha: float = .22*fps.damage_feedback_time/.35
 		for inset in range(0,30,5):
-			draw_rect(Rect2(inset,inset,1600-inset*2,900-inset*2),Color(.86,.10,.06,alpha*(1-float(inset)/30)),false,5)
+			draw_rect(Rect2(inset,inset,1600-inset*2,900-inset*2),Color(1,1,1,alpha*(1-float(inset)/30)),false,5)

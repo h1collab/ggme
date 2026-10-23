@@ -1,19 +1,19 @@
 extends RefCounted
-# FACELESS / SIGNAL: original code-native art, no external icon/font dependency.
-const INK := Color("071426")
-const SURFACE := Color("102a46")
-const BLUE := Color("1262ce")
-const CYAN := Color("58efff")
-const GOLD := Color("ffda56")
+# FACELESS / MONO: shared grayscale contrast for menus and combat controls.
+const INK := Color("080808")
+const SURFACE := Color("161616")
+const BLUE := Color("333333")
+const CYAN := Color("eeeeee")
+const GOLD := Color("ffffff")
 const WHITE := Color.WHITE
-const LOCKED := Color("a6f7ff")
-static func plate(color: Color = SURFACE, edge: Color = CYAN) -> StyleBoxFlat:
+const LOCKED := Color("aaaaaa")
+static func plate(color: Color = SURFACE, edge: Color = Color(.3,.3,.3)) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = color
 	box.border_color = edge
 	box.set_border_width_all(1)
-	box.border_width_left = 3
-	box.set_corner_radius_all(2)
+	box.border_width_left = 1
+	box.set_corner_radius_all(0)
 	box.content_margin_left = 18
 	box.content_margin_right = 18
 	box.content_margin_top = 9
@@ -29,8 +29,8 @@ static func install(target: Theme) -> void:
 		if kind == "Label": continue # Text stays unboxed; cards own their backgrounds.
 		for state in ["normal","panel","read_only"]: target.set_stylebox(state,kind,plate())
 		for state in ["hover","hover_pressed"]: target.set_stylebox(state,kind,plate(BLUE,CYAN))
-		target.set_stylebox("pressed",kind,plate(Color("214d75"),GOLD))
-		target.set_stylebox("disabled",kind,plate(INK,Color("277899")))
+		target.set_stylebox("pressed",kind,plate(Color("444444"),GOLD))
+		target.set_stylebox("disabled",kind,plate(INK,Color("444444")))
 		var focus := plate(Color(0,0,0,0),GOLD)
 		focus.set_border_width_all(2)
 		target.set_stylebox("focus",kind,focus)
@@ -54,5 +54,5 @@ static func install(target: Theme) -> void:
 		for key in ["grabber","grabber_highlight","grabber_disabled"]: target.set_icon(key,kind,diamond)
 static func vector_icon(paths: String) -> Texture2D:
 	var image := Image.new()
-	image.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="#58efff" stroke-width="2" stroke-linecap="square">'+paths+'</g></svg>')
+	image.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="#eeeeee" stroke-width="2" stroke-linecap="square">'+paths+'</g></svg>')
 	return ImageTexture.create_from_image(image)

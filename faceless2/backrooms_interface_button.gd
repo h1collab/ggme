@@ -23,11 +23,8 @@ func set_selection(value: bool) -> void:
 	selected = value
 	queue_redraw()
 func _draw() -> void:
-	var ink := SignalTheme.GOLD if selected or primary else SignalTheme.CYAN
-	if selected or primary:
-		draw_rect(Rect2(0,0,4,size.y),ink)
-		draw_line(Vector2(12,size.y-7),Vector2(size.x-16,size.y-7),ink,2,true)
-	var corner := Vector2(size.x-7,7)
-	draw_line(corner+Vector2(-12,0),corner+Vector2(0,12),ink,2,true)
+	# One selection rule, without decorative slashes or doubled edge marks.
+	if selected:
+		draw_line(Vector2(8,size.y-3),Vector2(size.x-8,size.y-3),SignalTheme.WHITE,2,true)
 	if glow > .005:
-		draw_rect(Rect2(5,5,size.x-10,size.y-10),Color(ink,glow*.14))
+		draw_rect(Rect2(1,1,size.x-2,size.y-2),Color(1,1,1,glow*.09))

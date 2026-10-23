@@ -890,7 +890,13 @@ func advance(delta: float) -> void:
                 left.position += (contact-grip_mounts[1].target)*reach
         if is_instance_valid(rifle_handle):
             rifle_handle.position = handle_rest+Vector3(0,0,.045)*sin(clampf((phase-.80)/.18,0.0,1.0)*PI) if reload_visual_seconds > 0 else handle_rest
-    game.player.camera.fov = lerpf(game.player.camera.fov,lerpf(76.0,24.0 if selected_weapon == 2 else 59.0,pow(1.0-wall_retract,2.0)) if aiming and equipped else 76.0,minf(1.0,delta*9.0))
+    var target_fov := 76.0
+    if game.player.third_person:
+        # Keep the body and held rifle in frame, including sniper shoulder aim.
+        target_fov = (56.0 if selected_weapon == 2 else 64.0) if aiming and equipped else 76.0
+    elif aiming and equipped:
+        target_fov = lerpf(76.0,24.0 if selected_weapon == 2 else 59.0,pow(1.0-wall_retract,2.0))
+    game.player.camera.fov = lerpf(game.player.camera.fov,target_fov,1.0-exp(-delta*9.0))
     if level_id != 2 or target_remaining <= 0 or game.ui.modal: return
     enemy_timer -= delta
     if enemy_timer <= 0.0:

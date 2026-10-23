@@ -8,8 +8,8 @@ const SignalButton = preload("backrooms_interface_button.gd")
 const SignalArt = preload("backrooms_interface_art.gd")
 # Legible, low-glare typography against dark real-GLB interiors.
 const PAPER := Color.WHITE
-const MUTED := Color("58efff")
-const ACCENT := Color("ffda56")
+const MUTED := Color("aaaaaa")
+const ACCENT := Color.WHITE
 var game: Node
 var canvas: Control
 var hud: Control
@@ -115,8 +115,9 @@ func _fit() -> void:
 	else: canvas.position = (extent - Vector2(1600, 900) * factor) * 0.5
 	canvas.scale = Vector2.ONE * factor
 
-func _style(color: Color, border: Color = SignalTheme.CYAN) -> StyleBoxFlat:
-	return SignalTheme.plate(color,border)
+func _style(color: Color, border: Color = Color(.3,.3,.3)) -> StyleBoxFlat:
+	var gray := color.get_luminance()
+	return SignalTheme.plate(Color(gray,gray,gray,color.a),border)
 
 func _card(parent: Node, rect: Rect2, color: Color = Color("102a46")) -> Panel:
 	var panel := Panel.new()
@@ -131,7 +132,8 @@ func _label(parent: Node, text: String, pos: Vector2, width: float, font_size: i
 	label.position = pos
 	var readable_size: int = maxi(font_size, 20) if parent == hud else font_size
 	label.add_theme_font_size_override("font_size", readable_size)
-	label.add_theme_color_override("font_color", color)
+	var gray := color.get_luminance()
+	label.add_theme_color_override("font_color", Color(gray,gray,gray,color.a))
 	# Independent outline + shadow makes English and simplified Chinese
 	# readable over metal textures without opaque, fake geometry panels.
 	label.add_theme_color_override("font_outline_color", Color(0.006,0.010,0.015,0.92))
@@ -154,7 +156,7 @@ func _button(parent: Node, text: String, rect: Rect2, callback: Callable, touch:
 	button.add_theme_color_override("font_disabled_color",SignalTheme.LOCKED)
 	button.add_theme_stylebox_override("normal", _style(SignalTheme.SURFACE))
 	button.add_theme_stylebox_override("hover", _style(SignalTheme.BLUE,SignalTheme.CYAN))
-	button.add_theme_stylebox_override("pressed", _style(Color("214d75"),SignalTheme.GOLD))
+	button.add_theme_stylebox_override("pressed", _style(Color("444444"),SignalTheme.GOLD))
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	button.text = text
@@ -240,7 +242,7 @@ func _build_hud() -> void:
 		button.expand_icon = true
 		button.add_theme_constant_override("icon_max_width",32)
 		if button == pause_button: button.text = ""
-		var normal := _style(Color(.025,.07,.13,.82),SignalTheme.CYAN)
+		var normal := _style(Color(.06,.06,.06,.76),SignalTheme.CYAN)
 		normal.set_corner_radius_all(3)
 		if button == shoot_button: button.primary = true
 		button.add_theme_stylebox_override("normal",normal)

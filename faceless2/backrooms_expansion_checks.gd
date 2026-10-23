@@ -123,6 +123,7 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	player.set_third_person(true)
+	check(player.camera.position.z < .92,"Enabling third person fits collision before the first rendered frame")
 	player.update_combat_camera(.05)
 	check(player.third_person and player.camera.position.z < .92,"Shoulder camera retracts in front of actual wall")
 	check(player.eye_position().distance_to(player.global_position+Vector3(0,1.58,0)) < .00001,"Shot origin stays at body eye, never behind-wall camera")
@@ -154,6 +155,21 @@ func run() -> void:
 	check(game.fps_arena.local_shadow.attachment.global_position.z < player.global_position.z-.1,"Ready-pose authored hand remains in front of the body")
 	check(visible_points > total_points/10,"Actual rifle bounds have an unobstructed view around the player's collision capsule")
 	print("THIRD_PERSON_RIFLE_VISIBLE_BOUND_POINTS ",visible_points,"/",total_points," camera=",player.camera.global_position," gun=",game.fps_arena.local_shadow.held.global_position," hand=",game.fps_arena.local_shadow.attachment.global_position)
+	# Shoulder aim must retain body/weapon framing for every optic.
+	for weapon in [0,2]:
+		fps._apply_weapon(weapon)
+		fps.aiming = true
+		for frame in range(60):
+			fps.advance(1.0/60.0)
+			player.update_combat_camera(1.0/60.0)
+		check(player.camera.fov > 55.0 and player.camera.fov < 65.0,"Third-person aim retains a shoulder FOV for rifle and sniper")
+		check(player.shoulder_offset.z > 2.2,"Shoulder aim keeps body and gun clearance")
+	fps.aiming = false
+	fps._apply_weapon(0)
+	player.shoulder = -1.0
+	for frame in range(60): player.update_combat_camera(1.0/60.0)
+	check(player.camera.position.x < -.8,"Shoulder switch settles on the opposite side")
+	player.shoulder = 1.0
 	player.set_third_person(false)
 	player.pitch = -1.1
 	player.set_physics_process(true)
