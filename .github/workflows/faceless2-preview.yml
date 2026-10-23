@@ -19,6 +19,7 @@ on:
       - "faceless2/backrooms_extra_levels.gd"
       - "faceless2/backrooms_fps.gd"
       - "faceless2/fps_weapon_finish.gdshader"
+      - "faceless2/fps_void_hands.gdshader"
       - "faceless2/fetch_fps_surface.py"
       - "faceless2/backrooms_fps_arena.gd"
       - "faceless2/backrooms_network.gd"
@@ -87,7 +88,7 @@ jobs:
                   if p.is_file():p.unlink()
           for p in src.glob("backrooms*.gd"):
               shutil.copy2(p,Path("app/scripts")/p.name)
-          for name in ["virtual_joystick.gd","touch_action.gd","backrooms_gui_preview.gd","fps_weapon_finish.gdshader"]:
+          for name in ["virtual_joystick.gd","touch_action.gd","backrooms_gui_preview.gd","fps_weapon_finish.gdshader","fps_void_hands.gdshader"]:
               shutil.copy2(src/name,Path("app/scripts")/name)
           shutil.copy2(src/"assets/entity.glb","app/assets/entity.glb")
           Path("app/assets/vendor").mkdir(parents=True,exist_ok=True)

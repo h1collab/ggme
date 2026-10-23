@@ -5,6 +5,7 @@ extends Node3D
 const Assets = preload("backrooms_assets.gd")
 const Arsenal = preload("backrooms_arsenal.gd")
 const WeaponFinish = preload("fps_weapon_finish.gdshader")
+const VoidHands = preload("fps_void_hands.gdshader")
 const MAGAZINE_CAPACITY := 24
 const MAX_RANGE := 70.0
 const RATE_SECONDS := 0.12
@@ -158,17 +159,20 @@ func _ready() -> void:
         push_error("Source-verified CC0 M4A1 GLB not packaged")
     # New, genuinely rigged WRAD ARMS CC0 authored GLB replaces the
     # separated Sketchfab hands ONLY in FPS mode. The mesh, source skin,
-    # texture, fingers and wrist joints remain from the original GLB.
+    # fingers and wrist joints remain from the original GLB; texture-free
+    # anime void shading replaces its realistic skin material.
     # The gun AND both hands share one pivot: ADS, recoil and gait never
     # make a hand slide away from the rifle.
     grip_hands = Node3D.new()
     grip_hands.name = "LicensedWRAD_SkinnedTwoHandWeaponMount"
     weapon_pivot.add_child(grip_hands)
     # Each hand is a separately source-trimmed GLB, still using the
-    # original rigged skin and texture, not generated geometry. Keeping
+    # original rigged skin, with the shared void material. Keeping
     # transforms rigidly on the same weapon pivot prevents dislocated IK
     # elbows and divergent ADS/running/recoil animation.
     var mounted := 0
+    var void_finish := ShaderMaterial.new()
+    void_finish.shader = VoidHands
     for side in ["r","l"]:
         var path := Assets.path("vendor/fps_wrad_grip_%s.glb" % side)
         if not ResourceLoader.exists(path):
@@ -208,17 +212,7 @@ func _ready() -> void:
             var skin_mesh := part as MeshInstance3D
             skin_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             for surface in range(skin_mesh.mesh.get_surface_count()):
-                var source_material := skin_mesh.get_active_material(surface) as StandardMaterial3D
-                if source_material == null: continue
-                var skin_finish := source_material.duplicate() as StandardMaterial3D
-                skin_finish.albedo_color *= Color(.72,.71,.69,1.0)
-                skin_finish.roughness = .78
-                skin_finish.metallic = 0.0
-                skin_finish.metallic_specular = .28
-                # The shadow-only full body uses another authored pose;
-                # its limbs must not stripe the separate first-person rig.
-                skin_finish.disable_receive_shadows = true
-                skin_mesh.set_surface_override_material(surface,skin_finish)
+                skin_mesh.set_surface_override_material(surface,void_finish)
         mounted += 1
     _calibrate_grip_surfaces()
     _pose_trigger_finger()

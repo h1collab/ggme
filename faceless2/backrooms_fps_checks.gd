@@ -96,6 +96,10 @@ func run() -> void:
 	check(not game.player.viewmodel_root.visible, "Original floating Sketchfab hands hidden while holding FPS weapon")
 	check(fps.grip_hands.get_parent() == fps.weapon_pivot, "Rifle and rigged hands share one animated parent")
 	check(fps.grip_hands.get_child_count() == 2, "Two independent authored WRAD skinned hand GLBs grip one weapon, no loose elbows")
+	for mesh in fps.grip_hands.find_children("*","MeshInstance3D",true,false):
+		for surface in range(mesh.mesh.get_surface_count()):
+			var spirit := mesh.get_active_material(surface) as ShaderMaterial
+			check(spirit != null and spirit.shader == fps.VoidHands,"Both rigged hands use anime void shading instead of skin textures")
 	for ads in [false,true]:
 		fps.set_aim(ads)
 		for i in range(100): fps.advance(1.0/60.0)
