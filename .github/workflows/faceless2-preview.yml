@@ -5,6 +5,7 @@ on:
     branches:
       - fix/faceless2-rendering-polish
     paths:
+      - "faceless2/install_ci_packages.sh"
       - "faceless2/backrooms_static_batch.gd"
       - "faceless2/backrooms_render_budget.gd"
       - "faceless2/backrooms_render_benchmark.gd"
@@ -145,8 +146,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb xauth libgl1-mesa-dri libglu1-mesa libxrandr2 libxi6 libxcursor1
+          bash faceless2/install_ci_packages.sh xvfb xauth libgl1-mesa-dri libglu1-mesa libxrandr2 libxi6 libxcursor1 2>&1 | tee preview_frames/runtime-packages.log
           curl -fLsS --retry 3 -o godot.zip "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
           unzip -q godot.zip
           sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
@@ -164,9 +164,9 @@ jobs:
             cp "app/scripts/$name" "benchmark_current/$name"
             git show "7dbb958eaecec89573f6013836986de2b86111ed:faceless2/$name" > "app/scripts/$name"
           done
-          F2_BENCHMARK_LABEL=reference F2_BENCHMARK_SHA=7dbb958eaecec89573f6013836986de2b86111ed F2_BENCHMARK_DIR="$GITHUB_WORKSPACE/preview_frames/performance/reference" timeout 480 xvfb-run -a godot --audio-driver Dummy --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_render_benchmark.gd > preview_frames/performance/reference.log 2>&1
+          F2_BENCHMARK_LABEL=reference F2_BENCHMARK_SHA=7dbb958eaecec89573f6013836986de2b86111ed F2_BENCHMARK_DIR="$GITHUB_WORKSPACE/preview_frames/performance/reference" timeout --kill-after=15s 480 xvfb-run -a godot --audio-driver Dummy --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_render_benchmark.gd > preview_frames/performance/reference.log 2>&1
           cp benchmark_current/* app/scripts/
-          F2_BENCHMARK_LABEL=optimized F2_BENCHMARK_SHA="$GITHUB_SHA" F2_BENCHMARK_DIR="$GITHUB_WORKSPACE/preview_frames/performance/optimized" timeout 480 xvfb-run -a godot --audio-driver Dummy --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_render_benchmark.gd > preview_frames/performance/optimized.log 2>&1
+          F2_BENCHMARK_LABEL=optimized F2_BENCHMARK_SHA="$GITHUB_SHA" F2_BENCHMARK_DIR="$GITHUB_WORKSPACE/preview_frames/performance/optimized" timeout --kill-after=15s 480 xvfb-run -a godot --audio-driver Dummy --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_render_benchmark.gd > preview_frames/performance/optimized.log 2>&1
           grep -F FPS_NATIVE_BENCHMARK_CAPTURE_PASS preview_frames/performance/reference.log
           grep -F FPS_NATIVE_BENCHMARK_CAPTURE_PASS preview_frames/performance/optimized.log
           ! grep -E "ERROR:|FAIL:" preview_frames/performance/reference.log preview_frames/performance/optimized.log
@@ -209,7 +209,7 @@ jobs:
           cp app/assets/vendor/sketchfab_smiler_face.png preview_frames/smiler_baked_source_review.png
           export FACELESS_PREVIEW_DIR="$GITHUB_WORKSPACE/preview_frames"
           export LIBGL_ALWAYS_SOFTWARE=1
-          timeout 600 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 30 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
+          timeout --kill-after=15s 600 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 30 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_gui_preview.gd 2>&1 | tee preview_frames/preview.log
           test "$(find preview_frames -maxdepth 1 -name '*.png' | wc -l)" -ge 8
           ! grep -E "ERROR:|FAIL:" preview_frames/preview.log
           echo "GODOT_PREVIEW_PASS independent desktop viewport screenshots, no APK"
@@ -228,12 +228,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get install -y -qq ffmpeg
+          bash faceless2/install_ci_packages.sh ffmpeg 2>&1 | tee preview_frames/ffmpeg-packages.log
           cp faceless2/backrooms_real_movie_capture.gd app/scripts/backrooms_real_movie_capture.gd
           mkdir -p preview_frames/movie_frames
           export F2_CAPTURE_DIR="$GITHUB_WORKSPACE/preview_frames/movie_frames"
           export LIBGL_ALWAYS_SOFTWARE=1
-          timeout 1200 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1 || { tail -80 preview_frames/video.log; exit 1; }
+          timeout --kill-after=15s 1200 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1 || { tail -80 preview_frames/video.log; exit 1; }
           grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
           ! grep -E "ERROR:|FAIL:" preview_frames/video.log
           ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/faceless2-v040-godot-real-gameplay.mp4

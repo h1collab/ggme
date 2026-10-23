@@ -166,13 +166,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq espeak-ng ffmpeg
-          python -m pip install --disable-pip-version-check "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install --disable-pip-version-check "kokoro==0.9.4" "misaki[zh]==0.9.4" "soundfile>=0.12" "transformers==4.45.2"
+          bash faceless2/install_ci_packages.sh espeak-ng ffmpeg 2>&1 | tee qa/tts-packages.log
+          timeout --kill-after=15s 360s python -m pip install --disable-pip-version-check "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          timeout --kill-after=15s 360s python -m pip install --disable-pip-version-check "kokoro==0.9.4" "misaki[zh]==0.9.4" "soundfile>=0.12" "transformers==4.45.2"
           echo "Kokoro CPU voice generation started" > qa/tts-status.log
           export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 HF_HUB_DISABLE_XET=1
-          python faceless2/generate_voice.py app/audio/voice | tee qa/neural-voice-generation.log
+          timeout --kill-after=15s 300s python faceless2/generate_voice.py app/audio/voice | tee qa/neural-voice-generation.log
 
       - name: Validate neural voice inventory and license
         shell: bash
