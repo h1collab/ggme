@@ -51,9 +51,9 @@ func run() -> void:
 			query.transform.origin = spawn+Vector3(0,.85,0)
 			query.exclude = [game.player.get_rid()]
 			check(game.player.get_world_3d().direct_space_state.intersect_shape(query).is_empty(),"All six actual spawn capsules clear authored map geometry")
-		var ray := PhysicsRayQueryParameters3D.create(Vector3(14,1,0),Vector3(14,1,8),1)
+		var ray := PhysicsRayQueryParameters3D.create(Vector3(0,.7,-40),Vector3(3.6,.7,-40),1)
 		var hit: Dictionary = game.player.get_world_3d().direct_space_state.intersect_ray(ray)
-		check(not hit.is_empty() and str(hit.collider.name).begins_with("Crate_"),"Real map cover blocks shooting LOS")
+		check(not hit.is_empty() and str(hit.collider.name).begins_with("AlleyCrate_"),"Real map cover blocks shooting LOS")
 	check(layouts[0] != layouts[1],"Two maps have genuinely different collision layouts")
 	game.start_fps_arena(0)
 	print("FPS_FOUR_MAP_PHYSICS_PASS four layouts, 24 spawn capsules, cover LOS, inactive geometry and random picker")

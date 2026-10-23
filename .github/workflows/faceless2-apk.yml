@@ -154,7 +154,15 @@ jobs:
         shell: bash
         run: |
           node --test matchmaking/server.test.mjs
+      - name: Restore exact generated Mandarin voice set
+        id: voice-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: app/audio/voice
+          key: faceless2-voice-${{ runner.os }}-kokoro094-zh11-zf001-${{ hashFiles('faceless2/generate_voice.py') }}
+
       - name: Generate licensed offline Mandarin neural TTS (no system TTS, no fal)
+        if: steps.voice-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -165,8 +173,30 @@ jobs:
           echo "Kokoro CPU voice generation started" > qa/tts-status.log
           export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 HF_HUB_DISABLE_XET=1
           python faceless2/generate_voice.py app/audio/voice | tee qa/neural-voice-generation.log
+
+      - name: Validate neural voice inventory and license
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PYVOICE'
+          from pathlib import Path
+          import runpy
+          expected=set(runpy.run_path("faceless2/generate_voice.py")["VOICE_LINES"])
+          files={p.stem:p for p in Path("app/audio/voice").glob("*.ogg")}
+          assert set(files)==expected
+          for p in files.values():
+              data=p.read_bytes()
+              assert len(data)>1000 and data[:4]==b"OggS",p
+          print("NEURAL_VOICE_CACHE_VALIDATED",len(files))
+          PYVOICE
           cp /usr/share/common-licenses/Apache-2.0 app/KOKORO_APACHE_2.txt
-          test "$(find app/audio/voice -maxdepth 1 -name '*.ogg' | wc -l)" = 25
+
+      - name: Save validated voices before gameplay regression
+        if: steps.voice-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: app/audio/voice
+          key: faceless2-voice-${{ runner.os }}-kokoro094-zh11-zf001-${{ hashFiles('faceless2/generate_voice.py') }}
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
