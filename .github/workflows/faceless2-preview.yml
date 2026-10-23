@@ -5,6 +5,10 @@ on:
     branches:
       - fix/faceless2-rendering-polish
     paths:
+      - "faceless2/backrooms_static_batch.gd"
+      - "faceless2/backrooms_render_budget.gd"
+      - "faceless2/backrooms_render_benchmark.gd"
+      - "faceless2/backrooms_performance_checks.gd"
       - "faceless2/backrooms_gui_preview.gd"
       - "faceless2/backrooms_real_movie_capture.gd"
       - "faceless2/backrooms_prologue.gd"
@@ -162,6 +166,24 @@ jobs:
           grep -F FPS_NATIVE_BENCHMARK_CAPTURE_PASS preview_frames/performance/reference.log
           grep -F FPS_NATIVE_BENCHMARK_CAPTURE_PASS preview_frames/performance/optimized.log
           ! grep -E "ERROR:|FAIL:" preview_frames/performance/reference.log preview_frames/performance/optimized.log
+          python - <<'PIXELS'
+          import json
+          from pathlib import Path
+          import numpy as np
+          from PIL import Image
+          folder=Path("preview_frames/performance/optimized")
+          rows=[]
+          for map_id in range(4):
+              a=np.asarray(Image.open(folder/f"map{map_id}.png").convert("RGB"),dtype=float)/255
+              b=np.asarray(Image.open(folder/f"map{map_id}-unbatched.png").convert("RGB"),dtype=float)/255
+              diff=np.abs(a-b)
+              row={"map_id":map_id,"mean_absolute_rgb_error":float(diff.mean()),"fraction_pixels_over_5_percent":float((diff.max(axis=2)>.05).mean())}
+              rows.append(row)
+          (folder/"batch-pixel-parity.json").write_text(json.dumps(rows,indent=2))
+          for row in rows:
+              assert row["mean_absolute_rgb_error"]<.01 and row["fraction_pixels_over_5_percent"]<.05, row
+          print("FPS_NATIVE_BATCH_PIXEL_PARITY_PASS",json.dumps(rows))
+          PIXELS
       - name: Preserve reproducible authored-asset project for headless QA
         shell: bash
         run: |

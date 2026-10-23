@@ -57,7 +57,20 @@ func run() -> void:
 		frame_ms.sort(); draw_calls.sort(); primitives.sort()
 		var row := {"map_id":map_id,"median_frame_ms":frame_ms[16],"p95_frame_ms":frame_ms[30],"median_visible_draw_calls":draw_calls[16],"median_visible_primitives":primitives[16]}
 		rows.append(row)
-		root.get_texture().get_image().save_png(output_dir.path_join("map%d.png" % map_id))
+		var captured := root.get_texture().get_image()
+		captured.save_png(output_dir.path_join("map%d.png" % map_id))
+		if OS.get_environment("F2_BENCHMARK_LABEL") == "optimized":
+			# Compare actual pixels to the same scene without batching. World
+			# transform parity alone misses lighting/normal/projection regressions.
+			var stats: Array = [game.fps_arena.floor_batch,game.fps_arena.batch_stats[map_id]]
+			for stat in stats:
+				for batch in stat.batches: batch.visible = false
+				for source in stat.sources: source.visible = true
+			for i in range(4): await frame()
+			root.get_texture().get_image().save_png(output_dir.path_join("map%d-unbatched.png" % map_id))
+			for stat in stats:
+				for source in stat.sources: source.visible = false
+				for batch in stat.batches: batch.visible = true
 		print("FPS_NATIVE_RENDER_SAMPLE ",JSON.stringify(row))
 	if OS.get_environment("F2_BENCHMARK_LABEL") == "optimized": print("FPS_NATIVE_BATCH_GPU_PARITY_PASS")
 	var report := {"source_sha":OS.get_environment("F2_BENCHMARK_SHA"),"label":OS.get_environment("F2_BENCHMARK_LABEL"),"resolution":"960x540","quality":1,"mode":"scene-only fixed camera; no HUD/viewmodel", "device":RenderingServer.get_video_adapter_name(),"driver":RenderingServer.get_current_rendering_driver_name(),"note":"CI machine only; not Android FPS", "maps":rows}

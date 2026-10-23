@@ -15,7 +15,11 @@ static func build(root: Node3D) -> Dictionary:
 		var local: Transform3D = root.global_transform.affine_inverse()*source.global_transform
 		var center := local*source.mesh.get_aabb().get_center()
 		var material_id := source.material_override.get_instance_id() if source.material_override != null else 0
-		var key := "%s:%s:%s:%s:%s:%s" % [source.mesh.get_instance_id(),material_id,source.cast_shadow,source.layers,floori(center.x/CELL_SIZE),floori(center.z/CELL_SIZE)]
+		# Keep the common basis on the GeometryInstance, where the renderer
+		# detects non-uniform scale for inverse-transpose normal correction.
+		# A non-uniform basis inside a MultiMesh instance can otherwise produce
+		# incorrect lighting/triplanar projection despite exact vertex positions.
+		var key := [source.mesh.get_instance_id(),material_id,source.cast_shadow,source.layers,local.basis,floori(center.x/CELL_SIZE),floori(center.z/CELL_SIZE)]
 		if not groups.has(key): groups[key] = []
 		groups[key].append({"source":source,"transform":local})
 	var instances: Array[MultiMeshInstance3D] = []
@@ -24,6 +28,8 @@ static func build(root: Node3D) -> Dictionary:
 		var members: Array = groups[key]
 		if members.size() < 2: continue
 		var first: MeshInstance3D = members[0].source
+		var batch_transform := Transform3D((members[0].transform as Transform3D).basis,Vector3.ZERO)
+		var inverse := batch_transform.affine_inverse()
 		var multimesh := MultiMesh.new()
 		multimesh.transform_format = MultiMesh.TRANSFORM_3D
 		multimesh.mesh = first.mesh
@@ -32,7 +38,9 @@ static func build(root: Node3D) -> Dictionary:
 		buffer.resize(members.size()*12)
 		var bounds := AABB()
 		for i in range(members.size()):
-			var transform: Transform3D = members[i].transform
+			var transform: Transform3D = inverse*members[i].transform
+			# Identical basis by construction; avoid roundoff in the inverse.
+			transform.basis = Basis.IDENTITY
 			# Godot's GPU buffer is three row-major 3x4 transform rows.
 			var row := PackedFloat32Array([transform.basis.x.x,transform.basis.y.x,transform.basis.z.x,transform.origin.x,transform.basis.x.y,transform.basis.y.y,transform.basis.z.y,transform.origin.y,transform.basis.x.z,transform.basis.y.z,transform.basis.z.z,transform.origin.z])
 			for column in range(12): buffer[i*12+column] = row[column]
@@ -42,6 +50,7 @@ static func build(root: Node3D) -> Dictionary:
 		multimesh.custom_aabb = bounds
 		var batch := MultiMeshInstance3D.new()
 		batch.name = "OriginalGLB_Batch_%d" % instances.size()
+		batch.transform = batch_transform
 		batch.multimesh = multimesh
 		batch.material_override = first.material_override
 		batch.cast_shadow = first.cast_shadow

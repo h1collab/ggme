@@ -46,6 +46,12 @@ func run() -> void:
 				var local := Transform3D(Basis(Vector3(data[at],data[at+4],data[at+8]),Vector3(data[at+1],data[at+5],data[at+9]),Vector3(data[at+2],data[at+6],data[at+10])),Vector3(data[at+3],data[at+7],data[at+11]))
 				var rendered: Transform3D = batch.global_transform*local
 				check(rendered.is_equal_approx(source.global_transform),"Batch preserves actual world transform")
+				# MultiMesh per-instance bases do not set the renderer's normal
+				# correction flag. Exercise an oblique normal, not just positions.
+				var probe := Vector3(.3,.8,.5).normalized()
+				var expected_normal := (source.global_basis.inverse().transposed()*probe).normalized()
+				var batch_normal: Vector3 = (batch.global_basis.inverse().transposed()*local.basis*probe).normalized()
+				check(batch_normal.is_equal_approx(expected_normal),"Batch preserves inverse-transpose normals under non-uniform scale")
 				check(not source.visible,"Source cannot be double rendered")
 				check(batch.multimesh.mesh == source.mesh,"Exact original GLB vertex/index/UV/normal resource preserved")
 				check(batch.material_override == source.material_override,"Original material preserved")
