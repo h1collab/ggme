@@ -1,6 +1,18 @@
-# v0.39 performance pass (protocol 23 unchanged)
+# v0.39 anime art direction (protocol 23 unchanged)
 
-Spatial MultiMesh batches reuse **exact original licensed meshes/materials**;
+First-person hands, all four weapons (including third-person held weapons), and
+all four FPS arenas now use anime styling. Guns use cel color blocks and ink
+outlines; walls, floors and props use a texture-free shared palette. The sky is
+a cached procedural gradient, not a photographic HDR panorama. The source GLB
+geometry, skinning, grip, collision layouts and authority rules stay intact.
+Source PBR assets remain licensed/provenance inputs but are not the active FPS
+material finish. Do not restore realistic skin, metal wear or scanned surface
+textures without a new art-direction request.
+
+## Renderer groundwork
+
+Spatial MultiMesh batches reuse **exact original licensed meshes** and current
+anime material overrides;
 24m cells preserve bounded culling, source nodes and collision proxies remain
 available for parity tests. Source meshes in a batch are hidden to avoid double
 drawing. The native preview compares actual GPU instance transforms with source
@@ -13,11 +25,11 @@ Android FPS.
 On Android, presets cap 3D render pixels at 0.6 / 0.9 / 1.4 million while retaining
 the full-resolution 2D HUD and touch coordinates. There is an 8s startup grace,
 2.5s sustained-overload threshold, 6s resize cooldown and 12s stable recovery
-threshold. Opening a menu pauses adaptation. Quality presets still exist; low
-quality uses original albedo with simpler material lighting, balanced/high retain
-normal and roughness maps. Nearby lamps fade influence smoothly with distance;
-geometry and collision never disappear for this purpose. The HDR sky and shared
-PBR materials are cached across map changes; animation names are resolved once.
+threshold. Opening a menu pauses adaptation. Quality presets still control resolution, anti-aliasing and shadows. The anime
+finish does not sample the former photographic PBR normal/roughness maps.
+Nearby lamps fade influence smoothly with distance;
+geometry and collision never disappear for this purpose. The gradient sky and shared
+anime materials are cached across map changes; animation names are resolved once.
 Relay Depot also gets the intended outdoor sunlight instead of hangar exposure.
 
 **Not verified:** Android device FPS, thermal behavior, public deployment/NAT,

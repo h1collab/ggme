@@ -53,6 +53,10 @@ func run() -> void:
 	await physics_frame
 	await physics_frame
 	check(fps.extra_weapons.size() == 3,"Three additional real source GLBs loaded")
+	for weapon in fps.extra_weapons:
+		for mesh in weapon.find_children("*","MeshInstance3D",true,false):
+			var finish := mesh.get_active_material(0) as ShaderMaterial
+			check(finish != null and finish.shader == fps.AnimeFinish.Surface,"Sidearm, sniper and knife share the anime finish")
 	for index in range(1,4):
 		var meshes: Array[Node] = fps.extra_weapons[index-1].find_children("*","MeshInstance3D",true,false)
 		check(not meshes.is_empty(),"Real imported weapon mesh exists")

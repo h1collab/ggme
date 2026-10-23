@@ -105,12 +105,14 @@ func run() -> void:
 		for i in range(100): fps.advance(1.0/60.0)
 		check_arm_boundaries(fps)
 	check(fps.weapon_model != null and fps.weapon_model.find_children("*","MeshInstance3D",true,false).size() >= 2, "Licensed original multi-mesh firearm")
-	check(fps.weapon_finish_ready,"Original atlas and verified PBR finish loaded")
+	check(fps.weapon_finish_ready,"Anime firearm finish loaded")
 	var rifle_triangles := 0
 	for mesh in fps.weapon_model.find_children("*","MeshInstance3D",true,false):
 		for surface in range(mesh.mesh.get_surface_count()):
-			var finish: StandardMaterial3D = mesh.get_active_material(surface)
-			check(finish.albedo_texture != null and finish.normal_texture != null and finish.roughness_texture != null and finish.metallic_texture != null,"Original M4A1 embeds all four real publisher PBR maps")
+			var finish := mesh.get_active_material(surface) as ShaderMaterial
+			check(finish != null and finish.shader == fps.AnimeFinish.Surface and finish.next_pass != null,"Firearm uses texture-free cel color and ink outline")
+			var source := mesh.mesh.surface_get_material(surface) as StandardMaterial3D
+			check(source != null and source.albedo_texture != null and source.normal_texture != null and source.roughness_texture != null and source.metallic_texture != null,"Licensed source PBR inventory remains intact beneath intentional anime override")
 			var arrays: Array = mesh.mesh.surface_get_arrays(surface)
 			rifle_triangles += (arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size()/3
 	check(rifle_triangles == 9258 and fps.rifle_magazine != null and fps.rifle_handle != null,"Actual source M4A1 inventory and separate moving parts")
@@ -329,7 +331,7 @@ func run() -> void:
 	check(fps.training_enabled and fps.training_time == fps.TRAINING_SECONDS and fps.training_hits == 0 and fps.training_shots == 0,"Finished challenge restarts with a clean timer and score")
 	fps.toggle_training()
 	check(not fps.training_enabled and fps.training_targets.is_empty(),"Drill target toggle cleans its physics bodies")
-	print("FPS_REFERENCE_COMBAT_PASS original M4A1/PBR, moving magazine/handle, physics marks, idempotent state and optional raycast drill")
+	print("FPS_REFERENCE_COMBAT_PASS original M4A1/anime finish, moving magazine/handle, physics marks, idempotent state and optional raycast drill")
 	fps.reload_visual_seconds = fps.RELOAD_SECONDS*.5
 	fps.advance(.01)
 	game.show_title_room()

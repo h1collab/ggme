@@ -58,10 +58,16 @@ func run() -> void:
 				var actual: AABB = local*source.mesh.get_aabb()
 				check(batch.multimesh.custom_aabb.grow(.001).encloses(actual),"Cull box encloses every actual instance")
 	check(replaced > 50 and batches < replaced*.7,"Spatial batches meaningfully reduce static submissions")
+	check(game.environment.environment.sky.sky_material is ProceduralSkyMaterial,"Anime sky replaces photographic HDR panorama")
+	for source_root in [game.fps_arena.floor_root]+game.fps_arena.map_roots:
+		for mesh in source_root.find_children("*","MeshInstance3D",true,false):
+			for surface in range(mesh.mesh.get_surface_count()):
+				var finish := mesh.get_active_material(surface) as ShaderMaterial
+				check(finish != null and finish.shader == game.fps_arena.AnimeFinish.Surface,"All FPS scenery uses the texture-free anime palette")
 	var sky_id: int = game.environment.environment.sky.get_instance_id()
 	for map_id in [1,2,3,0]:
 		game.fps_arena.activate(map_id)
-		check(game.environment.environment.sky.get_instance_id() == sky_id,"Map changes reuse HDR sky rather than rebuilding it")
+		check(game.environment.environment.sky.get_instance_id() == sky_id,"Map changes reuse the anime gradient sky")
 	var budget := preload("backrooms_render_budget.gd").new()
 	for preset in range(3):
 		budget.configure(preset,Vector2i(3200,1440),true)

@@ -4,7 +4,7 @@ extends Node3D
 # non-humanoid security targets. No visible primitive weapon/enemy meshes.
 const Assets = preload("backrooms_assets.gd")
 const Arsenal = preload("backrooms_arsenal.gd")
-const WeaponFinish = preload("fps_weapon_finish.gdshader")
+const AnimeFinish = preload("backrooms_anime_finish.gd")
 const VoidHands = preload("fps_void_hands.gdshader")
 const MAGAZINE_CAPACITY := 24
 const MAX_RANGE := 70.0
@@ -425,17 +425,8 @@ func _pose_trigger_finger() -> void:
     grip_skeleton.force_update_all_bone_transforms()
 
 func _finish_rifle(mesh: MeshInstance3D) -> void:
-    for surface in range(mesh.mesh.get_surface_count()):
-        var material := mesh.get_active_material(surface) as StandardMaterial3D
-        if material == null or material.albedo_texture == null or material.normal_texture == null or material.roughness_texture == null or material.metallic_texture == null:
-            push_error("Original CC0 M4A1 PBR channels not embedded")
-            continue
-        var finish := material.duplicate() as StandardMaterial3D
-        finish.disable_receive_shadows = true
-        finish.roughness = .85
-        finish.normal_scale = .5
-        mesh.set_surface_override_material(surface,finish)
-        weapon_finish_ready = true
+    AnimeFinish.weapon_mesh(mesh)
+    weapon_finish_ready = true
 
 # The left palm supports the actual authored magazine base during removal /
 # insertion. Derive its contact from source triangles, not a floating offset.
@@ -510,22 +501,8 @@ func _calibrate_grip_surfaces() -> void:
         mount.target = closest
 
 func _finish_weapon(mesh: MeshInstance3D) -> void:
-    for surface in range(mesh.mesh.get_surface_count()):
-        var original := mesh.get_active_material(surface) as StandardMaterial3D
-        if original == null or original.albedo_texture == null:
-            push_error("Authored Kenney atlas missing from GLB material")
-            continue
-        var finish := ShaderMaterial.new()
-        finish.shader = WeaponFinish
-        finish.set_shader_parameter("source_atlas",original.albedo_texture)
-        for binding in {"detail_albedo":"diffuse","detail_normal":"normal","detail_roughness":"rough","detail_metallic":"metal"}:
-            var path := Assets.path("vendor/pbr_weapon_metal_%s.jpg" % {"detail_albedo":"diffuse","detail_normal":"normal","detail_roughness":"rough","detail_metallic":"metal"}[binding])
-            if not ResourceLoader.exists(path):
-                push_error("Verified weapon PBR texture missing: "+path)
-                continue
-            finish.set_shader_parameter(binding,load(path))
-        mesh.set_surface_override_material(surface,finish)
-        weapon_finish_ready = true
+    AnimeFinish.weapon_mesh(mesh)
+    weapon_finish_ready = true
 
 func trigger_recoil() -> void:
     if is_instance_valid(game.fps_arena.local_shadow): game.fps_arena.local_shadow.shot_seconds = .22

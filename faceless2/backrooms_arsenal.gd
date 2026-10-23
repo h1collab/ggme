@@ -1,5 +1,6 @@
 extends RefCounted
 # Fixed server rules shared by renderer, HUD and authority. No client damage values.
+const AnimeFinish = preload("backrooms_anime_finish.gd")
 const Assets = preload("backrooms_assets.gd")
 const DATA := [
 	{"label":"M4A1", "zh":"突击步枪", "file":"fps_m4a1.glb", "capacity":24, "reserve":120, "damage":25, "rate":.12, "reload":1.65, "range":125.0, "length":.88},
@@ -33,4 +34,5 @@ static func model(index: int) -> Node3D:
 	var reference: Vector3 = Vector3(.013,-.085,.072) if index == 0 else [Vector3.ZERO,Vector3(.02,-.06,0),Vector3(.02,-.17,0),Vector3.ZERO][index]
 	root.set_meta("grip_local",scene.transform*reference)
 	root.set_meta("source_bounds",bounds)
+	AnimeFinish.weapon(root)
 	return root

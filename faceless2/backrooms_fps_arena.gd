@@ -1,6 +1,7 @@
 extends Node3D
 # Four independent authored-GLB FPS maps, selected once by the authoritative host.
 const Assets = preload("backrooms_assets.gd")
+const AnimeFinish = preload("backrooms_anime_finish.gd")
 const StaticBatch = preload("backrooms_static_batch.gd")
 const WIDTH := 72.0
 const LENGTH := 96.0
@@ -22,6 +23,7 @@ var batch_stats: Array[Dictionary] = []
 var floor_root: Node3D
 var floor_batch: Dictionary = {}
 var cached_sky: Sky
+var palette_map := 0
 
 func _ready() -> void:
 	name = "FourStandalone_FPS_Maps_NoNarrativeLevels"
@@ -35,28 +37,20 @@ func random_map() -> int:
 func map_title(chinese: bool = false) -> String:
 	return MAP_NAMES_ZH[map_id] if chinese else MAP_NAMES[map_id]
 
-func _pbr(surface: String, tint: Color, density: float, metallic: float = 0.0) -> Material:
-	var key := "%s:%s:%s:%s" % [surface,tint,density,metallic]
+func _anime_material(surface: String, tint: Color, density: float, metallic: float = 0.0) -> Material:
+	var key := [surface,tint,density,metallic,palette_map]
 	if material_cache.has(key): return material_cache[key]
-	var material := StandardMaterial3D.new()
-	material.albedo_color = tint
-	material.roughness = .80
-	material.metallic = metallic
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	for channel in ["diffuse","normal","rough"]:
-		for suffix in [".jpg",".png",".jpeg"]:
-			var path := Assets.path("vendor/pbr_%s_%s%s" % [surface,channel,suffix])
-			if not ResourceLoader.exists(path): continue
-			if channel == "diffuse": material.albedo_texture = load(path)
-			elif channel == "normal":
-				material.normal_enabled = true
-				material.normal_texture = load(path)
-				material.normal_scale = .45
-			else: material.roughness_texture = load(path)
-			break
-	var projected := Assets.projected_pbr(material,density)
-	material_cache[key] = projected
-	return projected
+	var color := Color(.65,.74,.88)
+	var ground_style := metallic == 0.0 and tint.r < .81
+	if metallic > 0.0:
+		color = [Color(.23,.29,.48),Color(.20,.37,.45),Color(.35,.25,.51),Color(.24,.29,.40)][palette_map]
+	elif ground_style:
+		color = [Color(.49,.62,.77),Color(.43,.57,.68),Color(.58,.56,.77),Color(.43,.57,.62)][palette_map]
+	else:
+		color = [Color(.93,.77,.65),Color(.69,.82,.88),Color(.83,.75,.94),Color(.72,.84,.79)][palette_map]
+	var finish := AnimeFinish.material(color,false,false,.10 if ground_style else 0.0)
+	material_cache[key] = finish
+	return finish
 
 func _collider(body: StaticBody3D, at: Vector3, size: Vector3) -> void:
 	var collision := CollisionShape3D.new()
@@ -96,6 +90,12 @@ func _prop(parent: Node3D, label: String, file: String, at: Vector3, height: flo
 	for mesh in model.find_children("*","MeshInstance3D",true,false):
 		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		if finish != null: (mesh as MeshInstance3D).material_override = finish
+		else:
+			var color := Color(.32,.66,.79)
+			if "box" in file: color = Color(.94,.63,.36)
+			elif "computer" in file: color = Color(.50,.38,.76)
+			elif "lamp" in file: color = Color(.95,.83,.46)
+			(mesh as MeshInstance3D).material_override = AnimeFinish.material(color,true)
 	_collider(body,Vector3(0,dimensions.y*.5,0),dimensions)
 	return body
 
@@ -114,12 +114,13 @@ func _roof(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish: 
 	_collider(body,Vector3(0,extent.y*.5,0),extent)
 
 func _build_map(index: int) -> void:
+	palette_map = index
 	var layout := Node3D.new()
 	layout.name = ["CargoCourtyard","MaintenanceHangar","RelayDepot","FoundryCrossing"][index]
 	add_child(layout)
 	map_roots.append(layout)
-	var plaster := _pbr("concrete_floor",Color(.83,.80,.73),.30)
-	var metal := _pbr("rusty_metal_sheet",Color(.30,.34,.37),.72,.45)
+	var plaster := _anime_material("concrete_floor",Color(.83,.80,.73),.30)
+	var metal := _anime_material("rusty_metal_sheet",Color(.30,.34,.37),.72,.45)
 	var wall_height := 3.4 if index == 0 else 6.0
 	for side in [-1.0,1.0]:
 		_panel(layout,"Perimeter_X_%s" % side,Vector3(side*(WIDTH*.5-.1),wall_height*.5,0),Vector3(.28,wall_height,LENGTH+.2),plaster,true)
@@ -241,7 +242,7 @@ func build() -> void:
 	floor_root = Node3D.new()
 	floor_root.name = "OriginalGLB_Floor_Batches"
 	add_child(floor_root)
-	var finish := _pbr("large_grey_tiles",Color(.8,.83,.86),.32)
+	var finish := _anime_material("large_grey_tiles",Color(.8,.83,.86),.32)
 	for x in range(6):
 		for z in range(8):
 			var tile := Assets.fitted("vendor/wakeup_floor_panel.glb",.16)
@@ -306,11 +307,6 @@ func apply_quality(quality: int) -> void:
 			lamp.distance_fade_enabled = true
 			lamp.distance_fade_begin = float([16,24,36][quality])
 			lamp.distance_fade_length = 8.0
-	for material in material_cache.values():
-		var pbr := material as StandardMaterial3D
-		if not pbr.has_meta("source_roughness"): pbr.set_meta("source_roughness",{"texture":pbr.roughness_texture})
-		pbr.normal_enabled = quality > 0 and pbr.normal_texture != null
-		pbr.roughness_texture = pbr.get_meta("source_roughness").texture if quality > 0 else null
 
 func _process(delta: float) -> void:
 	update_local_actor(delta)
@@ -321,6 +317,7 @@ func activate(selected: int = 0) -> void:
 		return
 	build()
 	map_id = selected
+	palette_map = selected
 	visible = true
 	set_process(true)
 	ground.collision_layer = 1
@@ -328,7 +325,7 @@ func activate(selected: int = 0) -> void:
 		map_roots[index].visible = index == map_id
 		for body in map_roots[index].find_children("*","StaticBody3D",true,false):
 			(body as StaticBody3D).collision_layer = 1 if index == map_id else 0
-	var finish := _pbr("concrete_floor" if map_id==0 else "large_grey_tiles",Color(.73,.77,.8),.36 if map_id==0 else .32)
+	var finish := _anime_material("concrete_floor" if map_id==0 else "large_grey_tiles",Color(.73,.77,.8),.36 if map_id==0 else .32)
 	for tile in floor_modules+[horizon]:
 		for mesh in tile.find_children("*","MeshInstance3D",true,false): (mesh as MeshInstance3D).material_override = finish
 	for batch in floor_batch.get("batches",[]): batch.material_override = finish
@@ -336,11 +333,12 @@ func activate(selected: int = 0) -> void:
 	apply_quality(get_parent().quality)
 	var world: WorldEnvironment = get_parent().environment
 	if cached_sky == null:
-		var sky_material := PanoramaSkyMaterial.new()
-		var sky_path := Assets.path("vendor/fps_daylight_sky.hdr")
-		if ResourceLoader.exists(sky_path): sky_material.panorama = load(sky_path)
-		else: push_error("Verified original CC0 HDR sky is not packaged")
-		sky_material.energy_multiplier = .50
+		var sky_material := ProceduralSkyMaterial.new()
+		sky_material.sky_top_color = Color(.16,.42,.78)
+		sky_material.sky_horizon_color = Color(.78,.89,1.0)
+		sky_material.ground_bottom_color = Color(.30,.36,.54)
+		sky_material.ground_horizon_color = Color(.78,.89,1.0)
+		sky_material.sky_curve = .28
 		cached_sky = Sky.new()
 		cached_sky.sky_material = sky_material
 	world.environment.sky = cached_sky
@@ -348,9 +346,9 @@ func activate(selected: int = 0) -> void:
 	world.environment.fog_enabled = false
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	world.environment.ambient_light_color = Color(.62,.70,.80)
-	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	world.environment.ambient_light_energy = .44 if map_id in [0,2] else .56
-	world.environment.tonemap_exposure = .90
+	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
+	world.environment.ambient_light_energy = .28
+	world.environment.tonemap_exposure = 1.0
 	layout_digest = geometry_digest()
 
 func geometry_digest() -> String:
