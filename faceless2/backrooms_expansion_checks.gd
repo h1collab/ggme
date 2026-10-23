@@ -30,6 +30,17 @@ func run() -> void:
 		await physics_frame
 		await physics_frame
 		digests[game.fps_arena.geometry_digest()] = true
+		var crates := 0
+		for body in game.fps_arena.map_roots[map_id].get_children():
+			if body is StaticBody3D and ("Crate" in str(body.name) or "Supply" in str(body.name)): crates += 1
+		var spawn_ray := PhysicsRayQueryParameters3D.create(Vector3(7,1.1,-7),Vector3(-7,1.1,7),1)
+		spawn_ray.exclude = [player.get_rid()]
+		check(game.get_world_3d().direct_space_state.intersect_ray(spawn_ray).is_empty(),"Spawn diagonal remains clear for authoritative round combat")
+		spawn_ray = null
+		check(crates >= 50,"Each alley has at least fifty solid stacked or loose crates")
+		check(game.net.movement_path_clear(Vector3(0,.12,-44),Vector3(0,.12,44)),"Central alley remains traversable end to end")
+		check(game.net.movement_path_clear(Vector3(-27,.12,0),Vector3(27,.12,0)),"Cross street connects both outer lanes and spawn pockets")
+		check(not game.net.movement_path_clear(Vector3(0,.12,-40),Vector3(3,.12,-40)),"Alley crate blocks the authoritative movement capsule")
 		for seat in range(1,7):
 			var spawn: Vector3 = game.fps_arena.spawn_for(seat)
 			check(game.net.movement_path_clear(spawn,spawn),"All six spawns clear on every map")
@@ -144,6 +155,15 @@ func run() -> void:
 	check(visible_points > total_points/10,"Actual rifle bounds have an unobstructed view around the player's collision capsule")
 	print("THIRD_PERSON_RIFLE_VISIBLE_BOUND_POINTS ",visible_points,"/",total_points," camera=",player.camera.global_position," gun=",game.fps_arena.local_shadow.held.global_position," hand=",game.fps_arena.local_shadow.attachment.global_position)
 	player.set_third_person(false)
+	player.pitch = -1.1
+	player.set_physics_process(true)
+	await physics_frame
+	await physics_frame
+	player.set_physics_process(false)
+	check(player.leg_root.visible,"Void feet are visible when looking down in FPS mode")
+	for limb in player.leg_root.find_children("*","MeshInstance3D",true,false):
+		check(limb.material_override is ShaderMaterial and limb.material_override.shader == preload("fps_void_hands.gdshader"),"Feet share anime void hand shader")
+	player.pitch = 0.0
 	var sources := {}
 	for seat in range(1,7):
 		var actor := preload("backrooms_combat_actor.gd").new()
@@ -151,6 +171,11 @@ func run() -> void:
 		actor.configure(seat)
 		sources[actor.get_meta("character_source")] = true
 		check(is_instance_valid(actor.skeleton) and is_instance_valid(actor.attachment),"Original skinned character has real weapon-hand attachment")
+		for mesh in actor.meshes:
+			for surface in range(mesh.mesh.get_surface_count()):
+				var finish := mesh.get_active_material(surface) as ShaderMaterial
+				check(finish != null and finish.shader == preload("backrooms_anime_finish.gd").Surface and finish.next_pass != null,"Every third-person body surface has a cel palette and ink outline")
+				finish = null
 		actor.update_combat(6.2,false,1,1,.016)
 		check(not actor.current_clip.is_empty(),"Imported source animation selected")
 		for index in range(4):

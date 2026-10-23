@@ -94,10 +94,10 @@ func record() -> void:
 		await fire(true)
 		game.fps.set_aim(false)
 		game.player.sprinting = true
-		await move(Vector3(-3,.12,3),Vector3(4,.12,-4),Vector3(0,1.6,-18),Vector3(14,1.4,5),40)
+		await move(Vector3(-3,.12,3),Vector3(4,.12,-4),Vector3(0,1.6,-18),Vector3(3,1.4,15),40)
 		game.player.sprinting = false
 		game.fps.reload()
-		await move(Vector3(4,.12,-4),Vector3(9,.12,-6),Vector3(14,1.4,5),Vector3(15,1.3,5),36)
+		await move(Vector3(4,.12,-4),Vector3(1,.12,-6),Vector3(3,1.4,15),Vector3(3,1.3,15),36)
 		await move(Vector3(0,.12,-46.6),Vector3(0,.12,-47.45),Vector3(0,1.6,-50),Vector3(0,1.6,-50),25)
 		for weapon in [1,2,3]:
 			# Source capture waits real switch cooldowns through rendered frames.

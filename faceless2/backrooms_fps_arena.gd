@@ -6,8 +6,8 @@ const StaticBatch = preload("backrooms_static_batch.gd")
 const WIDTH := 72.0
 const LENGTH := 96.0
 const TILE := 12.0
-const MAP_NAMES := ["CARGO COURTYARD", "MAINTENANCE HANGAR", "RELAY DEPOT", "FOUNDRY CROSSING"]
-const MAP_NAMES_ZH := ["货运庭院", "维修机库", "中继货站", "铸造交汇"]
+const MAP_NAMES := ["NULL ALLEY", "STATIC PASSAGE", "FRACTURE ROW", "ERROR CROSSING"]
+const MAP_NAMES_ZH := ["空值小巷", "杂讯窄街", "断裂后巷", "错误路口"]
 var map_id := 0
 var ground: StaticBody3D
 var light: DirectionalLight3D
@@ -24,6 +24,7 @@ var floor_root: Node3D
 var floor_batch: Dictionary = {}
 var cached_sky: Sky
 var palette_map := 0
+var architecture_mesh: BoxMesh
 
 func _ready() -> void:
 	name = "FourStandalone_FPS_Maps_NoNarrativeLevels"
@@ -40,15 +41,10 @@ func map_title(chinese: bool = false) -> String:
 func _anime_material(surface: String, tint: Color, density: float, metallic: float = 0.0) -> Material:
 	var key := [surface,tint,density,metallic,palette_map]
 	if material_cache.has(key): return material_cache[key]
-	var color := Color(.65,.74,.88)
 	var ground_style := metallic == 0.0 and tint.r < .81
-	if metallic > 0.0:
-		color = [Color(.23,.29,.48),Color(.20,.37,.45),Color(.35,.25,.51),Color(.24,.29,.40)][palette_map]
-	elif ground_style:
-		color = [Color(.49,.62,.77),Color(.43,.57,.68),Color(.58,.56,.77),Color(.43,.57,.62)][palette_map]
-	else:
-		color = [Color(.93,.77,.65),Color(.69,.82,.88),Color(.83,.75,.94),Color(.72,.84,.79)][palette_map]
-	var finish := AnimeFinish.material(color,false,false,.10 if ground_style else 0.0)
+	var color := Color(.12,.12,.12) if ground_style else Color(.83,.83,.83)
+	if metallic > 0.0: color = Color(.045,.045,.045)
+	var finish := AnimeFinish.material(color,false,false,.035 if ground_style else 0.0,1.0)
 	material_cache[key] = finish
 	return finish
 
@@ -64,12 +60,16 @@ func _panel(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish:
 	var body := StaticBody3D.new()
 	body.name = label
 	parent.add_child(body)
-	var model := Assets.licensed_panel(at,extent,finish,side)
-	# Original fitted floor thickness begins at local Y=0: center it on the proxy.
-	var authored: Vector3 = model.get_meta("dimensions",Vector3.ONE)
-	model.position -= model.basis*Vector3(0,authored.y*.5,0)
-	for mesh in model.find_children("*","MeshInstance3D",true,false):
-		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	# Clean authored block architecture: one shared 12-triangle cube, batched
+	# by scale/basis. Scanned detail is reserved for the collidable crate props.
+	if architecture_mesh == null:
+		architecture_mesh = BoxMesh.new()
+		architecture_mesh.size = Vector3.ONE
+	var model := MeshInstance3D.new()
+	model.mesh = architecture_mesh
+	model.position = at
+	model.scale = extent
+	model.material_override = finish
 	body.add_child(model)
 	_collider(body,at,extent)
 	return body
@@ -91,11 +91,11 @@ func _prop(parent: Node3D, label: String, file: String, at: Vector3, height: flo
 		(mesh as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		if finish != null: (mesh as MeshInstance3D).material_override = finish
 		else:
-			var color := Color(.32,.66,.79)
-			if "box" in file: color = Color(.94,.63,.36)
-			elif "computer" in file: color = Color(.50,.38,.76)
-			elif "lamp" in file: color = Color(.95,.83,.46)
-			(mesh as MeshInstance3D).material_override = AnimeFinish.material(color,true)
+			var color := Color(.35,.35,.35)
+			if "box" in file: color = Color(.58,.58,.58)
+			elif "computer" in file: color = Color(.025,.025,.025)
+			elif "lamp" in file: color = Color(.95,.95,.95)
+			(mesh as MeshInstance3D).material_override = AnimeFinish.material(color,true,false,0.0,.45)
 	_collider(body,Vector3(0,dimensions.y*.5,0),dimensions)
 	return body
 
@@ -116,121 +116,54 @@ func _roof(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish: 
 func _build_map(index: int) -> void:
 	palette_map = index
 	var layout := Node3D.new()
-	layout.name = ["CargoCourtyard","MaintenanceHangar","RelayDepot","FoundryCrossing"][index]
+	layout.name = ["NullAlley","StaticPassage","FractureRow","ErrorCrossing"][index]
 	add_child(layout)
 	map_roots.append(layout)
-	var plaster := _anime_material("concrete_floor",Color(.83,.80,.73),.30)
-	var metal := _anime_material("rusty_metal_sheet",Color(.30,.34,.37),.72,.45)
-	var wall_height := 3.4 if index == 0 else 6.0
+	var wall := _anime_material("alley_plaster",Color(.9,.9,.9),.3)
+	var ink := _anime_material("ink_metal",Color(.2,.2,.2),.7,1.0)
+	# Solid building blocks define a narrow central alley and two outer lanes.
+	# Cross streets at z=0 and +/-24 connect all six original spawn pockets.
 	for side in [-1.0,1.0]:
-		_panel(layout,"Perimeter_X_%s" % side,Vector3(side*(WIDTH*.5-.1),wall_height*.5,0),Vector3(.28,wall_height,LENGTH+.2),plaster,true)
-		_panel(layout,"Perimeter_Z_%s" % side,Vector3(0,wall_height*.5,side*(LENGTH*.5-.1)),Vector3(WIDTH+.2,wall_height,.28),plaster)
-	# Deliberately keep both spawn diagonals and the central movement lanes clear.
-	# Each side has cover pockets, with 3m+ passageways around actual proxies.
-	for side in [-1.0,1.0]:
-		for depth in [-1.0,1.0]:
-			var at := Vector3(side*14,0,depth*5)
-			_prop(layout,"Crate_%s_%s" % [side,depth],"wakeup_container_tall.glb",at,2.25,0,metal)
-			_prop(layout,"ScannedBarrel_%s_%s" % [side,depth],"scan_barrel_02.glb",at+Vector3(side*2.4,0,1.5),1.1)
-			_prop(layout,"ScannedBox_%s_%s" % [side,depth],"scan_cardboard_box_01.glb",at+Vector3(0,0,2.3),.75,.18*side)
-	# Central islands remove the empty middle while retaining the spawn diagonals.
-	for side in [-1.0,1.0]:
-		for depth in [-1.0,1.0]:
-			var pocket := Vector3(side*6,0,depth*3)
-			_prop(layout,"MidCover_%s_%s" % [side,depth],"wakeup_wall.glb",pocket,1.15,0,metal,Vector2(3.2,.35))
-			_prop(layout,"MidBarrel_%s_%s" % [side,depth],"scan_barrel_02.glb",pocket+Vector3(side*1.25,0,.8),.95)
-	# Authored GLB lane dividers create depth and separate long/short sightlines.
-	# Keep the central 0..-9 training lane and all existing spawn pockets clear.
-	for side in [-1.0,1.0]:
-		for depth in [-1.0,1.0]:
-			var x: float = side*(10.5 if index == 0 else 12.0)
-			var z: float = depth*(11.5 if index == 0 else 12.8)
-			_panel(layout,"RangeBoard_%s_%s" % [side,depth],Vector3(x,1.30,z),Vector3(4.0,2.6,.24),plaster)
-			for dx in [-2.18,2.18]:
-				_prop(layout,"RangePost_%s_%s_%s" % [side,depth,dx],"wakeup_wall_pillar.glb",Vector3(x+dx,0,z),2.95,0,metal,Vector2(.18,.3))
-			var number := Label3D.new()
-			number.text = "%02d" % (1+(1 if side>0 else 0)+(2 if depth>0 else 0))
-			number.font_size = 90
-			number.pixel_size = .006
-			number.modulate = Color(.32,.12,.07)
-			number.outline_size = 0
-			number.no_depth_test = false
-			number.position = Vector3(x,1.85,z-depth*.132)
-			number.rotation.y = PI if depth>0 else 0.0
-			layout.add_child(number)
-			_prop(layout,"LaneLowCover_%s_%s" % [side,depth],"wakeup_wall.glb",Vector3(side*3.2,0,depth*13.5),.95,PI*.5,plaster,Vector2(.34,3.2))
-	if index in [0,2]:
-		for depth in [-1.0,1.0]:
-			_panel(layout,"LoadingBay_%s" % depth,Vector3(0,1.6,depth*18),Vector3(10,3.2,.30),metal)
-			_prop(layout,"UtilityPipe_%s" % depth,"wakeup_pipe.glb",Vector3(-19,0,depth*13),2.4,PI*.5,metal)
-			_prop(layout,"BayPillar_%s" % depth,"wakeup_wall_pillar.glb",Vector3(6,0,depth*18),3.5,0,plaster,Vector2(.65,.65))
-	else:
-		# Real floor GLBs form roof wings with a 6m open skylight between them.
-		_roof(layout,"Roof_West",Vector3(-19.5,6,0),Vector3(33,.20,LENGTH+.2),metal)
-		_roof(layout,"Roof_East",Vector3(19.5,6,0),Vector3(33,.20,LENGTH+.2),metal)
-		for depth in [-1.0,1.0]:
-			_panel(layout,"ServiceBay_%s" % depth,Vector3(0,1.25,depth*17),Vector3(12,2.5,.28),metal)
-			_prop(layout,"ServiceConsole_%s" % depth,"wakeup_computer_screen.glb",Vector3(-4,0,depth*18.8),1.3,PI if depth<0 else 0)
-			_prop(layout,"ServicePipe_%s" % depth,"wakeup_pipe.glb",Vector3(9,0,depth*19.5),2.4,PI*.5,metal)
-			_prop(layout,"ServiceStock_%s" % depth,"scan_cardboard_box_01.glb",Vector3(6,0,depth*19.8),.8,.3*depth)
-		for side in [-1.0,1.0]:
-			for depth in [-1.0,1.0]:
-				var at := Vector3(side*18,0,depth*15)
-				_prop(layout,"RoofPillar_%s_%s" % [side,depth],"wakeup_wall_pillar.glb",at,6.0,0,plaster,Vector2(.75,.75))
-				_prop(layout,"OriginalLamp_%s_%s" % [side,depth],"scan_industrial_wall_lamp.glb",at+Vector3(-side*.465,4.2,0),.55,-side*PI*.5)
-				var lamp := OmniLight3D.new()
-				lamp.position = at+Vector3(-side*2,4.5,0)
-				lamp.light_color = Color(1,.88,.73)
-				lamp.light_energy = 2.25
-				lamp.omni_range = 13.0
-				lamp.shadow_enabled = false
-				layout.add_child(lamp)
-
-	# Two new rear sectors per side: alternating passageways connect the
-	# original centre to long flank routes, with distinct courtyard/hangar cover.
+		_panel(layout,"BoundaryX_%s" % side,Vector3(side*36,4,0),Vector3(.3,8,96),ink,true)
+		_panel(layout,"BoundaryZ_%s" % side,Vector3(0,4,side*48),Vector3(72,8,.3),wall)
+		for sector in [-1.0,1.0]:
+			for block in range(2):
+				var z: float = sector*(15.0+block*23.0)
+				var height: float = 8.0+float((index+block)%3)*1.2
+				_panel(layout,"Building_%s_%s_%d" % [side,sector,block],Vector3(side*14,height*.5,z),Vector3(20,height,14),wall)
+				# Repeated authored window panels share materials and spatial batches.
+				for level in range(2):
+					for bay in [-1.0,1.0]:
+						_panel(layout,"BlackWindow_%s_%s_%d_%d_%s" % [side,sector,block,level,bay],Vector3(side*3.92,3.4+level*2.6,z+bay*3.8),Vector3(.12,1.35,1.6),ink,true)
+				_prop(layout,"DrainPipe_%s_%s_%d" % [side,sector,block],"wakeup_pipe.glb",Vector3(side*3.6,0,z),3.5,0,ink)
+		# More real collidable boxes, tucked against walls rather than across lanes.
+		for n in range(8):
+			var z: float = -40.0+n*11.0
+			if absf(z) < 10.0: z = -12.0 if z < 0 else 12.0
+			var x: float = side*(2.9 if n%2 == 0 else 3.2)
+			_prop(layout,"AlleyCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(x,0,z),1.1,0,null,Vector2(1.5,1.5))
+			_prop(layout,"CrateStack_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(x,1.1,z),.75,0,null,Vector2(1.1,1.1))
+			_prop(layout,"SideLaneCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(side*30.5,0,z),1.1,0,null,Vector2(1.5,1.5))
+			if n%2 == index%2:
+				_prop(layout,"LooseCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(side*2.6,0,z+1.8),.7,0,null,Vector2(1.0,1.0))
+		for end in [-1.0,1.0]:
+			var sign := Label3D.new()
+			sign.text = ["404 / NULL","SIGNAL LOST","/// FRACTURE","ERROR_00"][index]
+			sign.position = Vector3(side*3.82,3.2,end*15)
+			sign.rotation.y = -side*PI*.5
+			sign.font_size = 60
+			sign.pixel_size = .012
+			sign.modulate = Color.WHITE
+			sign.outline_modulate = Color.BLACK
+			layout.add_child(sign)
+	# Map-specific return walls change sightlines but leave a 5m central passage.
 	for end in [-1.0,1.0]:
-		for sector in [0,1]:
-			var z: float = end*(27.0+sector*12.0)
-			for side in [-1.0,1.0]:
-				var x: float = side*(18.0 if sector == 0 else 12.0)
-				_panel(layout,"SectorDivider_%s_%s_%s" % [end,sector,side],Vector3(x,1.9,z),Vector3(14.0,3.8,.35),plaster)
-				_panel(layout,"SectorReturn_%s_%s_%s" % [end,sector,side],Vector3(x+side*7,1.9,z+end*3),Vector3(.35,3.8,6),metal,true)
-				_prop(layout,"FlankCargo_%s_%s_%s" % [end,sector,side],"wakeup_container_tall.glb",Vector3(side*29,0,z+end*3),2.4,PI*.5,metal,Vector2(3.0,5.5))
-				_prop(layout,"SectorBarrel_%s_%s_%s" % [end,sector,side],"scan_barrel_02.glb",Vector3(side*7,0,z+end*4),1.0)
-				var sign := Label3D.new()
-				sign.text = ("CARGO" if index == 0 else "SERVICE")+" %s%d" % ["N" if end < 0 else "S",sector+1]
-				sign.position = Vector3(x,2.5,z-end*.20)
-				sign.rotation.y = PI if end > 0 else 0.0
-				sign.font_size = 64
-				sign.pixel_size = .012
-				sign.no_depth_test = false
-				layout.add_child(sign)
-				if index == 1:
-					_prop(layout,"ServiceLight_%s_%s_%s" % [end,sector,side],"scan_industrial_wall_lamp.glb",Vector3(x,3.6,z-end*.3),.55)
-					var lamp := OmniLight3D.new()
-					lamp.position = Vector3(x,4,z-end*3)
-					lamp.light_color = Color(.72,.84,1)
-					lamp.light_energy = 2.0
-					lamp.omni_range = 15
-					layout.add_child(lamp)
-
-	if index == 2:
-		# Relay depot: lateral cargo trains and offset bridge-gates produce long
-		# flank routes with crossfire windows, rather than just recoloring map 0.
+		var z: float = end*(29.0+index*2.0)
 		for side in [-1.0,1.0]:
-			for z in [-32.0,-20.0,20.0,32.0]:
-				_prop(layout,"RelayCargo_%s_%s" % [side,z],"wakeup_container_tall.glb",Vector3(side*26,0,z),2.6,0,metal,Vector2(5,7))
-			for z in [-10.0,10.0]:
-				_panel(layout,"RelayGate_%s_%s" % [side,z],Vector3(side*25,3.6,z),Vector3(12,.35,.5),metal)
-				_prop(layout,"RelayMast_%s_%s" % [side,z],"wakeup_wall_pillar.glb",Vector3(side*31,0,z),4.0,0,metal,Vector2(.65,.65))
-	elif index == 3:
-		# Foundry: alternating outer machine cells, open central skylight and
-		# narrow cross-links; rear-sector route remains accessible on both ends.
-		for side in [-1.0,1.0]:
-			for z in [-31.0,-21.0,21.0,31.0]:
-				_panel(layout,"FoundryCell_%s_%s" % [side,z],Vector3(side*27,1.5,z),Vector3(8,3,.35),metal)
-				_prop(layout,"FoundryDuct_%s_%s" % [side,z],"wakeup_pipe.glb",Vector3(side*22,0,z+3),3.3,0,metal)
-				_prop(layout,"FoundryConsole_%s_%s" % [side,z],"wakeup_computer_screen.glb",Vector3(side*25,0,z+2),1.1)
+			_panel(layout,"AlleyReturn_%s_%s" % [side,end],Vector3(side*7.2,1.25,z),Vector3(6.0,2.5,.35),ink)
+		if index in [1,3]:
+			_panel(layout,"OverheadBridge_%s" % end,Vector3(0,7.0,end*19),Vector3(24,.4,2.5),ink)
+		_prop(layout,"EndSupply_%s" % end,"scan_cardboard_box_01.glb",Vector3(4,0,end*43),1.1,0,null,Vector2(1.5,1.5))
 
 func build() -> void:
 	if built: return
@@ -265,7 +198,7 @@ func build() -> void:
 	light = DirectionalLight3D.new()
 	light.name = "Sun_QualityShadows"
 	light.rotation_degrees = Vector3(-38,-32,0)
-	light.light_color = Color(1,.93,.82)
+	light.light_color = Color.WHITE
 	# Flat cel colors make self-shadow acne especially visible on broad surfaces.
 	light.shadow_bias = .16
 	light.light_angular_distance = .65
@@ -330,15 +263,15 @@ func activate(selected: int = 0) -> void:
 	for tile in floor_modules+[horizon]:
 		for mesh in tile.find_children("*","MeshInstance3D",true,false): (mesh as MeshInstance3D).material_override = finish
 	for batch in floor_batch.get("batches",[]): batch.material_override = finish
-	light.light_energy = .90 if map_id in [0,2] else .65
+	light.light_energy = .90
 	apply_quality(get_parent().quality)
 	var world: WorldEnvironment = get_parent().environment
 	if cached_sky == null:
 		var sky_material := ProceduralSkyMaterial.new()
-		sky_material.sky_top_color = Color(.16,.42,.78)
-		sky_material.sky_horizon_color = Color(.78,.89,1.0)
-		sky_material.ground_bottom_color = Color(.30,.36,.54)
-		sky_material.ground_horizon_color = Color(.78,.89,1.0)
+		sky_material.sky_top_color = Color(.025,.025,.025)
+		sky_material.sky_horizon_color = Color(.48,.48,.48)
+		sky_material.ground_bottom_color = Color(.06,.06,.06)
+		sky_material.ground_horizon_color = Color(.48,.48,.48)
 		sky_material.sky_curve = .28
 		cached_sky = Sky.new()
 		cached_sky.sky_material = sky_material
@@ -346,7 +279,7 @@ func activate(selected: int = 0) -> void:
 	world.environment.background_mode = Environment.BG_SKY
 	world.environment.fog_enabled = false
 	world.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	world.environment.ambient_light_color = Color(.62,.70,.80)
+	world.environment.ambient_light_color = Color(.78,.78,.78)
 	world.environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	world.environment.ambient_light_energy = .28
 	world.environment.tonemap_exposure = 1.0

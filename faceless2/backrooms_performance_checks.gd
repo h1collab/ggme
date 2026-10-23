@@ -53,7 +53,7 @@ func run() -> void:
 				var batch_normal: Vector3 = (batch.global_basis.inverse().transposed()*local.basis*probe).normalized()
 				check(batch_normal.is_equal_approx(expected_normal),"Batch preserves inverse-transpose normals under non-uniform scale")
 				check(not source.visible,"Source cannot be double rendered")
-				check(batch.multimesh.mesh == source.mesh,"Exact original GLB vertex/index/UV/normal resource preserved")
+				check(batch.multimesh.mesh == source.mesh,"Exact authored vertex/index/UV/normal resource preserved")
 				check(batch.material_override == source.material_override,"Original material preserved")
 				var actual: AABB = local*source.mesh.get_aabb()
 				check(batch.multimesh.custom_aabb.grow(.001).encloses(actual),"Cull box encloses every actual instance")
@@ -84,7 +84,7 @@ func run() -> void:
 		check(is_equal_approx(budget.scale,initial),"Sustained recovery restores preset without pumping")
 		budget.configure(preset,Vector2i(3200,1440),false)
 		check(budget.limits.x == budget.limits.y,"Desktop uses explicit selected quality")
-	if not failed: print("FPS_STATIC_BATCH_PARITY_PASS ",replaced," original GLB instances into ",batches," bounded batches; geometry/material/world transforms/cull boxes preserved")
+	if not failed: print("FPS_STATIC_BATCH_PARITY_PASS ",replaced," authored static instances into ",batches," bounded batches; geometry/material/world transforms/cull boxes preserved")
 	if not failed: print("FPS_MOBILE_RENDER_BUDGET_PASS pixel caps, warmup, hysteresis, pause, overload/recovery")
 	budget = null
 	game.net.leave(); game.queue_free()

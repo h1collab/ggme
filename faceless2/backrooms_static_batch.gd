@@ -1,5 +1,5 @@
 extends RefCounted
-# Render the same licensed imported triangles/materials in bounded spatial cells.
+# Render the same authored triangles/materials in bounded spatial cells.
 # Source nodes remain for source-geometry/collision parity QA, never double drawn.
 const CELL_SIZE := 24.0
 static func build(root: Node3D) -> Dictionary:

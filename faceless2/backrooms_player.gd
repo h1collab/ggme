@@ -6,6 +6,7 @@ const Assets = preload("backrooms_assets.gd")
 var third_person := false
 var camera_clearance := 3.0
 var shoulder := 1.0
+var shoulder_offset := Vector3(1.2,.24,2.8)
 var camera_sphere := SphereShape3D.new()
 var ground_grace := 0.0
 var jump_buffer := 0.0
@@ -119,12 +120,9 @@ func _ready() -> void:
 		add_child(leg_root)
 		var feet: Node3D = load(feet_path).instantiate()
 		leg_root.add_child(feet)
-		# Matte dark workwear over the original Cesium skinned leg/boot triangles.
-		# Avoid the bright blue Cesium demo checker pattern in close-up.
-		var boot_finish := StandardMaterial3D.new()
-		boot_finish.albedo_color = Color(0.125,0.126,0.128)
-		boot_finish.roughness = 0.83
-		boot_finish.metallic = 0.03
+		# Match the anime void hands while preserving authored skinning and gait.
+		var boot_finish := ShaderMaterial.new()
+		boot_finish.shader = preload("fps_void_hands.gdshader")
 		for limb in feet.find_children("*", "MeshInstance3D", true, false):
 			limb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			limb.material_override = boot_finish
@@ -249,7 +247,8 @@ func set_third_person(value: bool) -> void:
 	third_person = value and is_instance_valid(game.fps) and game.fps.active
 	aim_pointer = -1
 	camera.position = Vector3(0,1.58,0)
-	camera_clearance = 3.0
+	camera_clearance = 3.3
+	shoulder_offset = Vector3(1.2*shoulder,.24,2.8)
 	if is_instance_valid(game.fps.weapon_pivot): game.fps.weapon_pivot.visible = game.fps.equipped and not third_person
 	if is_instance_valid(game.fps_arena): game.fps_arena.update_local_actor(0.0)
 
@@ -258,7 +257,9 @@ func update_combat_camera(delta: float) -> void:
 	var pivot := eye_position()
 	var orientation := global_basis*Basis(Vector3.RIGHT,pitch)
 	var aiming: bool = game.fps.aiming
-	var offset := orientation*Vector3((.72 if aiming else 1.05)*shoulder,.18,1.85 if aiming else 2.8)
+	var desired_shoulder := Vector3((.72 if aiming else 1.2)*shoulder,.18 if aiming else .24,1.85 if aiming else 2.8)
+	shoulder_offset = shoulder_offset.lerp(desired_shoulder,1.0-exp(-delta*10.0))
+	var offset := orientation*shoulder_offset
 	var desired := pivot+offset
 	var fraction := 1.0
 	# A five-ray swept near-plane approximation prevents a shoulder camera
@@ -448,12 +449,17 @@ func _physics_process(delta: float) -> void:
 	if is_instance_valid(leg_root):
 		# Imported skinned GLB boots belong near the collision capsule on the
 		# real floor. Only show them on an intentional deep downward look.
-		leg_root.visible = not lift_riding and pitch < -0.72 and (not is_instance_valid(game.fps) or not game.fps.active)
+		leg_root.visible = not lift_riding and not third_person and pitch < -0.72
 		leg_root.position.y = lerpf(leg_root.position.y,0.018,minf(delta*8.0,1.0))
 		if is_instance_valid(leg_animation):
 			var stepping := moving and is_on_floor()
-			leg_animation.speed_scale = (1.40 if sprinting else 0.92) if stepping else 0.0
-			if leg_gait_was_moving and not stepping: leg_animation.seek(0.0,true)
+			if stepping:
+				if not leg_animation.is_playing(): leg_animation.play()
+				leg_animation.speed_scale = 1.40 if sprinting else 0.92
+			elif leg_animation.is_playing():
+				leg_animation.stop()
+				# Animation frame zero is mid-stride; use the authored neutral rest pose.
+				for rig in leg_root.find_children("*","Skeleton3D",true,false): rig.reset_bone_poses()
 			leg_gait_was_moving = stepping
 	step_clock -= delta
 	if moving and is_on_floor() and step_clock <= 0:

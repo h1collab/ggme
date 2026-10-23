@@ -340,10 +340,10 @@ func menu() -> void:
 	_button(panels,localized("SETTINGS","设置"),Rect2(516,716,202,60),open_settings)
 	_label(panels,localized("02 PLAYERS TO START   /   06 SLOTS","02 人即可开局   /   06 席位"),Vector2(76,818),690,19,ACCENT)
 	_label(panels,"SECTOR ATLAS   /   01—04",Vector2(900,172),600,24,ACCENT)
-	_label(panels,localized("01  CARGO COURTYARD","01  货运庭院"),Vector2(924,263),520,22)
-	_label(panels,localized("02  MAINTENANCE HANGAR","02  维修机库"),Vector2(924,393),520,22)
-	_label(panels,localized("03  RELAY DEPOT","03  中继货站"),Vector2(924,523),520,22)
-	_label(panels,localized("04  FOUNDRY CROSSING","04  铸造交汇"),Vector2(924,653),520,22)
+	_label(panels,localized("01  NULL ALLEY","01  空值小巷"),Vector2(924,263),520,22)
+	_label(panels,localized("02  STATIC PASSAGE","02  杂讯窄街"),Vector2(924,393),520,22)
+	_label(panels,localized("03  FRACTURE ROW","03  断裂后巷"),Vector2(924,523),520,22)
+	_label(panels,localized("04  ERROR CROSSING","04  错误路口"),Vector2(924,653),520,22)
 	_label(panels,localized("72 × 96 METRES  /  TWO WAYS TO ENGAGE","72 × 96 米  /  双视角交锋"),Vector2(900,780),620,20,MUTED)
 
 func _page(title: String, kind: String) -> void:

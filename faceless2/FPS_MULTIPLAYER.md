@@ -1,3 +1,11 @@
+# v0.40 monochrome fractured alleys (protocol 24)
+
+Four authoritative maps now use a connected urban alley layout: narrow central and side lanes, cross streets, solid buildings and stacked collidable crates. Crate/floor source GLBs and bounded static batches are retained. Building facades use one shared 12-triangle BoxMesh rather than stretching decorative floor GLBs into large solid blocks; visible architecture and collision share the same extents. Black/white fracture masks are computed in the existing opaque surface shader; no particle cloud or animated fullscreen distortion. Map-specific return walls and overhead bridges vary sightlines. All six spawn pockets and the central training lane remain clear.
+
+First-person feet use the same anime void shader as the hands, including in FPS mode when looking down. Third-person source rigs keep their bones and animations, with texture-free cel palettes, ink outlines and seat accents. The shoulder offset blends across aim/side changes before the existing collision sweep, preserving immediate inward wall retraction and gradual outward recovery.
+
+Protocol 24 intentionally rejects old protocol 23 clients because alley collision/layouts differ. Update the room service with the client. Android version 0.40.0 / versionCode40.
+
 # v0.39 anime art direction (protocol 23 unchanged)
 
 First-person hands, all four weapons (including third-person held weapons), and
@@ -38,7 +46,7 @@ frame times are CI software-renderer measurements, not phone performance claims.
 
 # v0.38 / SIGNAL · four sectors, six seats
 
-Source protocol is **23**, incompatible with protocol 22. Four host-selected maps:
+Source protocol is **24**, incompatible with protocol 23. Four host-selected maps:
 Cargo Courtyard, Maintenance Hangar, Relay Depot, Foundry Crossing. Six distinct
 spawn seats on each 72×96m map; two real players start in rooms capped at 2–6.
 Seats 5/6 reuse original licensed character meshes 1/2 with cyan/copper material
@@ -62,7 +70,7 @@ empty-room expiry and shutdown cleanup bound resource use. Native server counts
 populate listings; client HTTP cannot mutate or delete a managed room.
 
 Configure/deploy using [matchmaking deployment instructions](../matchmaking/DEPLOYMENT.md).
-Client creates a managed room when HTTPS `/health` reports protocol 23 and
+Client creates a managed room when HTTPS `/health` reports protocol 24 and
 `managed:true`; legacy direct-host/LAN rooms remain supported. A JS directory
 alone still cannot relay UDP or bypass NAT. **No public service URL is embedded
 or deployed by this commit.** Public end-to-end mobile/Wi-Fi testing is pending.

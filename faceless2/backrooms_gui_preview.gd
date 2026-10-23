@@ -71,20 +71,20 @@ func run() -> void:
 		game.start_fps_arena(map_id)
 		game.player.set_physics_process(false)
 		var prefix := "map%d_" % map_id
-		await shot(prefix+"00_overview",Vector3(-7,.12,7),Vector3(8,1.6,-13))
+		await shot(prefix+"00_overview",Vector3(-2.5,.12,7),Vector3(1,1.6,-18))
 		await shot(prefix+"01_hip",Vector3(0,.12,0),Vector3(0,1.6,-18))
 		game.fps.set_aim(true)
 		await shot(prefix+"02_ads",Vector3(0,.12,0),Vector3(0,1.6,-18))
 		game.fps.set_aim(false)
 		await shot(prefix+"03_fire_finish",Vector3(0,.12,0),Vector3(0,1.6,-18),true)
-		await shot(prefix+"04_original_scanned_cover",Vector3(9,.12,9),Vector3(15,1.3,5))
+		await shot(prefix+"04_original_scanned_cover",Vector3(0,.12,12),Vector3(3,1.3,15))
 		await shot(prefix+"05_near_shipped_wall",Vector3(0,.12,-47.45),Vector3(0,1.6,-50))
 		await shot(prefix+"06_ground_material_shadow",Vector3(0,.12,0),Vector3(1.2,0,-.4))
 		game.ui.touch_preview = true
 		game.ui.prologue_finished()
-		await shot(prefix+"07_mobile_hud",Vector3(-7,.12,7),Vector3(8,1.6,-13))
+		await shot(prefix+"07_mobile_hud",Vector3(-2.5,.12,7),Vector3(1,1.6,-18))
 		game.ui.fps_corner_hud.scoreboard_open = true
-		await shot(prefix+"08_scoreboard",Vector3(-7,.12,7),Vector3(8,1.6,-13))
+		await shot(prefix+"08_scoreboard",Vector3(-2.5,.12,7),Vector3(1,1.6,-18))
 		game.ui.fps_corner_hud.scoreboard_open = false
 		game.ui.touch_preview = false
 		game.ui.prologue_finished()
@@ -127,6 +127,13 @@ func run() -> void:
 		await shot(prefix+"16_extended_flank",Vector3(33,.12,45),Vector3(16,1.6,25))
 		game.fps.measure_grip()
 		print("PREVIEW_MAP ",map_id," GEOMETRY ",game.fps_arena.geometry_digest())
+	game.player.reset_to(Vector3(0,.12,0))
+	game.player.pitch = -1.2
+	game.player.camera.rotation = Vector3(-1.2,0,0)
+	game.player.set_physics_process(true)
+	for i in range(4): await physics_frame
+	game.player.set_physics_process(false)
+	await interface_shot("06_void_feet")
 	# Review the actual result HUD with a second authenticated, independent
 	# headless ENet peer. Only the fixture timer is shortened; round outcome
 	# and snapshots follow the normal host code, never a fake player count.

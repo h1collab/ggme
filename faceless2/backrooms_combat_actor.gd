@@ -42,15 +42,7 @@ func configure(number: int) -> void:
 				attachment.bone_name = skeleton.get_bone_name(i)
 				skeleton.add_child(attachment)
 				break
-	# Seats five and six reuse licensed source meshes with distinct authored cloth palettes.
-	if seat > 4:
-		for mesh in model.find_children("*","MeshInstance3D",true,false):
-			for surface in range(mesh.mesh.get_surface_count()):
-				var original: Material = mesh.get_active_material(surface)
-				if original is StandardMaterial3D:
-					var tint := original.duplicate() as StandardMaterial3D
-					tint.albedo_color *= Color(.55,.85,1) if seat == 5 else Color(1,.68,.38)
-					mesh.set_surface_override_material(surface,tint)
+	preload("backrooms_anime_finish.gd").character(model,seat)
 	meshes = model.find_children("*","MeshInstance3D",true,false)
 	skeleton.skeleton_updated.connect(_update_hand_weapon)
 	set_weapon(0)
