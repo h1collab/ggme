@@ -93,7 +93,7 @@ def main():
         for _ in range(100):
             try:
                 with urlopen(url+'/health', timeout=.5) as response:
-                    assert json.load(response)['protocol'] == 24
+                    assert json.load(response)['protocol'] == 25
                 break
             except OSError:
                 time.sleep(.05)

@@ -1,3 +1,11 @@
+# v0.42 / S1 first signal (protocol25)
+
+Party-style lobby: central authored character, left-side season/collection controls, right-side season summary and bottom play actions. S1 has 45 levels with FREE and PAID reward rows, XP/level progress, nine browsable five-level pages, idempotent free claims and a persistent local cosmetic collection. XP comes from actual round completion and completed target drills with hits. The PAID row is a locked preview; purchasing and verified paid ownership are not yet available. Local progression is not an account-backed economy.
+
+Diagonal wall contact accelerates tangent movement up to 8m/s, with a 0.2s departure carry. Straight wall pressure, floors, no movement and ADS do not trigger it. Hosts independently check a nearby vertical wall plus tangent movement and retain capsule sweep/path validation. Protocol25 intentionally separates these movement rules and revised facade colliders from older clients. Deploy matching clients and room service.
+
+All six source rigs now use a speed-matched run cycle and a non-looping jump pose selected from rise/fall velocity; landing blends back into locomotion. Remote actors infer airborne state and vertical velocity from received poses. Sparse asymmetric facade features and broken fracture seams replace repeated window grids/error bars; collidable box cover remains. Android 0.42.0 / versionCode42.
+
 # v0.41 minimal monochrome HUD and fractured alleys (protocol 24)
 
 

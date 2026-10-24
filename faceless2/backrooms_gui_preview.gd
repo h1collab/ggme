@@ -66,6 +66,16 @@ func run() -> void:
 	game.ui._quick_match()
 	await interface_shot("05_match_search")
 	game.rooms.cancel_match()
+	game.language = "zh"
+	game.ui.season_page = 0
+	game.ui.open_season()
+	await interface_shot("s1_manual_01")
+	game.ui.season_page = 8
+	game.ui.open_season()
+	await interface_shot("s1_manual_45")
+	game.ui.open_collection()
+	await interface_shot("s1_collection")
+	game.language = "en"
 	for map_id in [0,1,2,3]:
 		game.ui.touch_preview = false
 		game.start_fps_arena(map_id)
@@ -142,6 +152,14 @@ func run() -> void:
 		await shot(prefix+"16_extended_flank",Vector3(33,.12,45),Vector3(16,1.6,25))
 		game.fps.measure_grip()
 		print("PREVIEW_MAP ",map_id," GEOMETRY ",game.fps_arena.geometry_digest())
+	game.player.reset_to(Vector3(0,.12,0))
+	game.player.pitch = -.13
+	game.player.set_third_person(true)
+	for pose in ["run","rise","fall"]:
+		game.fps_arena.local_shadow.update_combat(6.2,pose != "run",0,0,.016,0,5.0 if pose == "rise" else -4.0)
+		if pose == "run": game.fps_arena.local_shadow.animation.advance(.18)
+		await interface_shot("s1_motion_"+pose)
+	game.player.set_third_person(false)
 	game.player.reset_to(Vector3(0,.12,0))
 	game.player.pitch = -1.2
 	game.player.camera.rotation = Vector3(-1.2,0,0)

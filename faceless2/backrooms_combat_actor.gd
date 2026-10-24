@@ -19,6 +19,9 @@ var aim_pitch := 0.0
 var hand_bone := -1
 var held_meshes: Array[Node] = []
 var clip_paths: Dictionary = {}
+var was_airborne := false
+var landing_time := 0.0
+var run_cycle := false
 func configure(number: int) -> void:
 	seat = clampi(number,1,6)
 	var source := posmod(seat-1,4)+1
@@ -73,25 +76,38 @@ func play_clip(key: String) -> void:
 	var clip: String = clip_paths.get(key,"")
 	if clip.is_empty() or current_clip == clip: return
 	current_clip = clip
-	animation.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
+	animation.get_animation(clip).loop_mode = Animation.LOOP_NONE if key == "Jump" else Animation.LOOP_LINEAR
 	animation.play(clip,.12)
-func update_combat(speed: float, airborne: bool, weapon: int, serial: int, delta: float, pitch: float = 0.0) -> void:
+func update_combat(speed: float, airborne: bool, weapon: int, serial: int, delta: float, pitch: float = 0.0, vertical_speed: float = 0.0) -> void:
 	aim_pitch = clampf(pitch,-1.36,1.30)
 	set_weapon(weapon)
 	if serial > hit_serial: shot_seconds = .22
 	hit_serial = serial
 	shot_seconds = maxf(0,shot_seconds-delta)
 	moving = speed > .15
-	if airborne: play_clip("Jump")
-	elif shot_seconds > 0: play_clip("SwordSlash" if weapon == 3 else "Shoot_OneHanded")
-	elif moving: play_clip("Run_Carry" if speed > 4.5 else "Walk_Carry")
-	else:
-		play_clip("Shoot_OneHanded")
-		if is_instance_valid(animation) and animation.speed_scale != 0.0:
-			# Clear the previous clip's blend before freezing a ready pose.
-			# Freezing a .12s blend at speed zero left the fist behind the body.
-			animation.play(current_clip,0.0)
-			animation.seek(.15,true)
+	if was_airborne and not airborne: landing_time = .16
+	landing_time = maxf(0.0,landing_time-delta)
+	model.position.y = -.045*sin(PI*landing_time/.16)
+	if airborne:
+		play_clip("Jump")
+		if is_instance_valid(animation):
+			var duration := animation.get_animation(current_clip).length
+			animation.seek(clampf((5.1-vertical_speed)/10.2,.10,.84)*duration,true)
 			animation.advance(0.0)
-	if is_instance_valid(animation): animation.speed_scale = (clampf(speed/3.8,.5,1.8) if moving else 1.0) if (moving or airborne or shot_seconds > 0) else 0.0
+			animation.speed_scale = 0.0
+	else:
+		if shot_seconds > 0: play_clip("SwordSlash" if weapon == 3 else "Shoot_OneHanded")
+		elif moving:
+			if speed > 4.6: run_cycle = true
+			elif speed < 4.0: run_cycle = false
+			play_clip("Run_Carry" if run_cycle else "Walk_Carry")
+		else:
+			play_clip("Shoot_OneHanded")
+			if is_instance_valid(animation) and (animation.speed_scale != 0.0 or was_airborne):
+				animation.play(current_clip,0.0)
+				animation.seek(.15,true)
+				animation.advance(0.0)
+		if is_instance_valid(animation):
+			animation.speed_scale = (clampf(speed/(6.2 if run_cycle else 3.8),.65,1.35) if moving else 1.0) if moving or shot_seconds > 0 else 0.0
+	was_airborne = airborne
 	_update_hand_weapon()

@@ -81,9 +81,11 @@ var extra_levels: Node3D
 var fps: Node3D
 var fps_arena: Node3D
 var last_extra_level := 0
+var season = preload("backrooms_season.gd").new()
 
 func _ready() -> void:
 	name = "Faceless 2"
+	season.load_profile()
 	if OS.has_feature("android"): DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
 	environment = WorldEnvironment.new()
 	var env := Environment.new()
@@ -263,6 +265,7 @@ func open_backrooms_level(level_number: int) -> void:
 	# Old Backrooms levels remain playable but are not the FPS game.
 
 func start_fps_arena(selected_map: int = -1) -> void:
+	season.begin_session()
 	if selected_map == -1: selected_map = fps_arena.random_map()
 	if selected_map < 0 or selected_map > 3: return
 	if is_instance_valid(fps): fps.leave_level()
@@ -397,7 +400,13 @@ func _process(delta: float) -> void:
 		actor.position = actor.position.lerp(target, minf(delta * 12, 1))
 		actor.rotation.y = lerp_angle(actor.rotation.y, float(actor.get_meta("yaw", 0.0)), minf(delta * 10, 1))
 		if fps_arena.visible and actor.has_method("update_combat"):
-			actor.update_combat(speed/maxf(delta,.001),false,fps.peer_weapon(int(id)),int(fps.hit_serials.get(id,0)),delta,float(net.poses.get(id,{}).get("pitch",0.0)))
+			var prior: Vector3 = actor.get_meta("motion_previous",actor.position)
+			var vertical: float = (actor.position.y-prior.y)/maxf(delta,.001)
+			actor.set_meta("motion_previous",actor.position)
+			if not target.is_equal_approx(actor.get_meta("ground_sample_at",Vector3.INF)):
+				actor.set_meta("ground_sample_at",target)
+				actor.set_meta("airborne",not fps_arena.combat_grounded(target))
+			actor.update_combat(speed/maxf(delta,.001),bool(actor.get_meta("airborne",false)),fps.peer_weapon(int(id)),int(fps.hit_serials.get(id,0)),delta,float(net.poses.get(id,{}).get("pitch",0.0)),vertical)
 			continue
 		# Cache authored animation nodes once per crew instance; no recursive
 		# find_children allocation on every render frame for four remote peers.

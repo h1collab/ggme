@@ -45,6 +45,7 @@ var available_rooms: VBoxContainer
 var room_code_label: Label
 var intro_timer: Timer
 var panel_kind := ""
+var season_page := 0
 var cinematic_fade: ColorRect
 var call_title: Label
 var call_button: Button
@@ -327,26 +328,7 @@ func _signal_art(hero: bool = false) -> void:
 func menu() -> void:
 	if is_instance_valid(game): game.show_title_room()
 	_clear("menu")
-	_signal_art(true)
-	_image(panels,_brand_file("game_icon.png"),Rect2(72,50,62,62))
-	_label(panels,"ZORIX  /  SIGNAL DIVISION",Vector2(157,68),550,18,ACCENT)
-	_label(panels,"FACELESS",Vector2(72,190),760,100)
-	_label(panels,"02",Vector2(70,292),260,110,ACCENT)
-	_label(panels,localized("ENTER THE SIGNAL.","进入信号战区。"),Vector2(292,337),490,30)
-	_label(panels,localized("FOUR SECTORS  /  YOUR NEXT ENCOUNTER","四战区  /  下一次交锋"),Vector2(76,444),670,20,MUTED)
-	var play := _button(panels,localized("FIND A MATCH     →","寻找对局     →"),Rect2(72,516,646,82),func(): open_lobby(); _quick_match())
-	play.primary = true
-	_button(panels,localized("LOCAL TRAINING  /  RANDOM MAP","本地训练  /  随机地图"),Rect2(72,618,646,68),func(): game.net.leave(); game.start_fps_arena())
-	_button(panels,localized("CONTROLS","操作指南"),Rect2(72,716,200,60),open_guide)
-	_button(panels,localized("ABOUT","关于我们"),Rect2(294,716,200,60),open_about)
-	_button(panels,localized("SETTINGS","设置"),Rect2(516,716,202,60),open_settings)
-	_label(panels,localized("02 PLAYERS TO START   /   06 SLOTS","02 人即可开局   /   06 席位"),Vector2(76,818),690,19,ACCENT)
-	_label(panels,"SECTOR ATLAS   /   01—04",Vector2(900,172),600,24,ACCENT)
-	_label(panels,localized("01  NULL ALLEY","01  空值小巷"),Vector2(924,263),520,22)
-	_label(panels,localized("02  STATIC PASSAGE","02  杂讯窄街"),Vector2(924,393),520,22)
-	_label(panels,localized("03  FRACTURE ROW","03  断裂后巷"),Vector2(924,523),520,22)
-	_label(panels,localized("04  ERROR CROSSING","04  错误路口"),Vector2(924,653),520,22)
-	_label(panels,localized("72 × 96 METRES  /  TWO WAYS TO ENGAGE","72 × 96 米  /  双视角交锋"),Vector2(900,780),620,20,MUTED)
+	preload("backrooms_season_ui.gd").lobby(self)
 
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
@@ -881,3 +863,17 @@ func open_settings() -> void:
 func _brand_file(filename: String) -> String:
 	var packaged := "res://ui/" + filename
 	return packaged if ResourceLoader.exists(packaged) else "res://faceless2/branding/" + filename
+
+func open_season() -> void:
+	preload("backrooms_season_ui.gd").manual(self,season_page)
+func claim_season(tier: int, paid: bool) -> void:
+	var result: String = game.season.claim(tier,paid)
+	if result == "CLAIMED": open_season()
+	else:
+		var note := localized("PAID PURCHASE NOT OPEN","付费手册暂未开放购买") if paid else localized("REACH THE REQUIRED LEVEL FIRST","先提升到对应等级")
+		_label(panels,note,Vector2(290,710),1100,20)
+func open_collection() -> void:
+	_page(localized("S1 / COLLECTION","S1 / 收藏"),"collection")
+	_label(panels,localized("SIGNAL TOKENS  %d","信号徽记  %d") % game.season.tokens,Vector2(80,226),1200,30)
+	var entries: String = "\n".join(game.season.collection)
+	_label(panels,entries if not entries.is_empty() else localized("Claim badges and titles in the S1 manual.","在 S1 手册领取徽章与称号。"),Vector2(80,320),1300,25)

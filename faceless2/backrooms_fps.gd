@@ -1177,6 +1177,7 @@ func _finish_match() -> void:
         if value > best: best = value; round_winners.clear()
         if value == best: round_winners.append(int(peer_id))
     round_winners.sort()
+    if not game.net.dedicated: game.season.record_round(round_id,round_winners.has(1))
     round_winner_seats.clear()
     for peer_id in round_winners: round_winner_seats.append(int(game.net.seats.get(peer_id,1)))
     reload_ends.clear()
@@ -1257,7 +1258,9 @@ func receive_fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, com
     round_remaining = clampf(float(info.get("seconds",round_remaining)),0,MATCH_SECONDS)
     var was_over := round_over
     round_over = bool(info.get("over",round_over))
-    if round_over and not was_over and is_instance_valid(result_audio) and result_audio.stream != null: result_audio.play()
+    if round_over and not was_over:
+        game.season.record_round(int(info.get("id",round_id)),info.get("winners",[]).has(game.multiplayer.get_unique_id()))
+        if is_instance_valid(result_audio) and result_audio.stream != null: result_audio.play()
     round_break = clampf(float(info.get("break",round_break)),0,INTERMISSION_SECONDS)
     round_winners.clear()
     for winner in info.get("winners",[]): round_winners.append(int(winner))
@@ -1360,6 +1363,7 @@ func _finish_training() -> void:
     for target in training_targets:
         if is_instance_valid(target): target.queue_free()
     training_targets.clear()
+    if training_hits > 0: game.season.add_xp(mini(100,30+training_hits*2))
     training_best = maxi(training_best,training_hits)
     game.save_settings()
     game.ui.show_timed_hint(game.ui.localized(

@@ -44,7 +44,7 @@ func _anime_material(surface: String, tint: Color, density: float, metallic: flo
 	var ground_style := metallic == 0.0 and tint.r < .81
 	var color := Color(.12,.12,.12) if ground_style else Color(.83,.83,.83)
 	if metallic > 0.0: color = Color(.045,.045,.045)
-	var finish := AnimeFinish.material(color,false,false,.035 if ground_style else 0.0,1.0)
+	var finish := AnimeFinish.material(color,false,false,0.0,.65)
 	material_cache[key] = finish
 	return finish
 
@@ -131,11 +131,11 @@ func _build_map(index: int) -> void:
 				var z: float = sector*(15.0+block*23.0)
 				var height: float = 8.0+float((index+block)%3)*1.2
 				_panel(layout,"Building_%s_%s_%d" % [side,sector,block],Vector3(side*14,height*.5,z),Vector3(20,height,14),wall)
-				# Repeated authored window panels share materials and spatial batches.
-				for level in range(2):
-					for bay in [-1.0,1.0]:
-						_panel(layout,"BlackWindow_%s_%s_%d_%d_%s" % [side,sector,block,level,bay],Vector3(side*3.92,3.4+level*2.6,z+bay*3.8),Vector3(.12,1.35,1.6),ink,true)
-				_prop(layout,"DrainPipe_%s_%s_%d" % [side,sector,block],"wakeup_pipe.glb",Vector3(side*3.6,0,z),3.5,0,ink)
+				# One asymmetrical feature per facade instead of a repeating grid.
+				var bay: float = -3.1 if (index+block+int(side))%2 == 0 else 2.7
+				_panel(layout,"BlackWindow_%s_%s_%d" % [side,sector,block],Vector3(side*3.92,3.5+block*.8,z+bay),Vector3(.12,1.1,1.7+index*.2),ink,true)
+				if (index+block)%2 == 0:
+					_prop(layout,"DrainPipe_%s_%s_%d" % [side,sector,block],"wakeup_pipe.glb",Vector3(side*3.6,0,z-2.1),3.5,0,ink)
 		# More real collidable boxes, tucked against walls rather than across lanes.
 		for n in range(8):
 			var z: float = -40.0+n*11.0
@@ -146,7 +146,7 @@ func _build_map(index: int) -> void:
 			_prop(layout,"SideLaneCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(side*30.5,0,z),1.1,0,null,Vector2(1.5,1.5))
 			if n%2 == index%2:
 				_prop(layout,"LooseCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(side*2.6,0,z+1.8),.7,0,null,Vector2(1.0,1.0))
-		for end in [-1.0,1.0]:
+		for end in [-1.0 if side < 0 else 1.0]:
 			var sign := Label3D.new()
 			sign.text = ["404 / NULL","SIGNAL LOST","/// FRACTURE","ERROR_00"][index]
 			sign.position = Vector3(side*3.82,3.2,end*15)
@@ -224,7 +224,7 @@ func update_local_actor(delta: float) -> void:
 	local_shadow.rotation.y = player.rotation.y
 	local_shadow.visible = not player.third_person or player.camera_body_visible
 	var speed: float = Vector2(player.velocity.x,player.velocity.z).length()
-	local_shadow.update_combat(speed,not player.is_on_floor() and absf(player.velocity.y) > .3,game.fps.selected_weapon,int(game.fps.hit_serials.get(own,0)),delta,player.pitch)
+	local_shadow.update_combat(speed,not player.is_on_floor() and (absf(player.velocity.y) > .3 or not combat_grounded(player.position)),game.fps.selected_weapon,int(game.fps.hit_serials.get(own,0)),delta,player.pitch,player.velocity.y)
 	var mode := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if player.third_person else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	if int(local_shadow.get_meta("last_shadow_mode",-1)) != mode or int(local_shadow.get_meta("last_shadow_weapon",-1)) != game.fps.selected_weapon:
 		for mesh in local_shadow.meshes+local_shadow.held_meshes: (mesh as MeshInstance3D).cast_shadow = mode
@@ -306,3 +306,9 @@ func deactivate() -> void:
 func spawn_for(slot: int) -> Vector3:
 	var locations: Array[Vector3] = [Vector3(-7,.12,7),Vector3(7,.12,-7),Vector3(7,.12,7),Vector3(-7,.12,-7),Vector3(-27,.12,0),Vector3(27,.12,0)]
 	return locations[posmod(slot-1,locations.size())]
+
+func combat_grounded(at: Vector3) -> bool:
+	var ray := PhysicsRayQueryParameters3D.create(at+Vector3(0,.12,0),at-Vector3(0,.18,0),1)
+	ray.exclude = [get_parent().player.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	return not hit.is_empty() and hit.normal.y > .6

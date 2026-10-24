@@ -20,11 +20,12 @@ void fragment() {
     vec3 axis = abs(normalize(world_normal));
     vec2 p = axis.y > 0.6 ? world_position.xz : (axis.x > axis.z ? world_position.zy : world_position.xy);
     float jag = floor(p.y * 2.0) * 0.09 + sin(floor(p.y * 4.0) * 2.3) * 0.13;
-    float seam = abs(fract((p.x + jag) / 5.7) - 0.5) * 5.7;
-    float crack = 1.0 - smoothstep(0.018, 0.045, seam);
-    vec2 block = floor(p * vec2(0.7, 3.0));
-    float error_cell = step(0.97, fract(sin(dot(block, vec2(127.1,311.7))) * 43758.5453));
-    float mask = max(crack, error_cell * 0.8) * fracture_strength;
+    // A sparse broken seam, not tiled error bars on every facade/floor tile.
+    float center = 1.7 + sin(floor(p.y / 5.0) * 1.71) * 0.6;
+    float seam = abs(p.x + jag - center);
+    float crack = (1.0 - smoothstep(0.018, 0.045, seam));
+    float segment = step(0.35, fract(sin(floor(p.y / 3.0) * 17.31) * 43758.5453));
+    float mask = crack * segment * fracture_strength;
     vec3 inverse_ink = vec3(step(0.35, 0.5 - dot(ink_color.rgb,vec3(0.333333))));
     ALBEDO = mix(ALBEDO, inverse_ink, mask);
     ROUGHNESS = 1.0;

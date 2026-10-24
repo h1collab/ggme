@@ -2,6 +2,11 @@ extends CharacterBody3D
 
 const FPS_WALK_SPEED := 3.8
 const FPS_SPRINT_SPEED := 6.2
+const WALL_GLIDE_SPEED := 8.0
+var wall_glide := 0.0
+var wall_glide_active := false
+var wall_glide_direction := Vector3.ZERO
+var wall_glide_triggers := 0
 const Assets = preload("backrooms_assets.gd")
 var third_person := false
 var camera_clearance := 3.0
@@ -291,6 +296,24 @@ func update_combat_camera(delta: float) -> void:
 	elif camera_clearance > 1.05: camera_body_visible = true
 	game.fps_arena.local_shadow.visible = camera_body_visible
 
+func wall_tangent(at: Vector3, desired: Vector3) -> Vector3:
+	if desired.length() < .1: return Vector3.ZERO
+	var direction := desired.normalized()
+	var space := get_world_3d().direct_space_state
+	for side in [Vector3.LEFT,Vector3.RIGHT,Vector3.FORWARD,Vector3.BACK]:
+		var ray := PhysicsRayQueryParameters3D.create(at+Vector3(0,.9,0),at+Vector3(0,.9,0)+side*.56,1)
+		ray.exclude = [get_rid()]
+		var hit := space.intersect_ray(ray)
+		if hit.is_empty(): continue
+		var normal: Vector3 = hit.normal
+		if absf(normal.y) > .15: continue
+		var inward := -direction.dot(normal)
+		# Need both inward pressure and a useful tangent: pushing straight into
+		# a wall, brushing a floor, or standing still cannot earn acceleration.
+		var tangent := direction.slide(normal)
+		if inward > .12 and inward < .88 and tangent.length() > .45: return tangent.normalized()
+	return Vector3.ZERO
+
 func request_fire() -> void:
 	# A press just before cooldown ends is retained, never resets host timing.
 	if game.ui.modal or not game.fps.match_can_fire(): return
@@ -310,6 +333,8 @@ func look(delta: Vector2) -> void:
 func _physics_process(delta: float) -> void:
 	if not game.running or game.ui.modal:
 		velocity = Vector3.ZERO
+		wall_glide = 0.0
+		wall_glide_active = false
 		aim_pointer = -1
 		return
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
@@ -393,6 +418,21 @@ func _physics_process(delta: float) -> void:
 	var direction := transform.basis * Vector3(input.x, 0, input.y)
 	var speed := (FPS_SPRINT_SPEED if sprinting else FPS_WALK_SPEED) if fps_mode else (4.3 if sprinting else 2.6)
 	var acceleration := (20.0 if input.length() < .1 else 16.0) if is_on_floor() else 5.0
+	# Contact geometry, not a held key or a client-reported boost flag.
+	wall_glide_active = false
+	var glide := Vector3.ZERO
+	if fps_mode and input.length() > .5 and not game.fps.aiming:
+		glide = wall_tangent(global_position,direction)
+	if glide != Vector3.ZERO:
+		if wall_glide <= 0.0: wall_glide_triggers += 1
+		wall_glide_active = true
+		wall_glide = .20
+		wall_glide_direction = glide
+	else: wall_glide = maxf(0.0,wall_glide-delta)
+	if fps_mode and wall_glide > 0.0 and input.length() > .5 and not game.fps.aiming:
+		direction = wall_glide_direction
+		speed = lerpf(speed,WALL_GLIDE_SPEED,clampf(wall_glide/.12,0,1))
+		acceleration = 28.0
 	velocity.x = move_toward(velocity.x, direction.x * speed, delta * (acceleration if fps_mode else 14.0))
 	velocity.z = move_toward(velocity.z, direction.z * speed, delta * (acceleration if fps_mode else 14.0))
 	ground_grace = .10 if is_on_floor() else maxf(0,ground_grace-delta)

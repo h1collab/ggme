@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 24
+const PROTOCOL := 25
 const MAX_CREW := 6
 const PEER_IDLE_LIMIT_MSEC := 15000
 var game: Node
@@ -276,6 +276,11 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool, pitch: float) -> v
 	else:
 		if absf(pos.x) > 14.6 or pos.z < -29.6 or pos.z > 11.6 or pos.y < -0.5 or pos.y > 1.0: return
 	var speed_limit: float = game.player.FPS_SPRINT_SPEED + .8 if game.fps_arena.visible else 5.0
+	if game.fps_arena.visible:
+		var flat := Vector3(pos.x-old.x,0,pos.z-old.z)
+		# Recompute the wall condition on the host. A client cannot enable this
+		# by setting a boost flag; the swept capsule/path check still applies.
+		if flat.length() > .001 and host_wall_glide(old,pos): speed_limit = game.player.WALL_GLIDE_SPEED+.4
 	if pos.distance_to(old) > elapsed * speed_limit + 0.8: return
 	if game.fps_arena.visible:
 		var dt := clampf(float(now-int(travel_clock.get(id,now)))/1000.0,0,1)
@@ -291,6 +296,17 @@ func _submit_pose(pos: Vector3, yaw: float, monitoring: bool, pitch: float) -> v
 	pose_times[id] = now
 	monitor_flags[id] = false
 	game.update_crew(poses)
+
+func host_wall_glide(from: Vector3, to: Vector3) -> bool:
+	var step := Vector3(to.x-from.x,0,to.z-from.z)
+	if step.length() < .001: return false
+	for at in [from,to]:
+		for side in [Vector3.LEFT,Vector3.RIGHT,Vector3.FORWARD,Vector3.BACK]:
+			var ray := PhysicsRayQueryParameters3D.create(at+Vector3(0,.9,0),at+Vector3(0,.9,0)+side*.65,1)
+			ray.exclude = [game.player.get_rid()]
+			var hit: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(ray)
+			if not hit.is_empty() and absf(hit.normal.y) < .15 and absf(step.normalized().dot(hit.normal)) < .4: return true
+	return false
 
 func movement_path_clear(from: Vector3, to: Vector3) -> bool:
 	var capsule := CapsuleShape3D.new()

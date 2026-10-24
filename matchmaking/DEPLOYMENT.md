@@ -1,4 +1,4 @@
-# Public managed FACELESS 2 rooms (protocol 24)
+# Public managed FACELESS 2 rooms (protocol 25)
 
 Use a Linux VM with a public IPv4/IPv6 address, Node 22+, Godot 4.7.2 and the
 built `app/` project from the **same SHA** as the APK. The project must include

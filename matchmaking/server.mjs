@@ -57,7 +57,7 @@ export function createLobbyServer({ttlMs = DEFAULT_TTL, trustProxy = false, cloc
     for(const [ip,entry] of rates)if(entry.window<window-1)rates.delete(ip);
     rates.set(address,{window,count});
     if(count > 140) return reply(res,429,{error:'rate limit'});
-    if(req.method === 'GET' && path === '/health') return reply(res,200,{ok:true,service:'faceless2-directory',protocol:24,managed:!!managed});
+    if(req.method === 'GET' && path === '/health') return reply(res,200,{ok:true,service:'faceless2-directory',protocol:25,managed:!!managed});
     if(req.method === 'GET' && path === '/v1/rooms') {
       return reply(res,200,{rooms:[...rooms.values()].filter(r => r.public).slice(0,64).map(visible)});
     }

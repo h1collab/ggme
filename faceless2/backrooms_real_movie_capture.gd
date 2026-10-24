@@ -108,17 +108,46 @@ func record() -> void:
 		game.fps.select_weapon(0)
 		game.player.set_third_person(true)
 		game.player.yaw = 0; game.player.rotation.y = 0; game.player.pitch = -.12
-		for i in range(40):
-			game.player.global_position = Vector3(0,.12,25-float(i)*.08)
-			game.player.velocity = Vector3(0,0,-1.6)
-			game.player.update_combat_camera(.05)
-			game.fps_arena.update_local_actor(.05)
-			var torso: Vector3 = game.player.global_position+Vector3(0,1.0,0)
-			# Camera projection uses the stretched logical viewport, not the
-			# 960x540 output framebuffer (the project's UI canvas is 1600x900).
-			if camera.is_position_behind(torso) or not camera.get_viewport().get_visible_rect().has_point(camera.unproject_position(torso)):
-				issues.append("Third-person actor outside actual movie viewport")
-			await frame()
+		if map_id == 0:
+			# Real CharacterBody physics and input: tangent wall acceleration,
+			# sprint, jump, fall and landing in forty consecutive native frames.
+			game.player.reset_to(Vector3(35.45,.12,10))
+			game.player.pitch = -.12
+			game.player.shoulder = -1.0
+			game.player.set_third_person(true)
+			game.player.set_physics_process(true)
+			for code in [KEY_W,KEY_D,KEY_SHIFT]:
+				var press := InputEventKey.new();press.physical_keycode = code;press.pressed = true;Input.parse_input_event(press)
+			var fastest := 0.0
+			var highest := 0.0
+			var before_jump: int = game.player.jump_count
+			for i in range(40):
+				if i == 10: game.player.request_jump()
+				await frame()
+				game.fps_arena.update_local_actor(.05)
+				fastest = maxf(fastest,Vector2(game.player.velocity.x,game.player.velocity.z).length())
+				highest = maxf(highest,game.player.position.y)
+			for code in [KEY_W,KEY_D,KEY_SHIFT]:
+				var release := InputEventKey.new();release.physical_keycode = code;release.pressed = false;Input.parse_input_event(release)
+			game.player.set_physics_process(false)
+			game.player.velocity = Vector3.ZERO
+			game.player.wall_glide = 0.0
+			game.player.wall_glide_active = false
+			game.player.shoulder = 1.0
+			if fastest < 7.4 or highest < .55 or game.player.jump_count <= before_jump: issues.append("Actual wall glide/jump sequence did not execute")
+			print("S1_NATIVE_PHYSICS_WALL_JUMP speed=",fastest," peak=",highest," jumps=",game.player.jump_count-before_jump)
+		else:
+			for i in range(40):
+				game.player.global_position = Vector3(0,.12,25-float(i)*.08)
+				game.player.velocity = Vector3(0,0,-1.6)
+				game.player.update_combat_camera(.05)
+				game.fps_arena.update_local_actor(.05)
+				var torso: Vector3 = game.player.global_position+Vector3(0,1.0,0)
+				# Camera projection uses the stretched logical viewport, not the
+				# 960x540 output framebuffer (the project's UI canvas is 1600x900).
+				if camera.is_position_behind(torso) or not camera.get_viewport().get_visible_rect().has_point(camera.unproject_position(torso)):
+					issues.append("Third-person actor outside actual movie viewport")
+				await frame()
 		game.player.set_third_person(false)
 		game.ui.touch_preview = true
 		game.ui.prologue_finished()

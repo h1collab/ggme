@@ -5,6 +5,7 @@ var map_text: Label
 var room_text: Label
 var score_text: Label
 var feed: Label
+var glide_text: Label
 var timer_card: Panel
 var timer_text: Label
 var health_bar: ProgressBar
@@ -71,6 +72,9 @@ func build(owner_ui: Control) -> void:
 	result_text.size.y = 350
 	ready_button = ui._button(result_panel,"",Rect2(250,380,260,58),func(): ui.game.net.request_fps_ready(),true)
 	result_panel.visible = false
+	glide_text = ui._label(self,ui.localized("WALL GLIDE","蹭墙加速"),Vector2(650,510),300,18)
+	glide_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	glide_text.visible = false
 	feed = ui._label(self,"",Vector2(1100,178),452,16)
 	feed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	feed.size.y = 140
@@ -139,6 +143,7 @@ func refresh(delta: float) -> void:
 	shoulder_button.visible = ui.game.player.third_person
 	var game: Node = ui.game
 	var fps: Node3D = game.fps
+	glide_text.visible = game.player.wall_glide_active
 	visible = fps.active and not ui.modal
 	if not visible:
 		scoreboard_open = false
@@ -183,7 +188,7 @@ func refresh(delta: float) -> void:
 			button.visible = not fps.round_over
 	timer_text.text = ui.localized("LOCAL TRAINING","本地训练") if game.net.mode == "solo" else ui.localized("%02d:%02d · FIRST TO %d","%02d:%02d · %d 杀获胜") % [ceili(fps.round_remaining)/60,ceili(fps.round_remaining)%60,fps.SCORE_LIMIT]
 	if game.net.mode != "solo" and not fps.round_over and fps.health_by_peer.size() < 2: timer_text.text = ui.localized("WAITING FOR PLAYER 2","等待第 2 位玩家")
-	map_text.text = game.fps_arena.map_title(game.language == "zh")
+	map_text.text = "S1 · "+game.fps_arena.map_title(game.language == "zh")
 	var count: int = fps.health_by_peer.size()
 	var cap: int = game.net.max_crew
 	room_text.text = ui.localized("LOCAL TRAINING","本地训练") if game.net.mode == "solo" else "%s  ·  %d/%d" % [game.rooms.room_code,count,cap]
