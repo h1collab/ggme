@@ -2,5 +2,5 @@
 
 [ext_resource path="res://faceless2/backrooms_boot.gd" type="Script" id="1"]
 
-[node name="StrinovaBoot" type="CanvasLayer"]
+[node name="NULRYTHBoot" type="CanvasLayer"]
 script = ExtResource("1")

@@ -41,7 +41,7 @@ func build(level: int) -> void:
 	index = level
 	name = "AuthenticGLBArchitecture"
 	_load_architecture()
-	title = ["STRINOVA / 失联入口", "STRINOVA / 哑声宿舍", "STRINOVA / 倒影泳池", "STRINOVA / 零号控制室"][index]
+	title = ["NULRYTH / 失联入口", "NULRYTH / 哑声宿舍", "NULRYTH / 倒影泳池", "NULRYTH / 零号控制室"][index]
 	subtitle = ["墙后有人在重复你的声音。", "隔着门，有人比你先回头。", "水面里的人先一步迈开了脚。", "地面上只有你留下的第一串鞋印。"][index]
 	wall_material = _surface(0)
 	floor_material = _surface(1)
@@ -73,7 +73,7 @@ func build(level: int) -> void:
 		for x in [-9.0, 0.0, 9.0]:
 			_fixture(Vector3(x, 3.28, z), 0 if z > -9 else (1 if z > -20 else 2))
 	_console()
-	# There is no FNAF shutter control room in Strinova.
+	# There is no FNAF shutter control room in NULRYTH.
 	# The central corridor stays open so the player can explore freely.
 	relays.assign([Vector3(-12.8, 0, -5), Vector3(12.8, 0, -16), Vector3(-12.8, 0, -26.5)])
 	for i in range(3): _relay(i)

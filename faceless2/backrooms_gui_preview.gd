@@ -59,7 +59,7 @@ func run() -> void:
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(output_dir.path_join("interface_boot_02_ready.png"))
 	await create_timer(.35).timeout
-	print("STRINOVA_NATIVE_BOOT_PASS stages=",game.get_meta("boot_stages"))
+	print("NULRYTH_NATIVE_BOOT_PASS stages=",game.get_meta("boot_stages"))
 	game.ui.intro_timer.stop()
 	game.net.leave()
 	game.set_process(false)

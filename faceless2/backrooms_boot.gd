@@ -43,8 +43,8 @@ func _label(value: String, at: Vector2, width: float, font_size: int, color: Col
 func _build() -> void:
 	backdrop = ColorRect.new();backdrop.color = Color("080808");backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT);add_child(backdrop)
 	canvas = Control.new();canvas.size = Vector2(1600,900);add_child(canvas)
-	_label("ZORIX / SYSTEM START",Vector2(180,162),1240,18,Color(.55,.55,.55))
-	_label("STRINOVA",Vector2(172,286),1250,94)
+	preload("backrooms_developer_brand.gd").badge(canvas,Vector2(180,148),42)
+	_label("NULRYTH",Vector2(172,286),1250,94)
 	_label("S1  /  FIRST SIGNAL",Vector2(180,420),1240,22,Color(.7,.7,.7))
 	progress_bar = ProgressBar.new();progress_bar.position = Vector2(180,594);progress_bar.size = Vector2(1240,5);progress_bar.show_percentage = false
 	var back := StyleBoxFlat.new();back.bg_color = Color(.18,.18,.18)

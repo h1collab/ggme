@@ -288,8 +288,8 @@ func _clear(kind: String) -> void:
 func intro() -> void:
 	_clear("intro")
 	_signal_art()
-	var title := _label(panels,"STRINOVA",Vector2(180,286),1240,94)
-	var detail := _label(panels,"ZORIX / FIRST SIGNAL",Vector2(184,420),1240,22,MUTED)
+	var title := _label(panels,"NULRYTH",Vector2(180,286),1240,94)
+	preload("backrooms_developer_brand.gd").badge(panels,Vector2(184,420),42)
 	_button(panels,"CONTINUE",Rect2(180,620,340,64),menu)
 	intro_timer = Timer.new()
 	intro_timer.one_shot = true
@@ -334,7 +334,8 @@ func menu() -> void:
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
 	_signal_art()
-	_label(panels, "STRINOVA  /  ZORIX GAme TEAM", Vector2(72, 47), 1050, 19, ACCENT)
+	_label(panels, "NULRYTH", Vector2(72, 47), 230, 22, ACCENT)
+	preload("backrooms_developer_brand.gd").badge(panels,Vector2(330,43),34)
 	_label(panels, title, Vector2(72, 108), 1240, 40)
 	_button(panels, "BACK", Rect2(1320, 45, 204, 70), func(): close_panels() if game.running else menu())
 
@@ -537,14 +538,14 @@ func open_guide() -> void:
 	_label(panels,localized("Internet rooms need a reachable host UDP port; room codes are not NAT relays.","跨公网仍需房主 UDP 可达；房间号不是 NAT 中继。"),Vector2(77,824),1400,18,MUTED)
 
 func open_about() -> void:
-	_page("ABOUT / STRINOVA", "about")
-	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 248, 357, 357), true)
-	_label(panels, "Zorix GAme Team", Vector2(580, 244), 840, 45)
-	_label(panels, "Made By Zorix GAme Team", Vector2(584, 335), 850, 27, ACCENT)
-	_label(panels, "STRINOVA / S1\nFour monochrome alleys, anime characters and weapons.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
+	_page("ABOUT / NULRYTH", "about")
+	preload("backrooms_developer_brand.gd").logo(panels,Rect2(105,248,357,357))
+	_label(panels, "ZOrix", Vector2(580, 244), 840, 45)
+	_label(panels, "Developed by ZOrix", Vector2(584, 335), 850, 27, ACCENT)
+	_label(panels, "NULRYTH / S1\nFour monochrome alleys, anime characters and weapons.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.43.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.44.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -716,7 +717,7 @@ func show_timed_hint(message: String, seconds: float = 2.0) -> void:
 func _refresh_facility_goal() -> void:
 	if is_instance_valid(game.fps_arena) and game.fps_arena.visible:
 		facility_goal_label.visible = true
-		facility_goal_label.text = "STRINOVA / "+game.fps_arena.map_title(game.language == "zh")
+		facility_goal_label.text = "NULRYTH / "+game.fps_arena.map_title(game.language == "zh")
 		return
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
 		facility_goal_label.visible = true
@@ -787,7 +788,7 @@ func refresh() -> void:
 	if hint_timer > 0:
 		hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
 		if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
-	status_label.text = game.level.title if game.language == "zh" else ["STRINOVA / THE ENTRANCE", "STRINOVA / DORMITORY", "STRINOVA / REFLECTION", "STRINOVA / ZERO SHAFT"][game.stage]
+	status_label.text = game.level.title if game.language == "zh" else ["NULRYTH / THE ENTRANCE", "NULRYTH / DORMITORY", "NULRYTH / REFLECTION", "NULRYTH / ZERO SHAFT"][game.stage]
 	goal_label.text = localized("CLUES %d/3  ·  WATER %d  ·  %s", "线索 %d/3  ·  杏仁水 %d  ·  %s") % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
 	notice_label.text = localized("STAMINA %d%%\nKEY %s", "耐力 %d%%\n钥匙 %s") % [int(game.player.stamina), (localized("FOUND", "已找到") if game.key_picked else localized("MISSING", "未找到"))]
 	prompt_label.text = game.prompt()
@@ -807,7 +808,7 @@ func refresh() -> void:
 
 func open_settings() -> void:
 	_page(localized("SETTINGS","设置"),"settings")
-	_label(panels,localized("Strinova (formerly Faceless 2)","Strinova（原 Faceless 2）"),Vector2(76,172),1400,20,MUTED)
+	_label(panels,localized("NULRYTH (formerly Faceless 2)","NULRYTH（原 Faceless 2）"),Vector2(76,172),1400,20,MUTED)
 	_card(panels,Rect2(72,210,696,610))
 	_card(panels,Rect2(800,210,728,610))
 	_label(panels,localized("01  /  DISPLAY","01  /  画面"),Vector2(98,234),630,24,ACCENT)

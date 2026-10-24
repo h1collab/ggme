@@ -17,8 +17,9 @@ on:
       - "faceless2/backrooms_wakeup_room.gd"
       - "faceless2/backrooms_player.gd"
       - "faceless2/backrooms_boot.gd"
+      - "faceless2/backrooms_developer_brand.gd"
       - "faceless2/boot.tscn"
-      - "faceless2/branding/strinova_icon.svg"
+      - "faceless2/branding/nulryth_icon.svg"
       - "faceless2/backrooms_season.gd"
       - "faceless2/backrooms_season_ui.gd"
       - "faceless2/backrooms_season_checks.gd"
@@ -110,13 +111,13 @@ jobs:
           Path("app/main.tscn").write_text((src/"main.tscn").read_text().replace("res://faceless2/","res://scripts/"))
           Path("app/ui").mkdir(parents=True,exist_ok=True)
           import cairosvg
-          cairosvg.svg2png(url=str(src/"branding/strinova_icon.svg"),write_to="app/ui/game_icon.png",output_width=256,output_height=256)
+          cairosvg.svg2png(url=str(src/"branding/nulryth_icon.svg"),write_to="app/ui/game_icon.png",output_width=256,output_height=256)
           Path("app/boot.tscn").write_text((src/"boot.tscn").read_text().replace("res://faceless2/","res://scripts/"))
           shutil.copytree(Path("faceless2/hud_icons"),Path("app/ui/hud"),dirs_exist_ok=True)
           shutil.copy2(src/"branding/team_logo.jpg","app/ui/team_logo.jpg")
           Image.open("app/ui/team_logo.jpg").save("app/ui/team_splash.png")
           p=Path("app/project.godot");s=p.read_text()
-          s=re.sub(r'config/name=.*','config/name="Strinova Desktop Preview"',s)
+          s=re.sub(r'config/name=.*','config/name="NULRYTH Desktop Preview"',s)
           s=re.sub(r'config/icon=.*','config/icon="res://ui/game_icon.png"',s)
           s=re.sub(r'boot_splash/image=.*','boot_splash/image="res://ui/team_splash.png"',s)
           for key,value in {"boot_splash/show_image":"false"}.items():
@@ -250,11 +251,11 @@ jobs:
           timeout --kill-after=15s 1200 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1 || { tail -80 preview_frames/video.log; exit 1; }
           grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
           if grep -E "ERROR:|FAIL:" preview_frames/video.log; then exit 1; fi
-          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/strinova-v043-real-gameplay.mp4
+          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/nulryth-v044-real-gameplay.mp4
           python - <<'VERIFY'
           from pathlib import Path
           import json,subprocess
-          p=Path("preview_frames/strinova-v043-real-gameplay.mp4")
+          p=Path("preview_frames/nulryth-v044-real-gameplay.mp4")
           assert p.stat().st_size>120000,"MP4 missing or tiny"
           d=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=codec_name,nb_frames,width,height","-of","json",str(p)]))
           stream=d["streams"][0]

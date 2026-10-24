@@ -53,7 +53,7 @@ func record() -> void:
 	game = current_scene
 	for i in range(8):await frame()
 	startup_frames = total
-	print("STRINOVA_NATIVE_BOOT_FRAMES ",startup_frames," stages=",game.get_meta("boot_stages"))
+	print("NULRYTH_NATIVE_BOOT_FRAMES ",startup_frames," stages=",game.get_meta("boot_stages"))
 	for i in range(10): await process_frame
 	await create_timer(.25).timeout
 	game.ui.intro_timer.stop()

@@ -1,6 +1,10 @@
-# Strinova v0.43 / monochrome launch and S1 interface (protocol25)
+# NULRYTH v0.44 / ZOrix developer branding (protocol25)
 
-The displayed game name and Android application label are Strinova. Settings show “Strinova (formerly Faceless 2)” in English and “Strinova（原 Faceless 2）” in Chinese. New installations default to English; explicit saved language choices remain respected. The Android package id, legacy save filenames and internal RPC node name remain unchanged; this is presentation-only and stays on protocol25.
+NULRYTH replaces the previous Strinova display name across launch, lobby, settings, rooms and Android. The existing ZOrix controller/Z logo is reused through a display-only grayscale material, with explicit “Developed by ZOrix” credits on launch and menu pages. The launcher uses a monochrome N mark. Android version0.44.0/code44. English default, saved language choices, package id, saves and protocol25 are retained.
+
+# NULRYTH v0.43 / monochrome launch and S1 interface (protocol25)
+
+The displayed game name and Android application label are NULRYTH. Settings show “NULRYTH (formerly Faceless 2)” in English and “NULRYTH（原 Faceless 2）” in Chinese. New installations default to English; explicit saved language choices remain respected. The Android package id, legacy save filenames and internal RPC node name remain unchanged; this is presentation-only and stays on protocol25.
 
 A lightweight boot scene renders a black/white loading screen before the gameplay scene. Critical fonts/GLBs load through Godot's resource loader thread; gameplay scripts initialize on the main thread and report six completed stages. Progress is monotonic and reaches 100 only after the lobby is initialized. The old timed team splash is bypassed in this launch path. A short dark handoff replaces abrupt page flashes.
 

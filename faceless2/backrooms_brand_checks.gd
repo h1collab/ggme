@@ -3,9 +3,15 @@ var failed := false
 func _initialize() -> void:call_deferred("run")
 func check(value: bool, label: String) -> void:
 	if not value:failed = true;push_error("FAIL: "+label)
+func check_brand(parent: Node) -> void:
+	var logo: TextureRect = parent.get_node_or_null("ZOrixLogo")
+	var credit: Label = parent.get_node_or_null("DeveloperCredit")
+	check(logo != null and logo.texture != null and logo.material != null,"Original ZOrix logo is visible through the grayscale material")
+	check(credit != null and credit.text == "Developed by ZOrix","Explicit developer credit is displayed")
 func run() -> void:
 	root.size = Vector2i(1600,900)
 	var boot = load("res://boot.tscn").instantiate();root.add_child(boot)
+	check_brand(boot.canvas)
 	var deadline := Time.get_ticks_msec()+90000
 	while (current_scene == null or not current_scene.get("initialized")) and not boot.failed and Time.get_ticks_msec() < deadline:await process_frame
 	check(current_scene != null and not boot.failed,"Threaded startup reaches a real initialized game")
@@ -21,10 +27,11 @@ func run() -> void:
 	for language in ["en","zh"]:
 		game.language = language
 		game.ui.open_settings()
+		check_brand(game.ui.panels)
 		var found := false
 		for label in game.ui.panels.find_children("*","Label",true,false):
-			if label.text.contains("Strinova") and label.text.contains("Faceless 2"):found = true
-		check(found,"Settings names Strinova and its previous title in both languages")
+			if label.text.contains("NULRYTH") and label.text.contains("Faceless 2"):found = true
+		check(found,"Settings names NULRYTH and its previous title in both languages")
 		for page in [0,8]:
 			game.ui.season_page = page;game.ui.open_season()
 			var cards := 0
@@ -34,10 +41,10 @@ func run() -> void:
 				for child in panel.get_children():
 					if child is Control:check(Rect2(Vector2.ZERO,panel.size).encloses(child.get_rect()),"Reward labels and actions stay within their card")
 			check(cards == 10,"Manual pages 1 and 45 retain both five-level tracks")
-	check(game.rooms.room_name == "Strinova","Default public room branding uses the new title")
+	check(game.rooms.room_name == "NULRYTH","Default public room branding uses the new title")
 	var original_profile = game.season
 	game.season = preload("backrooms_season.gd").new()
-	game.season.profile_path = "user://strinova_claim_check.cfg"
+	game.season.profile_path = "user://nulryth_claim_check.cfg"
 	game.ui.season_page = 0;game.ui.open_season();await process_frame
 	var claim: Button = game.ui.panels.get_node("Tier01Free/Claim")
 	var at: Vector2 = claim.get_global_transform_with_canvas()*(claim.size*.5)
@@ -48,6 +55,7 @@ func run() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(game.season.profile_path))
 	game.season = original_profile
 	game.interface_motion = false;game.ui.menu()
+	check_brand(game.ui.panels)
 	var art: Control = game.ui.panels.get_node("SignalAtlas")
 	var before: float = art.phase
 	art._process(.5)
@@ -60,5 +68,5 @@ func run() -> void:
 				check(Rect2(Vector2.ZERO,root.get_visible_rect().size).encloses(Rect2(t.origin,control.size*t.get_scale())),"Lobby actions fit widescreen safe layout")
 	game.net.leave();game.queue_free();game = null
 	await create_timer(.3).timeout
-	if not failed:print("STRINOVA_BOOT_UI_PASS real resource/stage progress, English default, legacy settings label, grayscale manual bounds and motion toggle")
+	if not failed:print("NULRYTH_BOOT_UI_PASS real resource/stage progress, English default, legacy settings label, grayscale manual bounds and motion toggle")
 	quit(1 if failed else 0)

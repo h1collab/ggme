@@ -39,7 +39,8 @@ static func avatar(ui: Control, rect: Rect2) -> void:
 static func lobby(ui: Control) -> void:
 	ui._signal_art()
 	var season = ui.game.season
-	ui._label(ui.panels,"STRINOVA",Vector2(58,34),500,32)
+	ui._label(ui.panels,"NULRYTH",Vector2(58,34),260,32)
+	preload("backrooms_developer_brand.gd").badge(ui.panels,Vector2(340,38),36)
 	ui._label(ui.panels,"S1  /  FIRST SIGNAL",Vector2(1080,42),450,24)
 	ui._label(ui.panels,ui.localized("PLAYER 01","玩家 01"),Vector2(62,136),340,30)
 	ui._label(ui.panels,"LV.%02d   /   45" % season.level(),Vector2(62,184),320,22)

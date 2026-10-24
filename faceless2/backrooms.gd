@@ -89,7 +89,7 @@ var season = preload("backrooms_season.gd").new()
 func _ready() -> void:
 	# Display branding can change without changing protocol25 RPC node paths.
 	name = "Faceless 2"
-	var boot := get_tree().root.get_node_or_null("StrinovaBoot")
+	var boot := get_tree().root.get_node_or_null("NULRYTHBoot")
 	if boot == null:
 		for step in range(6): _initialize_stage(step,null)
 	else: _initialize_stage(0,boot)
