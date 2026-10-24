@@ -92,6 +92,7 @@ func update_combat(speed: float, airborne: bool, weapon: int, serial: int, delta
 	if airborne:
 		play_clip("Jump")
 		if is_instance_valid(animation):
+			if not was_airborne: animation.play(current_clip,0.0)
 			var duration := animation.get_animation(current_clip).length
 			animation.seek(clampf((5.1-vertical_speed)/10.2,.10,.84)*duration,true)
 			animation.advance(0.0)

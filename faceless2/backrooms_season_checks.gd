@@ -49,8 +49,14 @@ func run() -> void:
 		check(actor.current_clip.ends_with("Run_Carry") and actor.animation.speed_scale < 1.2,"Run gait matches actual sprint speed")
 		actor.update_combat(6.2,true,0,0,.016,0,5.0)
 		var rise: float = actor.animation.current_animation_position
+		var rise_pose: Array[Transform3D] = []
+		for bone in range(actor.skeleton.get_bone_count()): rise_pose.append(actor.skeleton.get_bone_global_pose(bone))
 		actor.update_combat(6.2,true,0,0,.016,0,-4.0)
 		check(actor.current_clip.ends_with("Jump") and actor.animation.current_animation_position > rise and actor.animation.speed_scale == 0,"Jump follows rise/fall without looping")
+		var changed := 0
+		for bone in range(actor.skeleton.get_bone_count()):
+			if not actor.skeleton.get_bone_global_pose(bone).is_equal_approx(rise_pose[bone]): changed += 1
+		check(changed > 2,"Rise and fall change actual source bone transforms")
 		check(actor.hand_contact_error() < .003,"Jump preserves the real hand grip")
 		actor.update_combat(6.2,false,0,0,.016)
 		check(actor.current_clip.ends_with("Run_Carry") and actor.animation.speed_scale > .8,"Landing resumes the running animation")
@@ -59,5 +65,6 @@ func run() -> void:
 	check(game.ui.panel_kind == "season" and game.ui.panels.find_children("*","Button",true,false).size() >= 13,"Last manual page renders both tracks through tier45")
 	game.net.leave();game.queue_free();game = null
 	for frame in range(10): await process_frame
+	await create_timer(.25).timeout
 	if not failed: print("FPS_S1_MOVEMENT_PASS wall geometry/speed cap, host eligibility, all six run/jump rigs, 45-tier claims/save/paid locks")
 	quit(1 if failed else 0)

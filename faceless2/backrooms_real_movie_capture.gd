@@ -47,6 +47,7 @@ func record() -> void:
 	game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	for i in range(10): await process_frame
+	await create_timer(.25).timeout
 	game.ui.intro_timer.stop()
 	game.net.leave()
 	game.set_process(false)
@@ -155,6 +156,7 @@ func record() -> void:
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame
+	await create_timer(.25).timeout
 	if total != 1166: issues.append("Expected 1166 actual consecutive native frames")
 	if not issues.is_empty():
 		for issue in issues: push_error(issue)

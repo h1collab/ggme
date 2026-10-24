@@ -198,6 +198,7 @@ func run() -> void:
 	game.net.leave()
 	game.queue_free()
 	for i in range(10): await process_frame
+	await create_timer(.25).timeout
 	if not issues.is_empty():
 		for issue in issues: push_error("Missing native frame "+issue)
 		quit(1)
