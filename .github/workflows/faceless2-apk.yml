@@ -1,4 +1,4 @@
-name: Build NULRYTH v0.44 Android APK
+name: Build NULRYTH v0.45 Android APK
 
 on:
   workflow_dispatch:
@@ -63,7 +63,7 @@ jobs:
               for item in root.iterdir():
                   if item.is_file(): item.unlink()
           source=Path('faceless2')
-          for name in ['backrooms_developer_brand.gd','backrooms_boot.gd','backrooms_brand_checks.gd','backrooms_season.gd','backrooms_season_ui.gd','backrooms_season_checks.gd','backrooms_static_batch.gd','backrooms_render_budget.gd','backrooms_performance_checks.gd','backrooms_dedicated.gd','backrooms.gd','backrooms_bake_rifle.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_interface_theme.gd','backrooms_interface_button.gd','backrooms_interface_art.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_wakeup_room.gd','backrooms_extra_levels.gd','backrooms_extra_transport.gd','backrooms_fps_arena.gd','backrooms_fps.gd','backrooms_arsenal.gd','backrooms_combat_actor.gd','backrooms_expansion_checks.gd','fps_weapon_finish.gdshader','fps_void_hands.gdshader','fps_anime_surface.gdshader','fps_anime_outline.gdshader','backrooms_anime_finish.gd','backrooms_fps_checks.gd','backrooms_fps_hud.gd','backrooms_mobile_checks.gd','backrooms_extra_levels_checks.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','backrooms_fps_session_checks.gd','virtual_joystick.gd','touch_action.gd']:
+          for name in ['backrooms_map_catalog.gd','backrooms_map_browser.gd','backrooms_map_reveal.gd','backrooms_reward_art.gd','backrooms_map_ui_checks.gd','backrooms_developer_brand.gd','backrooms_boot.gd','backrooms_brand_checks.gd','backrooms_season.gd','backrooms_season_ui.gd','backrooms_season_checks.gd','backrooms_static_batch.gd','backrooms_render_budget.gd','backrooms_performance_checks.gd','backrooms_dedicated.gd','backrooms.gd','backrooms_bake_rifle.gd','backrooms_level.gd','backrooms_player.gd','backrooms_ui.gd','backrooms_interface_theme.gd','backrooms_interface_button.gd','backrooms_interface_art.gd','backrooms_network.gd','backrooms_rooms.gd','backrooms_assets.gd','backrooms_story.gd','backrooms_prologue.gd','backrooms_prologue_room.gd','backrooms_wakeup_room.gd','backrooms_extra_levels.gd','backrooms_extra_transport.gd','backrooms_fps_arena.gd','backrooms_fps.gd','backrooms_arsenal.gd','backrooms_combat_actor.gd','backrooms_expansion_checks.gd','fps_weapon_finish.gdshader','fps_void_hands.gdshader','fps_anime_surface.gdshader','fps_anime_outline.gdshader','backrooms_anime_finish.gd','backrooms_fps_checks.gd','backrooms_fps_hud.gd','backrooms_mobile_checks.gd','backrooms_extra_levels_checks.gd','backrooms_prologue_checks.gd','backrooms_story_checks.gd','backrooms_checks.gd','backrooms_cinematic_checks.gd','backrooms_network_checks.gd','backrooms_room_checks.gd','backrooms_fps_session_checks.gd','virtual_joystick.gd','touch_action.gd']:
               shutil.copy2(source/name, Path('app/scripts')/name)
           shutil.copy2(source/'assets/entity.glb', 'app/assets/entity.glb')
           (Path('app/assets/vendor')).mkdir(parents=True, exist_ok=True)
@@ -75,6 +75,7 @@ jobs:
           cairosvg.svg2png(url=str(source/'branding/nulryth_icon.svg'),write_to='app/ui/game_icon.png',output_width=256,output_height=256)
           Path('app/boot.tscn').write_text((source/'boot.tscn').read_text().replace('res://faceless2/','res://scripts/'))
           shutil.copytree(Path("faceless2/hud_icons"),Path("app/ui/hud"),dirs_exist_ok=True)
+          shutil.copytree(source/'ui_art',Path('app/ui/art'),dirs_exist_ok=True)
           shutil.copy2(source/'branding/team_logo.jpg', 'app/ui/team_logo.jpg')
           Image.open('app/ui/team_logo.jpg').save('app/ui/team_splash.png')
           p=Path('app/project.godot'); s=p.read_text()
@@ -99,8 +100,8 @@ jobs:
           s=s.replace('Escape Black Pine','NULRYTH').replace('School Brawl','NULRYTH')
           s=re.sub(r'(?m)^package/name=.*','package/name="NULRYTH"',s)
           s=s.replace('res://ui/icon.svg','res://ui/game_icon.png')
-          s=re.sub(r'(?m)^version/code=.*','version/code=44',s)
-          s=re.sub(r'(?m)^version/name=.*','version/name="0.44.0"',s)
+          s=re.sub(r'(?m)^version/code=.*','version/code=45',s)
+          s=re.sub(r'(?m)^version/name=.*','version/name="0.45.0"',s)
           # Export all resources: scripts load imported GLBs, audio and textures by path.
           # A resource-only selection is unsafe for dynamic ResourceLoader paths.
           s=re.sub(r'(?m)^export_filter=.*', 'export_filter="all_resources"', s)
@@ -256,7 +257,7 @@ jobs:
           python - <<'PYCODE'
           from pathlib import Path
           root=Path('app')
-          required=['scripts/backrooms_anime_finish.gd','scripts/fps_anime_surface.gdshader','scripts/fps_anime_outline.gdshader','scripts/fps_void_hands.gdshader','scripts/backrooms_interface_theme.gd','scripts/backrooms_interface_button.gd','scripts/backrooms_interface_art.gd','assets/vendor/fps_pistol.glb','assets/vendor/fps_sniper.glb','assets/vendor/fps_knife.glb','assets/vendor/fps_character_1.glb','assets/vendor/fps_character_2.glb','assets/vendor/fps_character_3.glb','assets/vendor/fps_character_4.glb','audio/fps_pistol.wav','audio/fps_sniper.wav','audio/fps_knife.wav','scripts/backrooms_arsenal.gd','scripts/backrooms_combat_actor.gd','assets/vendor/fps_m4a1.glb','assets/vendor/wakeup_container_tall.glb','assets/vendor/wakeup_wall_pillar.glb','assets/vendor/fps_daylight_sky.hdr','scripts/fps_weapon_finish.gdshader','assets/vendor/pbr_weapon_metal_diffuse.jpg','assets/vendor/pbr_weapon_metal_normal.jpg','assets/vendor/pbr_weapon_metal_rough.jpg','assets/vendor/pbr_weapon_metal_metal.jpg','assets/entity.glb','assets/vendor/almond_water.glb','assets/vendor/lift_key.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','assets/vendor/first_person_legs.glb','audio/voice/brief_0.ogg','audio/voice/brief_3.ogg','audio/voice/opening.ogg','audio/voice/tape_3_2.ogg','audio/voice/turn_2.ogg','audio/voice/ending_seal.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','audio/phone_ring.wav','audio/phone_disconnect.wav','audio/phone_static.wav','audio/phone_fall.wav','assets/vendor/iphone17_pro.glb','assets/vendor/sketchfab_smiler.glb','assets/vendor/sketchfab_fps_arms.glb','assets/vendor/sketchfab_smiler_face.png','audio/smiler_sting.wav','audio/door_locked.wav','audio/door_creak.wav','audio/door_slam.wav','audio/flashlight_pickup.wav','audio/flashlight_click.wav','assets/vendor/flashlight_cc0.glb','assets/vendor/facility_corridor_cc0.glb','assets/vendor/scan_wheelchair_01.glb','assets/vendor/scan_barrel_02.glb','assets/vendor/scan_cardboard_box_01.glb','assets/vendor/scan_modular_airduct_circular_01.glb','assets/vendor/scan_industrial_wall_lamp.glb','assets/vendor/scan_gothicbed_01.glb','assets/vendor/scan_chandelier_03.glb','assets/vendor/scan_vintage_day_bed.glb','assets/vendor/scan_wooden_lantern_01.glb','assets/vendor/scan_bar_chair_round_01.glb','assets/vendor/scan_rubber_duck_toy.glb','assets/vendor/scan_painted_wooden_sofa.glb','assets/vendor/wakeup_wall_switch.glb','assets/vendor/wakeup_chair.glb','assets/vendor/frowner_online_ccby.png','assets/vendor/wakeup_wall.glb','assets/vendor/wakeup_floor_panel.glb','assets/vendor/wakeup_door_single_closed.glb','assets/vendor/wakeup_pipe.glb','assets/vendor/wakeup_computer_screen.glb','assets/vendor/fps_blaster_f.glb','assets/vendor/fps_blaster_f_open_optic.glb','assets/vendor/fps_wrad_arms.glb','assets/vendor/fps_wrad_grip_hands.glb','assets/vendor/fps_wrad_grip_r.glb','assets/vendor/fps_wrad_grip_l.glb','assets/vendor/fps_target_large.glb','assets/vendor/fps_clip_small.glb','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
+          required=['ui/art/s1_keyart.webp','ui/art/static_passage.webp','ui/art/fracture_row.webp','ui/art/error_crossing.webp','scripts/backrooms_map_reveal.gd','scripts/backrooms_map_catalog.gd','scripts/backrooms_map_browser.gd','scripts/backrooms_reward_art.gd','scripts/backrooms_anime_finish.gd','scripts/fps_anime_surface.gdshader','scripts/fps_anime_outline.gdshader','scripts/fps_void_hands.gdshader','scripts/backrooms_interface_theme.gd','scripts/backrooms_interface_button.gd','scripts/backrooms_interface_art.gd','assets/vendor/fps_pistol.glb','assets/vendor/fps_sniper.glb','assets/vendor/fps_knife.glb','assets/vendor/fps_character_1.glb','assets/vendor/fps_character_2.glb','assets/vendor/fps_character_3.glb','assets/vendor/fps_character_4.glb','audio/fps_pistol.wav','audio/fps_sniper.wav','audio/fps_knife.wav','scripts/backrooms_arsenal.gd','scripts/backrooms_combat_actor.gd','assets/vendor/fps_m4a1.glb','assets/vendor/wakeup_container_tall.glb','assets/vendor/wakeup_wall_pillar.glb','assets/vendor/fps_daylight_sky.hdr','scripts/fps_weapon_finish.gdshader','assets/vendor/pbr_weapon_metal_diffuse.jpg','assets/vendor/pbr_weapon_metal_normal.jpg','assets/vendor/pbr_weapon_metal_rough.jpg','assets/vendor/pbr_weapon_metal_metal.jpg','assets/entity.glb','assets/vendor/almond_water.glb','assets/vendor/lift_key.glb','assets/vendor/huuxloc_backroom.glb','assets/vendor/story_font.otf','assets/vendor/crew.glb','assets/vendor/first_person_arms.glb','assets/vendor/first_person_legs.glb','audio/voice/brief_0.ogg','audio/voice/brief_3.ogg','audio/voice/opening.ogg','audio/voice/tape_3_2.ogg','audio/voice/turn_2.ogg','audio/voice/ending_seal.ogg','audio/voice/tape_2_2.ogg','audio/splash.wav','audio/elevator_door.wav','audio/elevator_move.wav','audio/phone_ring.wav','audio/phone_disconnect.wav','audio/phone_static.wav','audio/phone_fall.wav','assets/vendor/iphone17_pro.glb','assets/vendor/sketchfab_smiler.glb','assets/vendor/sketchfab_fps_arms.glb','assets/vendor/sketchfab_smiler_face.png','audio/smiler_sting.wav','audio/door_locked.wav','audio/door_creak.wav','audio/door_slam.wav','audio/flashlight_pickup.wav','audio/flashlight_click.wav','assets/vendor/flashlight_cc0.glb','assets/vendor/facility_corridor_cc0.glb','assets/vendor/scan_wheelchair_01.glb','assets/vendor/scan_barrel_02.glb','assets/vendor/scan_cardboard_box_01.glb','assets/vendor/scan_modular_airduct_circular_01.glb','assets/vendor/scan_industrial_wall_lamp.glb','assets/vendor/scan_gothicbed_01.glb','assets/vendor/scan_chandelier_03.glb','assets/vendor/scan_vintage_day_bed.glb','assets/vendor/scan_wooden_lantern_01.glb','assets/vendor/scan_bar_chair_round_01.glb','assets/vendor/scan_rubber_duck_toy.glb','assets/vendor/scan_painted_wooden_sofa.glb','assets/vendor/wakeup_wall_switch.glb','assets/vendor/wakeup_chair.glb','assets/vendor/frowner_online_ccby.png','assets/vendor/wakeup_wall.glb','assets/vendor/wakeup_floor_panel.glb','assets/vendor/wakeup_door_single_closed.glb','assets/vendor/wakeup_pipe.glb','assets/vendor/wakeup_computer_screen.glb','assets/vendor/fps_blaster_f.glb','assets/vendor/fps_blaster_f_open_optic.glb','assets/vendor/fps_wrad_arms.glb','assets/vendor/fps_wrad_grip_hands.glb','assets/vendor/fps_wrad_grip_r.glb','assets/vendor/fps_wrad_grip_l.glb','assets/vendor/fps_target_large.glb','assets/vendor/fps_clip_small.glb','assets/vendor/monster_step.ogg','assets/vendor/water.mp3','ASSET_CREDITS.md','OFL.txt','KOKORO_APACHE_2.txt','ui/game_icon.png','ui/team_logo.jpg']
           for f in required: assert (root/f).is_file() and (root/f).stat().st_size > 100, f
           level_source=Path('faceless2/backrooms_level.gd').read_text()
           player_source=Path('faceless2/backrooms_player.gd').read_text()
@@ -278,18 +279,20 @@ jobs:
           timeout 180 godot --headless --path app --script scripts/backrooms_extra_levels_checks.gd 2>&1 | tee qa/extra-levels-checks.log
           timeout 180 godot --headless --path app --script scripts/backrooms_performance_checks.gd 2>&1 | tee qa/performance-checks.log
           timeout 180 godot --headless --verbose --path app --script scripts/backrooms_fps_checks.gd 2>&1 | tee qa/fps-checks.log
+          timeout 180 godot --headless --path app --script scripts/backrooms_map_ui_checks.gd 2>&1 | tee qa/map-ui-checks.log
           timeout 180 godot --headless --path app --script scripts/backrooms_brand_checks.gd 2>&1 | tee qa/brand-checks.log
           timeout 180 godot --headless --path app --script scripts/backrooms_season_checks.gd 2>&1 | tee qa/season-checks.log
           timeout 180 godot --headless --path app --script scripts/backrooms_expansion_checks.gd 2>&1 | tee qa/expansion-checks.log
           timeout 180 godot --headless --path app --script scripts/backrooms_mobile_checks.gd 2>&1 | tee qa/mobile-controls.log
           timeout 180 godot --headless --verbose --path app --script scripts/backrooms_cinematic_checks.gd 2>&1 | tee qa/cinematic-checks.log
+          if grep -E "ERROR:|FAIL:" qa/{runtime,story,prologue,extra-levels,performance,fps,map-ui,brand,season,expansion}-checks.log qa/mobile-controls.log qa/cinematic-checks.log; then exit 1; fi
           python faceless2/test_backrooms_network.py --godot godot --project app --output qa 2>&1 | tee qa/network-checks.log
           python faceless2/test_room_directory.py --godot godot --project app --output qa 2>&1 | tee qa/room-directory.log
           python faceless2/test_managed_rooms.py --godot godot --project app --output qa 2>&1 | tee qa/managed-rooms.log
           python faceless2/test_fps_sessions.py --godot godot --project app --output qa 2>&1 | tee qa/fps-sessions.log
           python - <<'PYCODE'
           from pathlib import Path
-          for name, marker in [("brand-checks.log","NULRYTH_BOOT_UI_PASS"),("season-checks.log","FPS_S1_MOVEMENT_PASS"),("performance-checks.log","FPS_PERFORMANCE_CHECKS_PASS"),("expansion-checks.log","FPS_EXPANSION_PASS"),("mobile-controls.log","FPS_MOBILE_REAL_INPUT_PASS"),("fps-checks.log","FACELESS2_FPS_CHECKS_PASS"),("fps-sessions.log","FPS_REAL_MULTIPROCESS_UDP_PASS"),("runtime-checks.log","Faceless 2 runtime checks: PASS"),("network-checks.log","Faceless 2 P2P checks: PASS"),("story-checks.log","Faceless 2 story checks: PASS"),("prologue-checks.log","Faceless 2 prologue checks: PASS"),("cinematic-checks.log","Faceless 2 cinematic checks: PASS"),("extra-levels-checks.log","Faceless 2 extra levels checks: PASS"),("room-directory.log","Faceless 2 room directory: PASS")]:
+          for name, marker in [("map-ui-checks.log","NULRYTH_MAP_ART_REVEAL_PASS"),("brand-checks.log","NULRYTH_BOOT_UI_PASS"),("season-checks.log","FPS_S1_MOVEMENT_PASS"),("performance-checks.log","FPS_PERFORMANCE_CHECKS_PASS"),("expansion-checks.log","FPS_EXPANSION_PASS"),("mobile-controls.log","FPS_MOBILE_REAL_INPUT_PASS"),("fps-checks.log","FACELESS2_FPS_CHECKS_PASS"),("fps-sessions.log","FPS_REAL_MULTIPROCESS_UDP_PASS"),("runtime-checks.log","Faceless 2 runtime checks: PASS"),("network-checks.log","Faceless 2 P2P checks: PASS"),("story-checks.log","Faceless 2 story checks: PASS"),("prologue-checks.log","Faceless 2 prologue checks: PASS"),("cinematic-checks.log","Faceless 2 cinematic checks: PASS"),("extra-levels-checks.log","Faceless 2 extra levels checks: PASS"),("room-directory.log","Faceless 2 room directory: PASS")]:
               text=Path("qa",name).read_text()
               assert marker in text and "ERROR:" not in text and "FAIL" not in text, name
           PYCODE
@@ -299,7 +302,7 @@ jobs:
         run: |
           keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore "$GITHUB_WORKSPACE/debug.keystore" -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 10000
 
-      - name: Export NULRYTH v0.44 APK
+      - name: Export NULRYTH v0.45 APK
         shell: bash
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
@@ -307,21 +310,21 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p app/build
-          godot --headless --path app --export-debug Android build/nulryth-v044.apk
-          test -s app/build/nulryth-v044.apk
+          godot --headless --path app --export-debug Android build/nulryth-v045.apk
+          test -s app/build/nulryth-v045.apk
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: nulryth-v044-apk
-          path: app/build/nulryth-v044.apk
+          name: nulryth-v045-apk
+          path: app/build/nulryth-v045.apk
           if-no-files-found: error
 
       - name: Upload headless gameplay and P2P test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faceless2-v044-headless-qa
+          name: faceless2-v045-headless-qa
           path: qa
           if-no-files-found: error

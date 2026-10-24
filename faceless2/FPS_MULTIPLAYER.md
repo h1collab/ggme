@@ -1,3 +1,13 @@
+# NULRYTH v0.45 / illustrated S1 and real-map reveal (protocol25)
+
+Built-in image_gen supplies four monochrome anime illustrations in ui_art/; PROMPTS.json preserves the complete prompts. The S1 key art becomes the manual's portrait sidebar; token/badge/title drawings continue to represent actual cosmetic rewards. FREE claims, XP, local saves, PAID preview locks and the45-level cap are unchanged.
+
+The map archive exposes all four existing native arenas for selected-map training. Host creation offers Random or a specific map. STATIC PASSAGE gains high skybridge/cable silhouettes, FRACTURE ROW a split overhead skyline, and ERROR CROSSING a cross gateway. These shared-cube render-only landmarks preserve ground collision layouts/spawns and static batching. Covers are illustrations, not gameplay screenshots.
+
+The map reel cycles cached covers/names quickly, decelerates and confirms. Training enters the selected native arena at completion. Online reveal resolves only when the actual arena/authority map arrives; it never independently rolls a different network map. Cancel, timeout/error, stale resolution, skip and motion-off are explicit states. Player inputs are released during reveal. The real LAN/ENet regression now checks both independent peers' final revealed map against their actual arena map.
+
+Android0.45.0/code45; protocol25, package id, English default and saved language choices are retained. Native stills/video include the illustrated manual, map archive, actual search and final confirmation. No Android device performance conclusion follows from headless/build/desktop validation.
+
 # NULRYTH v0.44 / ZOrix developer branding (protocol25)
 
 NULRYTH replaces the previous Strinova display name across launch, lobby, settings, rooms and Android. The existing ZOrix controller/Z logo is reused through a display-only grayscale material, with explicit “Developed by ZOrix” credits on launch and menu pages. The launcher uses a monochrome N mark. Android version0.44.0/code44. English default, saved language choices, package id, saves and protocol25 are retained.

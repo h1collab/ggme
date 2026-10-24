@@ -1,0 +1,23 @@
+{
+  "generator": "Built-in image_gen",
+  "date": "2026-10-24",
+  "usage": "Illustrated S1 key art and map covers; gameplay remains native Godot geometry. Runtime WebP conversion retains artwork composition.",
+  "prompts": [
+    {
+      "key": "s1_keyart",
+      "prompt": "Use case: stylized-concept. Asset type: landscape game season-pass key art, also a NULL ALLEY map cover for NULRYTH. Create a premium monochrome anime game illustration, strictly black, white and gray, no photorealism. A small void-faced anime guardian with two white luminous eyes, angular gray helmet and ink-black clothing stands on the right, holding a stylized white sci-fi rifle lowered safely. Behind: a narrow urban alley of plain white plaster blocks, stacked angular shipping boxes against the walls, black sky and sparse thin white digital fracture lines. Strong ink silhouettes, manga halftone shading, crisp cel rendering, sophisticated quiet detail. Wide cinematic 16:9 composition: right half contains the guardian and alley, left third is almost black negative space for UI text added by code. No lettering, no words, no UI, no logo, no watermark. This is a game illustration asset, not a screenshot."
+    },
+    {
+      "key": "static_passage",
+      "prompt": "Use case: stylized-concept. Asset type: 16:9 game map cover illustration for STATIC PASSAGE in NULRYTH. Premium black-and-white anime environment art, cel shaded white plaster architecture, deep charcoal shadows, sparse manga halftone textures. A long narrow urban passage with two angular overhead skybridges, suspended dark utility cables and a few stacked cardboard shipping crates tucked along wall edges. Clear central walking lane, strong one-point perspective, dramatic pale sliver of sky, subtle fine horizontal digital static fractures confined to architecture edges. No people, no photorealism, no colors, no text or signs with letters, no UI, no logo, no watermark. Compose the key architecture in the central upper two thirds; lower quarter dark enough for map name rendered separately by code. Distinctive canopy/skybridge silhouette."
+    },
+    {
+      "key": "fracture_row",
+      "prompt": "Use case: stylized-concept. Asset type: 16:9 game map cover illustration for FRACTURE ROW in NULRYTH. Premium monochrome anime cel-shaded environment illustration, crisp white angular urban buildings against a black sky, expressive ink outlines and restrained halftone shadows. A back alley with staggered facade heights, broken white facade slabs and an offset overhead structure split by a narrow glowing white digital rift high above; walkable ground remains intact and unobstructed. Small asymmetrical stacks of shipping boxes beside walls, thin diagonal fracture markings rather than repeated props. No people, no photorealism, no colors, no text, no UI, no logo, no watermark. Cinematic deep perspective, architectural forms dominate central upper two thirds; dark lower quarter reserved for separately rendered map name. Distinctive split and staggered skyline."
+    },
+    {
+      "key": "error_crossing",
+      "prompt": "Use case: stylized-concept. Asset type: 16:9 game map cover illustration for ERROR CROSSING in NULRYTH. Premium black-and-white anime environment art with sharp ink contours and sparse manga halftone shading. An urban alley intersection with four clean white block facades, a large angular black overhead gateway crossing the perspective and a few freight crates tucked in side recesses. Clear open crossing at ground level, bold alternating white wall planes and black gaps, fine white glitch seam details at selected edges. Architectural rhythm feels like a sophisticated anime tactical arena, not a realistic city. No people, no colors, no photorealism, no text, no UI, no logo, no watermark. Wide 16:9, main gateway and crossing in upper central area, lower quarter dark for map name added in game code. Distinctive broad crossroad/gateway silhouette."
+    }
+  ]
+}

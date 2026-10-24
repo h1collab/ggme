@@ -6,8 +6,8 @@ const StaticBatch = preload("backrooms_static_batch.gd")
 const WIDTH := 72.0
 const LENGTH := 96.0
 const TILE := 12.0
-const MAP_NAMES := ["NULL ALLEY", "STATIC PASSAGE", "FRACTURE ROW", "ERROR CROSSING"]
-const MAP_NAMES_ZH := ["空值小巷", "杂讯窄街", "断裂后巷", "错误路口"]
+const MAP_NAMES = preload("backrooms_map_catalog.gd").NAMES
+const MAP_NAMES_ZH = preload("backrooms_map_catalog.gd").NAMES_ZH
 var map_id := 0
 var ground: StaticBody3D
 var light: DirectionalLight3D
@@ -164,6 +164,31 @@ func _build_map(index: int) -> void:
 		if index in [1,3]:
 			_panel(layout,"OverheadBridge_%s" % end,Vector3(0,7.0,end*19),Vector3(24,.4,2.5),ink)
 		_prop(layout,"EndSupply_%s" % end,"scan_cardboard_box_01.glb",Vector3(4,0,end*43),1.1,0,null,Vector2(1.5,1.5))
+
+	# Distinct high silhouettes use the shared cube/material batches. These
+	# render-only landmarks keep existing floor collisions and six spawn lanes.
+	if index == 1:
+		for side in [-1.0,1.0]:
+			_landmark(layout,"StaticCable%s" % side,Vector3(side*1.6,6.5,0),Vector3(.055,.055,76),ink)
+			_landmark(layout,"StaticCanopy%s" % side,Vector3(0,7.9,side*19),Vector3(8,.25,1.0),wall)
+	elif index == 2:
+		_landmark(layout,"SplitLeft",Vector3(-3,9,0),Vector3(3.8,.35,3),wall)
+		_landmark(layout,"SplitRight",Vector3(3,10,0),Vector3(3.8,.35,3),wall)
+		for shard in range(4):
+			var piece: MeshInstance3D = _landmark(layout,"RiftShard%d" % shard,Vector3(-.8+shard*.55,10+shard*.7,0),Vector3(.075,1.5,.1),wall)
+			piece.rotation.z = -.2
+	elif index == 3:
+		_landmark(layout,"CrossGatewayX",Vector3(0,8.5,0),Vector3(25,.45,2),ink)
+		_landmark(layout,"CrossGatewayZ",Vector3(0,9.3,0),Vector3(2,.45,25),ink)
+		for side in [-1.0,1.0]:
+			for end in [-1.0,1.0]:
+				_landmark(layout,"CrossUpright%s%s" % [side,end],Vector3(side*3.9,4,end*9),Vector3(.18,8,.3),ink)
+
+func _landmark(parent: Node3D, label: String, at: Vector3, extent: Vector3, material: Material) -> MeshInstance3D:
+	var mesh := MeshInstance3D.new();mesh.name = label;mesh.mesh = architecture_mesh
+	mesh.position = at;mesh.scale = extent;mesh.material_override = material
+	parent.add_child(mesh)
+	return mesh
 
 func build() -> void:
 	if built: return

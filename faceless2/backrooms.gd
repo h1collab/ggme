@@ -311,6 +311,7 @@ func start_fps_arena(selected_map: int = -1) -> void:
 	player.set_physics_process(true)
 	fps.enter_arena()
 	ui.prologue_finished()
+	ui.resolve_map_reveal(selected_map)
 
 func backrooms_return() -> void:
 	if is_instance_valid(fps): fps.leave_level()

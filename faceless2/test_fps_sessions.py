@@ -36,17 +36,20 @@ def test_lan(args,output,project,script):
             handle=(output/f'fps-lan-{label}.log').open('w');handles.append(handle)
             processes[label]=subprocess.Popen([args.godot,'--headless','--path',str(project),
                 '--script',script,'--',f'--role={role}',f'--label={label}',
-                f'--port={port}','--slots=2','--map=1',f'--output={work}'],stdout=handle,stderr=subprocess.STDOUT)
+                f'--port={port}','--slots=2','--map=1','--show-map-reveal=1',f'--output={work}'],stdout=handle,stderr=subprocess.STDOUT)
         try:
             spawn('host','lan_host')
             host=wait('host',lambda x:x.get('mode')=='host' and len(x.get('room',''))==8)
             assert not host['can_fire'] and host['directory']==''
+            host=wait('host',lambda x:x.get('revealed_map')==1 and not x.get('reveal_visible',True))
             spawn('client','lan_quick')
             client=wait('client',lambda x:x.get('mode')=='client' and len(x.get('hp',{}))==2)
             host=wait('host',lambda x:x.get('members')==2)
             assert client['room']==host['room'] and client['directory']==''
             assert client['map']==host['map']==1 and client['geometry']==host['geometry']
             assert client['can_fire'] and host['can_fire']
+            client=wait('client',lambda x:x.get('revealed_map')==1 and not x.get('reveal_visible',True))
+            assert client['revealed_map']==host['revealed_map']==client['map']==host['map']
             assert client['seats']==host['seats'] and len(client['seats'])==2
             for label,process in processes.items():
                 (work/(label+'-command.json')).write_text(json.dumps({'op':'quit','serial':1}))
@@ -55,8 +58,8 @@ def test_lan(args,output,project,script):
             for label in processes:
                 text=(output/f'fps-lan-{label}.log').read_text()
                 assert 'ERROR:' not in text and 'FAIL:' not in text,text
-            (output/'fps-lan-results.json').write_text(json.dumps({'udp_discovery':'PASS','no_http_directory':'PASS','code_to_enet':'PASS','two_player_start':'PASS','four_weapon_rpcs':'PASS','finite_inventory_switching':'PASS','sniper_damage_death_counter':'PASS','map_geometry_and_seats':'PASS'},indent=2))
-            print('FPS_REAL_LAN_ROOM_PASS native UDP announcements, code, two headless ENet peers; no HTTP',flush=True)
+            (output/'fps-lan-results.json').write_text(json.dumps({'udp_discovery':'PASS','no_http_directory':'PASS','code_to_enet':'PASS','two_player_start':'PASS','four_weapon_rpcs':'PASS','finite_inventory_switching':'PASS','sniper_damage_death_counter':'PASS','map_geometry_and_seats':'PASS','actual_peer_map_reveal':'PASS'},indent=2))
+            print('FPS_REAL_LAN_ROOM_PASS native UDP announcements, code, two headless ENet peers; no HTTP; both real peers reveal the actual room map',flush=True)
         finally:
             for process in processes.values():
                 if process.poll() is None:

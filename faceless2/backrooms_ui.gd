@@ -46,6 +46,9 @@ var room_code_label: Label
 var intro_timer: Timer
 var panel_kind := ""
 var season_page := 0
+var training_map := 0
+var map_choice: OptionButton
+var map_reveal: Control
 var season_notice: Label
 var cinematic_fade: ColorRect
 var call_title: Label
@@ -103,6 +106,9 @@ func _ready() -> void:
 	panels = Control.new()
 	panels.size = Vector2(1600, 900)
 	canvas.add_child(panels)
+	map_reveal = preload("backrooms_map_reveal.gd").new()
+	canvas.add_child(map_reveal)
+	map_reveal.configure(self)
 
 func _fit() -> void:
 	var extent := get_viewport().get_visible_rect().size
@@ -305,6 +311,7 @@ func rebuild_language() -> void:
 	match panel_kind:
 		"menu": menu()
 		"season": open_season()
+		"maps": open_maps()
 		"collection": open_collection()
 		"settings": open_settings()
 		"prologue": prologue_stage(game.prologue.phase)
@@ -545,7 +552,7 @@ func open_about() -> void:
 	_label(panels, "NULRYTH / S1\nFour monochrome alleys, anime characters and weapons.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.44.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.45.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -605,8 +612,13 @@ func open_lobby() -> void:
 	slot_limit.step = 1
 	slot_limit.value = 6
 	panels.add_child(slot_limit)
-	_button(panels, localized("CREATE ROOM", "创建房间"), Rect2(95, 497, 609, 70), _create_room)
-	room_code_label = _label(panels, localized("Share your room code to invite friends.", "房间号在创建后显示，复制给朋友即可加入。"), Vector2(99, 593), 630, 22, ACCENT)
+	_button(panels, localized("CREATE ROOM", "创建房间"), Rect2(95, 563, 609, 62), _create_room)
+	_label(panels,localized("HOST MAP","房主地图"),Vector2(96,473),190,17,MUTED)
+	map_choice = OptionButton.new();map_choice.position = Vector2(280,471);map_choice.size = Vector2(424,56)
+	map_choice.add_item(localized("RANDOM / FOUR MAPS","随机 / 四张地图"),4)
+	for id in range(4):map_choice.add_item(preload("backrooms_map_catalog.gd").title(id,game.language == "zh"),id)
+	panels.add_child(map_choice)
+	room_code_label = _label(panels, localized("Share your room code to invite friends.", "房间号在创建后显示，复制给朋友即可加入。"), Vector2(99, 638), 630, 22, ACCENT)
 	_label(panels, localized("Online: HTTPS directory + managed UDP server. Direct rooms need host mapping.", "跨网络：HTTPS 服务 + 独立 UDP 服务器。直连房间仍需房主映射端口。"), Vector2(97, 680), 628, 19, MUTED)
 	_label(panels, localized("JOIN BY ROOM CODE", "加入房间 / 不输入 IP"), Vector2(821, 236), 635, 28, ACCENT)
 	room_code_field = LineEdit.new()
@@ -644,10 +656,15 @@ func update_match_animation() -> void:
 
 func _quick_match() -> void:
 	if game.rooms.matching:
-		game.rooms.cancel_match()
+		map_reveal.cancel()
+		return
+	if map_reveal.visible:return
+	if game.net.mode != "solo":
+		prologue_finished()
 		return
 	if is_instance_valid(room_status):
 		room_status.text = localized("Searching public rooms or opening a host...","寻找可加入房间，或创建房间……")
+	map_reveal.begin(false)
 	game.rooms.quick_match()
 
 func _configure_directory() -> void:
@@ -656,8 +673,10 @@ func _configure_directory() -> void:
 	game.rooms.discover()
 
 func _create_room() -> void:
+	if map_reveal.visible:return
 	game.rooms.cancel_match()
-	game.rooms.create_room(room_visibility.selected == 0, int(slot_limit.value), room_name_field.text)
+	map_reveal.begin(false)
+	game.rooms.create_room(room_visibility.selected == 0, int(slot_limit.value), room_name_field.text,map_choice.get_selected_id() if map_choice.get_selected_id() < 4 else -1)
 	if is_instance_valid(room_status): room_status.text = localized("Creating room...", "正在创建房间……")
 
 func _join_by_code() -> void:
@@ -673,6 +692,7 @@ func _room_created(code: String) -> void:
 
 func _room_error(message: String) -> void:
 	if panel_kind == "lobby" and is_instance_valid(room_status): room_status.text = message
+	if map_reveal.visible and not game.rooms.matching and game.net.mode == "solo":map_reveal.fail(message)
 
 func _render_rooms(list: Array) -> void:
 	if panel_kind != "lobby" or not is_instance_valid(available_rooms): return
@@ -880,7 +900,9 @@ func claim_season(tier: int, paid: bool) -> void:
 	if result == "CLAIMED": open_season()
 	else:
 		var note := localized("PAID PURCHASE NOT OPEN","付费手册暂未开放购买") if paid else localized("REACH THE REQUIRED LEVEL FIRST","先提升到对应等级")
-		if not is_instance_valid(season_notice): season_notice = _label(panels,note,Vector2(290,710),1100,20)
+		if not is_instance_valid(season_notice):
+			season_notice = _label(panels,note,Vector2(78,816),342,15)
+			season_notice.size.y = 32
 		else: season_notice.text = note
 func open_collection() -> void:
 	_page(localized("S1 / COLLECTION","S1 / 收藏"),"collection")
@@ -894,3 +916,15 @@ func _avatar_frame(viewport: SubViewport, frames: int) -> void:
 	if not is_instance_valid(viewport) or not viewport.is_inside_tree(): return
 	if frames > 0: get_tree().process_frame.connect(_avatar_frame.bind(viewport,frames-1),CONNECT_ONE_SHOT)
 	else: viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func open_maps() -> void:
+	preload("backrooms_map_browser.gd").build(self)
+func begin_training_map() -> void:
+	if map_reveal.visible:return
+	map_reveal.begin(true)
+	map_reveal.resolve(training_map)
+func resolve_map_reveal(id: int) -> void:
+	if is_instance_valid(map_reveal) and map_reveal.visible:
+		modal = true;release_mobile_inputs()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		map_reveal.resolve(id)

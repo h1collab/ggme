@@ -1,5 +1,5 @@
 extends SceneTree
-# User-authorized Linux+xvfb native screenshots of both shipped FPS maps.
+# User-authorized native screenshots of four arenas, illustrated S1 and map reveal.
 var game: Node3D
 var output_dir := ""
 var issues: Array[String] = []
@@ -80,14 +80,29 @@ func run() -> void:
 	game.ui.open_lobby()
 	game.ui._quick_match()
 	await interface_shot("05_match_search")
-	game.rooms.cancel_match()
-	game.language = "zh"
+	var reel: Control = game.ui.map_reveal
+	var limit := Time.get_ticks_msec()+25000
+	while reel.visible and reel.state == "searching" and Time.get_ticks_msec() < limit:await process_frame
+	while reel.visible and reel.state == "settling" and Time.get_ticks_msec() < limit:await process_frame
+	if reel.state == "locked":
+		reel.set_process(false)
+		await interface_shot("map_confirmed")
+		if reel.current != game.fps_arena.map_id:issues.append("Native confirmed map differs from actual arena")
+		reel.set_process(true)
+	else:issues.append("Native matchmaking did not reach a confirmed map")
+	reel.cancel()
+	game.net.leave()
+	game.language = "en"
+	game.ui.open_maps()
+	await interface_shot("map_archive")
 	game.ui.season_page = 0
 	game.ui.open_season()
 	await interface_shot("s1_manual_01")
 	game.ui.season_page = 8
 	game.ui.open_season()
 	await interface_shot("s1_manual_45")
+	game.language = "zh";game.ui.open_season()
+	await interface_shot("s1_manual_45_zh")
 	game.ui.open_collection()
 	await interface_shot("s1_collection")
 	game.language = "en"
@@ -192,7 +207,7 @@ func run() -> void:
 		game.start_fps_arena(0)
 		game.player.set_physics_process(false)
 		var child := OS.create_process(OS.get_executable_path(),["--headless","--max-fps","30","--path",ProjectSettings.globalize_path("res://"),"--script","res://scripts/backrooms_fps_session_checks.gd","--","--role=capture_client","--room=native-round-review","--port=24719","--label=native_peer","--output="+output_dir])
-		var deadline := Time.get_ticks_msec()+12000
+		var deadline := Time.get_ticks_msec()+25000
 		while game.net.members.size() < 2 and Time.get_ticks_msec() < deadline: await process_frame
 		if game.net.members.size() == 2:
 			game.fps.round_remaining = .01
@@ -218,5 +233,5 @@ func run() -> void:
 		for issue in issues: push_error("Missing native frame "+issue)
 		quit(1)
 	else:
-		print("GODOT_PREVIEW_PASS two shipped FPS maps, source materials, hands, cover, wall and mobile HUD")
+		print("GODOT_PREVIEW_PASS four native maps, illustrated S1, authority map reel, hands, cover and mobile HUD")
 		quit(0)

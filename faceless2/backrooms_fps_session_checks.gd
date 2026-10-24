@@ -13,6 +13,7 @@ var selected_map := -1
 var elapsed := 0.0
 var serial := 0
 var started := false
+var show_reveal := false
 func _initialize() -> void:
     for arg in OS.get_cmdline_user_args():
         var pair := arg.trim_prefix("--").split("=",true,1)
@@ -26,6 +27,7 @@ func _initialize() -> void:
             "port": port = int(pair[1])
             "slots": slots = int(pair[1])
             "map": selected_map = int(pair[1])
+            "show-map-reveal": show_reveal = pair[1] == "1"
     call_deferred("run")
 func run() -> void:
     game = load("res://main.tscn").instantiate()
@@ -36,6 +38,7 @@ func run() -> void:
     game.player.set_physics_process(false)
     game.rooms.configure("" if role.begins_with("lan_") or role == "capture_client" else directory)
     game.rooms.game_port = port
+    if show_reveal:game.ui.map_reveal.begin(false)
     if role == "idle": pass # Prepared lobby process; joining still uses real HTTP/ENet.
     elif role == "capture_client": game.net.join("127.0.0.1",port,room)
     elif role == "lan_host":
@@ -129,7 +132,7 @@ func _process(delta: float) -> bool:
         "round":game.fps.combat_state().get("round",{}),"hp":game.fps.health_by_peer,"ammo":game.fps.ammo_by_peer,
         "avatars":avatars,"weapons":game.fps.weapon_by_peer,"deaths":game.fps.deaths,"scores":game.fps.scores,"stock":game.fps.reserve_by_peer,"seats":game.net.seats,"poses":pose_data,
         "directory":game.rooms.directory_url,"room":game.rooms.room_code,"capacity":game.net.max_crew,
-        "running":game.running,"panel":game.ui.panel_kind,
+        "running":game.running,"panel":game.ui.panel_kind,"revealed_map":game.ui.map_reveal.last_committed,"reveal_visible":game.ui.map_reveal.visible,
         "hud":game.ui.fps_status_label.text,"serial":serial}
     var path := output.path_join(label+"-state.json")
     var file := FileAccess.open(path+".tmp",FileAccess.WRITE)

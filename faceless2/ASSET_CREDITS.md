@@ -286,3 +286,8 @@ No source models, author credits, licenses or pinned source hashes are replaced.
 Spatial batch buffers and retained source nodes are checked against one another
 in headless/native QA. Mobile low-quality material simplification retains the
 credited source textures in the package.
+
+
+## NULRYTH v0.45 UI illustrations
+
+Four monochrome anime UI illustrations were generated for this project with the built-in image_gen tool on2026-10-24. Runtime WebP assets and full prompts are in ui_art/. These are S1/map-cover illustrations; native playable maps remain Godot scene geometry. ZOrix branding uses the existing repository logo.

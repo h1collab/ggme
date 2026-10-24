@@ -5,6 +5,7 @@ var camera: Camera3D
 var output_dir := ""
 var total := 0
 var startup_frames := 0
+var presentation_frames := 0
 var issues: Array[String] = []
 func _initialize() -> void: call_deferred("record")
 func frame() -> void:
@@ -61,10 +62,23 @@ func record() -> void:
 	game.set_process(false)
 	game.ui.menu()
 	for i in range(60): await frame()
+	game.ui.open_season()
+	for i in range(60):await frame()
+	game.ui.season_page = 8;game.ui.open_season()
+	for i in range(40):await frame()
+	game.ui.open_maps()
+	for i in range(45):await frame()
 	game.ui.open_lobby()
 	game.ui._quick_match()
-	for i in range(30): await frame()
-	game.rooms.cancel_match()
+	var reveal: Control = game.ui.map_reveal
+	var reveal_frames := 0
+	while reveal.visible and reveal_frames < 300 and reveal.state != "error":
+		await frame();reveal_frames += 1
+	if reveal.visible or reveal.last_committed != game.fps_arena.map_id:issues.append("Actual match reveal did not enter its confirmed room map")
+	print("NULRYTH_NATIVE_MATCH_REEL_FRAMES ",reveal_frames," actual_map=",game.fps_arena.map_id," revealed_map=",reveal.last_committed)
+	reveal.cancel()
+	presentation_frames = total-startup_frames
+	print("NULRYTH_NATIVE_PRESENTATION_FRAMES ",presentation_frames)
 	# Software rendering can take longer than the real search deadline, so
 	# quick-match may already have opened a one-person room. Leave it before
 	# the offline showcase; do not relax the two-player competitive fire lock.
@@ -165,7 +179,7 @@ func record() -> void:
 	game.queue_free()
 	for i in range(10): await process_frame
 	await create_timer(.25).timeout
-	if total != 1166+startup_frames: issues.append("Gameplay frame sequence changed after real startup capture")
+	if total != 1076+startup_frames+presentation_frames: issues.append("Gameplay frame sequence changed after real startup/UI capture")
 	if not issues.is_empty():
 		for issue in issues: push_error(issue)
 		quit(1)
