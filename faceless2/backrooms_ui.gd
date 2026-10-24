@@ -287,13 +287,10 @@ func _clear(kind: String) -> void:
 
 func intro() -> void:
 	_clear("intro")
-	_card(panels, Rect2(0, 0, 1600, 900), Color(0.018, 0.032, 0.038))
-	_image(panels, _brand_file("team_logo.jpg"), Rect2(655, 180, 290, 290), true)
-	var title := _label(panels, "Made By Zorix GAme Team", Vector2(350, 525), 900, 40)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var detail := _label(panels, "FACELESS 2 / THE OTHER SHIFT", Vector2(350, 615), 900, 21, MUTED)
-	detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_button(panels, "CONTINUE", Rect2(660, 748, 280, 67), menu)
+	_signal_art()
+	var title := _label(panels,"STRINOVA",Vector2(180,286),1240,94)
+	var detail := _label(panels,"ZORIX / FIRST SIGNAL",Vector2(184,420),1240,22,MUTED)
+	_button(panels,"CONTINUE",Rect2(180,620,340,64),menu)
 	intro_timer = Timer.new()
 	intro_timer.one_shot = true
 	intro_timer.wait_time = 3.2
@@ -307,6 +304,8 @@ func localized(en: String, zh: String) -> String:
 func rebuild_language() -> void:
 	match panel_kind:
 		"menu": menu()
+		"season": open_season()
+		"collection": open_collection()
 		"settings": open_settings()
 		"prologue": prologue_stage(game.prologue.phase)
 		"prologue_end": prologue_finished()
@@ -324,6 +323,7 @@ func _signal_art(hero: bool = false) -> void:
 	art.name = "SignalAtlas"
 	art.size = Vector2(1600,900)
 	art.hero = hero
+	art.motion_enabled = game.interface_motion
 	panels.add_child(art)
 
 func menu() -> void:
@@ -334,7 +334,7 @@ func menu() -> void:
 func _page(title: String, kind: String) -> void:
 	_clear(kind)
 	_signal_art()
-	_label(panels, "FACELESS 2  /  ZORIX GAme TEAM", Vector2(72, 47), 1050, 19, ACCENT)
+	_label(panels, "STRINOVA  /  ZORIX GAme TEAM", Vector2(72, 47), 1050, 19, ACCENT)
 	_label(panels, title, Vector2(72, 108), 1240, 40)
 	_button(panels, "BACK", Rect2(1320, 45, 204, 70), func(): close_panels() if game.running else menu())
 
@@ -537,14 +537,14 @@ func open_guide() -> void:
 	_label(panels,localized("Internet rooms need a reachable host UDP port; room codes are not NAT relays.","跨公网仍需房主 UDP 可达；房间号不是 NAT 中继。"),Vector2(77,824),1400,18,MUTED)
 
 func open_about() -> void:
-	_page("ABOUT / FACELESS 2", "about")
+	_page("ABOUT / STRINOVA", "about")
 	_image(panels, _brand_file("team_logo.jpg"), Rect2(105, 248, 357, 357), true)
 	_label(panels, "Zorix GAme Team", Vector2(580, 244), 840, 45)
 	_label(panels, "Made By Zorix GAme Team", Vector2(584, 335), 850, 27, ACCENT)
-	_label(panels, "FACELESS 2 / FPS ARENA\nFour authored GLB maps with scanned PBR surfaces and licensed rifle.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
+	_label(panels, "STRINOVA / S1\nFour monochrome alleys, anime characters and weapons.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.37.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.43.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -716,7 +716,7 @@ func show_timed_hint(message: String, seconds: float = 2.0) -> void:
 func _refresh_facility_goal() -> void:
 	if is_instance_valid(game.fps_arena) and game.fps_arena.visible:
 		facility_goal_label.visible = true
-		facility_goal_label.text = "FACELESS 2 / "+game.fps_arena.map_title(game.language == "zh")
+		facility_goal_label.text = "STRINOVA / "+game.fps_arena.map_title(game.language == "zh")
 		return
 	if is_instance_valid(game.extra_levels) and game.extra_levels.visible:
 		facility_goal_label.visible = true
@@ -787,7 +787,7 @@ func refresh() -> void:
 	if hint_timer > 0:
 		hint_timer = maxf(0.0, hint_timer - get_process_delta_time())
 		if hint_timer <= 0 and is_instance_valid(transient_hint): transient_hint.visible = false
-	status_label.text = game.level.title if game.language == "zh" else ["FACELESS 2 / THE ENTRANCE", "FACELESS 2 / DORMITORY", "FACELESS 2 / REFLECTION", "FACELESS 2 / ZERO SHAFT"][game.stage]
+	status_label.text = game.level.title if game.language == "zh" else ["STRINOVA / THE ENTRANCE", "STRINOVA / DORMITORY", "STRINOVA / REFLECTION", "STRINOVA / ZERO SHAFT"][game.stage]
 	goal_label.text = localized("CLUES %d/3  ·  WATER %d  ·  %s", "线索 %d/3  ·  杏仁水 %d  ·  %s") % [game.repaired.count(true), int(game.inventory.get("almond_water",0)), "SOLO" if game.net.mode == "solo" else "ROOM %s  %d/%d" % [game.rooms.room_code, max(1,game.net.members.size()), game.net.max_crew]]
 	notice_label.text = localized("STAMINA %d%%\nKEY %s", "耐力 %d%%\n钥匙 %s") % [int(game.player.stamina), (localized("FOUND", "已找到") if game.key_picked else localized("MISSING", "未找到"))]
 	prompt_label.text = game.prompt()
@@ -806,7 +806,8 @@ func refresh() -> void:
 	if is_instance_valid(quick_button): quick_button.text = localized("CANCEL SEARCH","取消搜索") if game.rooms.matching else localized("QUICK MATCH","快速匹配")
 
 func open_settings() -> void:
-	_page(localized("TUNE YOUR SIGNAL","调整你的信号"),"settings")
+	_page(localized("SETTINGS","设置"),"settings")
+	_label(panels,localized("Strinova (formerly Faceless 2)","Strinova（原 Faceless 2）"),Vector2(76,172),1400,20,MUTED)
 	_card(panels,Rect2(72,210,696,610))
 	_card(panels,Rect2(800,210,728,610))
 	_label(panels,localized("01  /  DISPLAY","01  /  画面"),Vector2(98,234),630,24,ACCENT)
@@ -841,7 +842,12 @@ func open_settings() -> void:
 	panels.add_child(volume)
 	_label(panels,localized("V  PERSPECTIVE    /    1—4  LOADOUT","V  切换视角    /    1—4  切换武器"),Vector2(830,630),650,20,ACCENT)
 	_label(panels,localized("SHIFT  SPRINT    /    R  RELOAD","SHIFT  奔跑    /    R  换弹"),Vector2(830,680),650,20,MUTED)
-	_label(panels,localized("Touch controls appear automatically on mobile.","手机自动显示摇杆与独立触控按钮。"),Vector2(830,746),650,19)
+	var motion := CheckBox.new()
+	motion.text = localized("Subtle interface motion","轻微界面动态")
+	motion.position = Vector2(828,738);motion.size = Vector2(650,52)
+	motion.button_pressed = game.interface_motion
+	motion.toggled.connect(func(value: bool): game.interface_motion = value; game.save_settings(); open_settings())
+	panels.add_child(motion)
 
 	# Keep the historical exploration options available only in that mode.
 	if game.running and not game.fps.active:
@@ -880,3 +886,10 @@ func open_collection() -> void:
 	_label(panels,localized("SIGNAL TOKENS  %d","信号徽记  %d") % game.season.tokens,Vector2(80,226),1200,30)
 	var entries: String = "\n".join(game.season.collection)
 	_label(panels,entries if not entries.is_empty() else localized("Claim badges and titles in the S1 manual.","在 S1 手册领取徽章与称号。"),Vector2(80,320),1300,25)
+
+func settle_avatar(viewport: SubViewport) -> void:
+	_avatar_frame(viewport,2)
+func _avatar_frame(viewport: SubViewport, frames: int) -> void:
+	if not is_instance_valid(viewport) or not viewport.is_inside_tree(): return
+	if frames > 0: get_tree().process_frame.connect(_avatar_frame.bind(viewport,frames-1),CONNECT_ONE_SHOT)
+	else: viewport.render_target_update_mode = SubViewport.UPDATE_ONCE

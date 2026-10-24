@@ -42,9 +42,24 @@ func run() -> void:
 	if output_dir.is_empty(): output_dir = OS.get_user_data_dir().path_join("preview_frames")
 	DirAccess.make_dir_recursive_absolute(output_dir)
 	root.size = Vector2i(1600,900)
-	game = load("res://main.tscn").instantiate()
-	root.add_child(game)
+	var boot = load("res://boot.tscn").instantiate()
+	root.add_child(boot)
+	var middle := false
 	await process_frame
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(output_dir.path_join("interface_boot_00_start.png"))
+	while current_scene == null:
+		await process_frame
+		if not middle and boot.progress_value >= 35:
+			await RenderingServer.frame_post_draw
+			root.get_texture().get_image().save_png(output_dir.path_join("interface_boot_01_loading.png"))
+			middle = true
+		if boot.failed: issues.append("boot_load_failed");quit(1);return
+	game = current_scene
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png(output_dir.path_join("interface_boot_02_ready.png"))
+	await create_timer(.35).timeout
+	print("STRINOVA_NATIVE_BOOT_PASS stages=",game.get_meta("boot_stages"))
 	game.ui.intro_timer.stop()
 	game.net.leave()
 	game.set_process(false)
@@ -61,7 +76,7 @@ func run() -> void:
 	await interface_shot("03_settings")
 	game.ui.menu()
 	for i in range(30): await process_frame
-	await interface_shot("04_rotating_home")
+	await interface_shot("04_stable_home")
 	game.ui.open_lobby()
 	game.ui._quick_match()
 	await interface_shot("05_match_search")

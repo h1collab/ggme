@@ -1,3 +1,13 @@
+# Strinova v0.43 / monochrome launch and S1 interface (protocol25)
+
+The displayed game name and Android application label are Strinova. Settings show “Strinova (formerly Faceless 2)” in English and “Strinova（原 Faceless 2）” in Chinese. New installations default to English; explicit saved language choices remain respected. The Android package id, legacy save filenames and internal RPC node name remain unchanged; this is presentation-only and stays on protocol25.
+
+A lightweight boot scene renders a black/white loading screen before the gameplay scene. Critical fonts/GLBs load through Godot's resource loader thread; gameplay scripts initialize on the main thread and report six completed stages. Progress is monotonic and reaches 100 only after the lobby is initialized. The old timed team splash is bypassed in this launch path. A short dark handoff replaces abrupt page flashes.
+
+S1 reward cards use fixed title, quantity/type and action rows. Future, claimed and unowned paid actions are disabled; FREE progression/collection and PAID preview rules remain unchanged. Lobby avatar rendering waits until its camera, lighting and bones are ready. Button feedback resolves combined hover/focus/press state. Glitch accents are confined to small decorative rules with a settings toggle; body text, controls and full-screen brightness stay steady.
+
+Android 0.43.0 / versionCode43. Desktop capture records the real boot frames plus the existing 1166-frame gameplay sequence; encoded duration varies with actual loading time. Desktop/headless/build evidence is not Android device performance evidence.
+
 # v0.42 / S1 first signal (protocol25)
 
 Party-style lobby: central authored character, left-side season/collection controls, right-side season summary and bottom play actions. S1 has 45 levels with FREE and PAID reward rows, XP/level progress, nine browsable five-level pages, idempotent free claims and a persistent local cosmetic collection. XP comes from actual round completion and completed target drills with hits. The PAID row is a locked preview; purchasing and verified paid ownership are not yet available. Local progression is not an account-backed economy.

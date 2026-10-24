@@ -11,7 +11,7 @@ static func avatar(ui: Control, rect: Rect2) -> void:
 	viewport.size = Vector2i(rect.size)
 	viewport.transparent_bg = true
 	viewport.own_world_3d = true
-	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	holder.add_child(viewport)
 	var world := Node3D.new()
 	viewport.add_child(world)
@@ -35,10 +35,11 @@ static func avatar(ui: Control, rect: Rect2) -> void:
 	ambient.environment.ambient_light_color = Color.WHITE
 	ambient.environment.ambient_light_energy = .75
 	world.add_child(ambient)
+	ui.settle_avatar.call_deferred(viewport)
 static func lobby(ui: Control) -> void:
 	ui._signal_art()
 	var season = ui.game.season
-	ui._label(ui.panels,"FACELESS  02",Vector2(58,34),500,32)
+	ui._label(ui.panels,"STRINOVA",Vector2(58,34),500,32)
 	ui._label(ui.panels,"S1  /  FIRST SIGNAL",Vector2(1080,42),450,24)
 	ui._label(ui.panels,ui.localized("PLAYER 01","玩家 01"),Vector2(62,136),340,30)
 	ui._label(ui.panels,"LV.%02d   /   45" % season.level(),Vector2(62,184),320,22)
@@ -59,37 +60,44 @@ static func lobby(ui: Control) -> void:
 static func manual(ui: Control, page: int) -> void:
 	var season = ui.game.season
 	ui._page(ui.localized("S1 / SEASON MANUAL","S1 / 赛季手册"),"season")
-	ui._label(ui.panels,"S1  /  FIRST SIGNAL",Vector2(76,188),650,22)
-	ui._label(ui.panels,"LV.%02d / 45    %d / 100 XP" % [season.level(),season.level_xp()],Vector2(918,188),600,24)
-	var bar := ProgressBar.new()
-	bar.position = Vector2(918,230);bar.size = Vector2(590,6)
-	bar.show_percentage = false;bar.value = season.level_xp()
+	ui._label(ui.panels,"FIRST SIGNAL",Vector2(76,190),600,20,ui.MUTED)
+	ui._label(ui.panels,"LV.%02d / 45" % season.level(),Vector2(1036,188),260,24)
+	var xp: Label = ui._label(ui.panels,"%d / 100 XP" % season.level_xp(),Vector2(1296,194),216,18,ui.MUTED)
+	xp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var bar := ProgressBar.new();bar.position = Vector2(1036,232);bar.size = Vector2(476,4);bar.show_percentage = false;bar.value = season.level_xp()
 	var back := StyleBoxFlat.new();back.bg_color = Color(.18,.18,.18)
-	var fill := StyleBoxFlat.new();fill.bg_color = Color.WHITE
-	bar.add_theme_stylebox_override("background",back);bar.add_theme_stylebox_override("fill",fill)
-	bar.add_theme_font_size_override("font_size",1)
-	ui.panels.add_child(bar)
-	bar.set_deferred("size",Vector2(590,6))
-	ui._label(ui.panels,"FREE",Vector2(78,332),170,28)
-	ui._label(ui.panels,ui.localized("Earn & claim","升级领取"),Vector2(78,380),170,20,ui.MUTED)
-	ui._label(ui.panels,"PAID",Vector2(78,548),170,28)
-	ui._label(ui.panels,ui.localized("PREVIEW","奖励预览"),Vector2(78,596),170,20,ui.MUTED)
+	var fill := StyleBoxFlat.new();fill.bg_color = Color(.88,.88,.88)
+	bar.add_theme_stylebox_override("background",back);bar.add_theme_stylebox_override("fill",fill);bar.add_theme_font_size_override("font_size",1)
+	ui.panels.add_child(bar);bar.set_deferred("size",Vector2(476,4))
+	ui._label(ui.panels,"FREE",Vector2(78,346),170,28)
+	ui._label(ui.panels,ui.localized("EARN / CLAIM","升级 / 领取"),Vector2(78,390),170,16,ui.MUTED)
+	ui._label(ui.panels,"PAID",Vector2(78,554),170,28)
+	ui._label(ui.panels,ui.localized("PREVIEW","奖励预览"),Vector2(78,598),170,16,ui.MUTED)
 	for column in range(5):
 		var tier: int = page*5+column+1
 		var x: float = 284+column*246
-		ui._label(ui.panels,"%02d" % tier,Vector2(x+8,266),220,26)
+		var number: Label = ui._label(ui.panels,"%02d" % tier,Vector2(x+12,264),202,24)
+		number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		for row in range(2):
 			var paid := row == 1
+			var y := 310.0+row*208
 			var entry: Dictionary = season.reward(tier,paid)
-			var name: String = str(entry.zh) if ui.game.language == "zh" else str(entry.name)
 			var status: String = season.state(tier,paid)
-			var state_name: String = {"AVAILABLE":ui.localized("CLAIM","领取"),"CLAIMED":ui.localized("CLAIMED","已领取"),"LEVEL_LOCKED":ui.localized("REACH LV.%d","达到 %d 级") % tier,"PAID_LOCKED":ui.localized("LOCKED","未解锁")}[status]
-			var caption: String = name+"\n"+("× %d\n" % int(entry.amount) if entry.kind == "tokens" else "\n")+state_name
-			var button: Button = ui._button(ui.panels,caption,Rect2(x,316+row*208,226,182),func(): ui.claim_season(tier,paid))
-			button.add_theme_font_size_override("font_size",19)
-			button.set_selection(status == "AVAILABLE")
-	ui._button(ui.panels,"←",Rect2(284,750,80,60),func(): ui.season_page = maxi(0,page-1); ui.open_season())
-	ui._label(ui.panels,"%02d — %02d   /   45" % [page*5+1,page*5+5],Vector2(390,765),430,24)
-	ui._button(ui.panels,"→",Rect2(826,750,80,60),func(): ui.season_page = mini(8,page+1); ui.open_season())
-	ui._label(ui.panels,ui.localized("PAID · PURCHASE NOT OPEN","PAID · 暂未开放购买"),Vector2(960,768),560,20,ui.MUTED)
-	ui._label(ui.panels,ui.localized("Complete a round or target drill to earn XP. Cosmetic rewards only.","完成对局或靶场挑战获取经验，奖励均为装饰。"),Vector2(78,841),1400,18,ui.MUTED)
+			var panel: Panel = ui._card(ui.panels,Rect2(x,y,226,186),Color(.065,.065,.065))
+			panel.name = "Tier%02d%s" % [tier,"Paid" if paid else "Free"]
+			var title: String = str(entry.zh) if ui.game.language == "zh" else str(entry.name)
+			var name: Label = ui._label(panel,title,Vector2(12,22),202,17)
+			name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER;name.size.y = 44
+			var detail: String = "× %d" % int(entry.amount) if entry.kind == "tokens" else ui.localized("BADGE" if entry.kind == "badge" else "TITLE","徽章" if entry.kind == "badge" else "称号")
+			var quantity: Label = ui._label(panel,detail,Vector2(12,74),202,24,Color(.8,.8,.8))
+			quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER;quantity.size.y = 38
+			var state_name: String = {"AVAILABLE":ui.localized("CLAIM","领取"),"CLAIMED":ui.localized("CLAIMED","已领取"),"LEVEL_LOCKED":"LV.%02d" % tier,"PAID_LOCKED":ui.localized("LOCKED","未解锁")}[status]
+			var action: Button = ui._button(panel,state_name,Rect2(12,126,202,46),func():ui.claim_season(tier,paid))
+			action.name = "Claim";action.add_theme_font_size_override("font_size",17)
+			action.disabled = status != "AVAILABLE";action.set_selection(status == "AVAILABLE")
+	ui._button(ui.panels,"←",Rect2(284,750,80,60),func():ui.season_page = maxi(0,page-1);ui.open_season())
+	var range_text: Label = ui._label(ui.panels,"%02d — %02d / 45" % [page*5+1,page*5+5],Vector2(384,764),430,23)
+	range_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ui._button(ui.panels,"→",Rect2(826,750,80,60),func():ui.season_page = mini(8,page+1);ui.open_season())
+	ui._label(ui.panels,ui.localized("PAID / PURCHASE NOT OPEN","PAID / 暂未开放购买"),Vector2(960,768),560,18,ui.MUTED)
+	ui._label(ui.panels,ui.localized("Complete rounds or target drills for XP. Cosmetic rewards only.","完成对局或靶场挑战获取经验，奖励均为装饰。"),Vector2(78,841),1400,17,ui.MUTED)

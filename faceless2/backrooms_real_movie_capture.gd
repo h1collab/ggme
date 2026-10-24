@@ -4,10 +4,11 @@ var game: Node3D
 var camera: Camera3D
 var output_dir := ""
 var total := 0
+var startup_frames := 0
 var issues: Array[String] = []
 func _initialize() -> void: call_deferred("record")
 func frame() -> void:
-	game.ui.refresh()
+	if is_instance_valid(game): game.ui.refresh()
 	await process_frame
 	await RenderingServer.frame_post_draw
 	var img: Image = root.get_texture().get_image()
@@ -44,8 +45,15 @@ func record() -> void:
 	output_dir = OS.get_environment("F2_CAPTURE_DIR")
 	if output_dir.is_empty(): push_error("F2_CAPTURE_DIR required"); quit(2); return
 	DirAccess.make_dir_recursive_absolute(output_dir)
-	game = load("res://main.tscn").instantiate()
-	root.add_child(game)
+	var boot = load("res://boot.tscn").instantiate()
+	root.add_child(boot)
+	while current_scene == null:
+		await frame()
+		if boot.failed:issues.append("Boot failed");quit(1);return
+	game = current_scene
+	for i in range(8):await frame()
+	startup_frames = total
+	print("STRINOVA_NATIVE_BOOT_FRAMES ",startup_frames," stages=",game.get_meta("boot_stages"))
 	for i in range(10): await process_frame
 	await create_timer(.25).timeout
 	game.ui.intro_timer.stop()
@@ -157,7 +165,7 @@ func record() -> void:
 	game.queue_free()
 	for i in range(10): await process_frame
 	await create_timer(.25).timeout
-	if total != 1166: issues.append("Expected 1166 actual consecutive native frames")
+	if total != 1166+startup_frames: issues.append("Gameplay frame sequence changed after real startup capture")
 	if not issues.is_empty():
 		for issue in issues: push_error(issue)
 		quit(1)

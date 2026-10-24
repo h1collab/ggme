@@ -54,7 +54,8 @@ var sensitivity := 1.0
 var auto_turn := false
 var audio_volume := 0.8
 var voice_enabled := true
-var language := "en"  # Default English; Chinese is a saved user preference.
+const DEFAULT_LANGUAGE := "en"
+var language := DEFAULT_LANGUAGE  # Default English; Chinese is a saved user preference.
 var shock_glance_enabled := true
 var inventory := {"almond_water":0,"lift_keys":0}
 var water_picked := false
@@ -80,81 +81,106 @@ var wakeup_room: Node3D
 var extra_levels: Node3D
 var fps: Node3D
 var fps_arena: Node3D
+var initialized := false
+var interface_motion := true
 var last_extra_level := 0
 var season = preload("backrooms_season.gd").new()
 
 func _ready() -> void:
+	# Display branding can change without changing protocol25 RPC node paths.
 	name = "Faceless 2"
-	season.load_profile()
-	if OS.has_feature("android"): DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
-	environment = WorldEnvironment.new()
-	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.028, 0.035, 0.038)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.38, 0.45, 0.43)
-	env.ambient_light_energy = 0.17
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.05
-	env.fog_enabled = true
-	env.fog_density = 0.021
-	env.fog_light_color = Color(0.13, 0.15, 0.15)
-	environment.environment = env
-	add_child(environment)
-	_load_level(0)
-	player = PlayerScript.new()
-	player.game = self
-	add_child(player)
-	player.reset_to(level.spawn)
-	var layer := CanvasLayer.new()
-	layer.layer = 10
-	add_child(layer)
-	ui = UiScript.new()
-	ui.game = self
-	layer.add_child(ui)
-	net = NetworkScript.new()
-	net.game = self
-	add_child(net)
-	rooms = RoomsScript.new()
-	rooms.game = self
-	add_child(rooms)
-	_audio()
-	story = StoryScript.new()
-	story.game = self
-	add_child(story)
-	story.reset_layer(stage)
-	prologue = PrologueScript.new()
-	prologue.game = self
-	add_child(prologue)
-	prologue_room = PrologueRoomScript.new()
-	prologue_room.game = self
-	add_child(prologue_room)
-	wakeup_room = WakeRoomScript.new()
-	add_child(wakeup_room)
-	extra_levels = ExtraLevelsScript.new()
-	add_child(extra_levels)
-	fps = FpsScript.new()
-	fps.game = self
-	add_child(fps)
-	fps_arena = ArenaScript.new()
-	add_child(fps_arena)
-	var config := ConfigFile.new()
-	if config.load("user://faceless2.cfg") == OK:
-		fps.training_best = maxi(0,int(config.get_value("training", "best_hits", 0)))
-		quality = int(config.get_value("display", "quality", 1))
-		sensitivity = clampf(float(config.get_value("controls", "sensitivity", 1.0)), 0.5, 2.0)
-		auto_turn = bool(config.get_value("controls", "auto_turn", false))
-		audio_volume = clampf(float(config.get_value("audio", "volume", 0.8)), 0, 1)
-		voice_enabled = bool(config.get_value("audio", "generated_voice", true))
-		language = "zh" if str(config.get_value("display", "language", "en")) == "zh" else "en"
-		shock_glance_enabled = bool(config.get_value("controls", "scripted_glance", true))
-		rooms.configure(String(config.get_value("network", "directory_url", "")))
-	set_audio_volume(audio_volume)
-	set_quality(quality)
-	get_viewport().size_changed.connect(_refresh_render_budget)
-	if OS.has_feature("android"): Engine.max_fps = 60
-	show_title_room()
-	ui.intro()
+	var boot := get_tree().root.get_node_or_null("StrinovaBoot")
+	if boot == null:
+		for step in range(6): _initialize_stage(step,null)
+	else: _initialize_stage(0,boot)
+
+func _initialize_stage(step: int, boot: Node) -> void:
+	match step:
+		0:
+			season.load_profile()
+			if OS.has_feature("android"): DisplayServer.screen_set_orientation(DisplayServer.SCREEN_LANDSCAPE)
+			environment = WorldEnvironment.new()
+			var env := Environment.new()
+			env.background_mode = Environment.BG_COLOR
+			env.background_color = Color(0.028, 0.035, 0.038)
+			env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+			env.ambient_light_color = Color(0.38, 0.45, 0.43)
+			env.ambient_light_energy = 0.17
+			env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+			env.tonemap_exposure = 1.05
+			env.fog_enabled = true
+			env.fog_density = 0.021
+			env.fog_light_color = Color(0.13, 0.15, 0.15)
+			environment.environment = env
+			add_child(environment)
+			_load_level(0)
+		1:
+			player = PlayerScript.new()
+			player.game = self
+			add_child(player)
+			player.reset_to(level.spawn)
+			var layer := CanvasLayer.new()
+			layer.layer = 10
+			add_child(layer)
+			ui = UiScript.new()
+			ui.game = self
+			layer.add_child(ui)
+		2:
+			net = NetworkScript.new()
+			net.game = self
+			add_child(net)
+			rooms = RoomsScript.new()
+			rooms.game = self
+			add_child(rooms)
+			_audio()
+		3:
+			story = StoryScript.new()
+			story.game = self
+			add_child(story)
+			story.reset_layer(stage)
+			prologue = PrologueScript.new()
+			prologue.game = self
+			add_child(prologue)
+			prologue_room = PrologueRoomScript.new()
+			prologue_room.game = self
+			add_child(prologue_room)
+		4:
+			wakeup_room = WakeRoomScript.new()
+			add_child(wakeup_room)
+			extra_levels = ExtraLevelsScript.new()
+			add_child(extra_levels)
+			fps = FpsScript.new()
+			fps.game = self
+			add_child(fps)
+			fps_arena = ArenaScript.new()
+			add_child(fps_arena)
+		5:
+			var config := ConfigFile.new()
+			if config.load("user://faceless2.cfg") == OK:
+				fps.training_best = maxi(0,int(config.get_value("training", "best_hits", 0)))
+				interface_motion = bool(config.get_value("display","interface_motion",true))
+				quality = int(config.get_value("display", "quality", 1))
+				sensitivity = clampf(float(config.get_value("controls", "sensitivity", 1.0)), 0.5, 2.0)
+				auto_turn = bool(config.get_value("controls", "auto_turn", false))
+				audio_volume = clampf(float(config.get_value("audio", "volume", 0.8)), 0, 1)
+				voice_enabled = bool(config.get_value("audio", "generated_voice", true))
+				language = "zh" if str(config.get_value("display", "language", DEFAULT_LANGUAGE)) == "zh" else "en"
+				shock_glance_enabled = bool(config.get_value("controls", "scripted_glance", true))
+				rooms.configure(String(config.get_value("network", "directory_url", "")))
+			set_audio_volume(audio_volume)
+			set_quality(quality)
+			get_viewport().size_changed.connect(_refresh_render_budget)
+			if OS.has_feature("android"): Engine.max_fps = 60
+			show_title_room()
+			ui.intro()
+			initialized = true
+	if boot != null:
+		boot.set_stage(step+1,["WORLD READY","INTERFACE READY","AUDIO READY","SCENES READY","COMBAT READY","PROFILE READY"][step])
+		if step < 5: get_tree().process_frame.connect(_initialize_stage.bind(step+1,boot),CONNECT_ONE_SHOT)
+		else:
+			ui.intro_timer.stop()
+			ui.menu()
+			boot.finish(self)
 
 func _audio() -> void:
 	ambience = AudioStreamPlayer.new()
@@ -377,6 +403,7 @@ func start_shift(index: int) -> void:
 		ui.close_panels()
 
 func _process(delta: float) -> void:
+	if not initialized: return
 	if not is_instance_valid(ui): return
 	if running and not fps_arena.visible and not (is_instance_valid(wakeup_room) and wakeup_room.visible) and not (is_instance_valid(extra_levels) and extra_levels.visible) and net.authoritative() and not failed and not completed:
 		if not (net.mode == "solo" and ui.modal): _tick(delta)
@@ -707,6 +734,7 @@ func save_settings() -> void:
 	var config := ConfigFile.new()
 	config.set_value("display", "quality", quality)
 	config.set_value("display", "language", language)
+	config.set_value("display","interface_motion",interface_motion)
 	config.set_value("controls", "sensitivity", sensitivity)
 	config.set_value("controls", "auto_turn", auto_turn)
 	config.set_value("audio", "volume", audio_volume)
