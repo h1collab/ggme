@@ -84,7 +84,7 @@ func record() -> void:
 	# the offline showcase; do not relax the two-player competitive fire lock.
 	game.net.leave()
 	if game.net.mode != "solo": issues.append("Native showcase did not leave matchmaking")
-	for map_id in [0,1,2,3]:
+	for map_id in range(6):
 		game.ui.touch_preview = false
 		game.start_fps_arena(map_id)
 		game.player.set_physics_process(false)
@@ -179,7 +179,7 @@ func record() -> void:
 	game.queue_free()
 	for i in range(10): await process_frame
 	await create_timer(.25).timeout
-	if total != 1076+startup_frames+presentation_frames: issues.append("Gameplay frame sequence changed after real startup/UI capture")
+	if total != 1256+startup_frames+presentation_frames: issues.append("Gameplay frame sequence changed after real startup/UI capture")
 	if not issues.is_empty():
 		for issue in issues: push_error(issue)
 		quit(1)

@@ -57,7 +57,7 @@ export function createLobbyServer({ttlMs = DEFAULT_TTL, trustProxy = false, cloc
     for(const [ip,entry] of rates)if(entry.window<window-1)rates.delete(ip);
     rates.set(address,{window,count});
     if(count > 140) return reply(res,429,{error:'rate limit'});
-    if(req.method === 'GET' && path === '/health') return reply(res,200,{ok:true,service:'faceless2-directory',protocol:25,managed:!!managed});
+    if(req.method === 'GET' && path === '/health') return reply(res,200,{ok:true,service:'faceless2-directory',protocol:26,managed:!!managed});
     if(req.method === 'GET' && path === '/v1/rooms') {
       return reply(res,200,{rooms:[...rooms.values()].filter(r => r.public).slice(0,64).map(visible)});
     }
@@ -65,11 +65,11 @@ export function createLobbyServer({ttlMs = DEFAULT_TTL, trustProxy = false, cloc
       if(!managed)return reply(res,503,{error:'Managed native rooms not configured'});
       try {
         const p=await payload(req), slots=Number(p.max_players ?? 6), map=Number(p.map_id);
-        if(!Number.isInteger(slots)||slots<2||slots>6||!Number.isInteger(map)||map<0||map>3||typeof p.public!=='boolean')return reply(res,400,{error:'invalid match'});
+        if(!Number.isInteger(slots)||slots<2||slots>6||!Number.isInteger(map)||map<0||map>5||typeof p.public!=='boolean')return reply(res,400,{error:'invalid match'});
         // Never reserve more than eight processes, and prefer existing public seats.
         let room=p.public?[...rooms.values()].find(r=>r.managed&&r.public&&r.max_players===slots&&r.native.ready&&r.native.players<slots):null;
         if(!room){
-          const native=await managed.allocate({slots,map,name:'Faceless 2 / Dedicated',public:p.public});
+          const native=await managed.allocate({slots,map,name:'NULRYTH / Dedicated',public:p.public});
           let code=issueCode();while(rooms.has(code))code=issueCode();
           room={code,native,managed:true,address:native.address,port:native.port,key:native.key,name:native.name,max_players:slots,map_id:map,public:p.public,players:0};
           rooms.set(code,room);
@@ -81,13 +81,13 @@ export function createLobbyServer({ttlMs = DEFAULT_TTL, trustProxy = false, cloc
       try {
         const p=await payload(req);
         const port=Number(p.port), max=Number(p.max_players), map=Number(p.map_id ?? 0);
-        if (!Number.isInteger(port) || port<1024 || port>65535 || !Number.isInteger(max) || max<2 || max>6 || typeof p.public!=='boolean' || !Number.isInteger(map) || map<0 || map>3)
+        if (!Number.isInteger(port) || port<1024 || port>65535 || !Number.isInteger(max) || max<2 || max>6 || typeof p.public!=='boolean' || !Number.isInteger(map) || map<0 || map>5)
           return reply(res,400,{error:'invalid capacity, visibility, or UDP port'});
         if([...rooms.values()].filter(r => r.address === address).length>=8) return reply(res,429,{error:'too many rooms'});
         let code = issueCode(); while (rooms.has(code)) code=issueCode();
         const token=randomBytes(24).toString('hex');
         const key=randomBytes(12).toString('hex');
-        const room={code,name:String(p.name || 'Faceless 2').trim().slice(0,48),address,port,public:p.public,map_id:map,max_players:max,players:1,token,key,expires:clock()+ttlMs};
+        const room={code,name:String(p.name || 'NULRYTH').trim().slice(0,48),address,port,public:p.public,map_id:map,max_players:max,players:1,token,key,expires:clock()+ttlMs};
         rooms.set(code,room);
         return reply(res,201,{code,owner_token:token,key,expires_in_ms:ttlMs,...visible(room)});
       }catch(e){return reply(res,e.status||500,{error:e.message});}

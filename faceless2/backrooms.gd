@@ -87,7 +87,7 @@ var last_extra_level := 0
 var season = preload("backrooms_season.gd").new()
 
 func _ready() -> void:
-	# Display branding can change without changing protocol25 RPC node paths.
+	# Display branding can change without changing legacy RPC node paths.
 	name = "Faceless 2"
 	var boot := get_tree().root.get_node_or_null("NULRYTHBoot")
 	if boot == null:
@@ -293,7 +293,7 @@ func open_backrooms_level(level_number: int) -> void:
 func start_fps_arena(selected_map: int = -1) -> void:
 	season.begin_session()
 	if selected_map == -1: selected_map = fps_arena.random_map()
-	if selected_map < 0 or selected_map > 3: return
+	if selected_map < 0 or selected_map >= 6: return
 	if is_instance_valid(fps): fps.leave_level()
 	if is_instance_valid(extra_levels): extra_levels.clear()
 	if is_instance_valid(prologue_room): prologue_room.visible = false
@@ -579,7 +579,7 @@ func receive_state(state: Dictionary) -> void:
 	if int(state.get("revision", -1)) < revision: return
 	if bool(state.get("fps_active",false)):
 		var selected_map := int(state.get("fps_map",-1))
-		if selected_map not in [0,1,2,3]: return
+		if selected_map not in [0,1,2,3,4,5]: return
 		if not fps_arena.visible or fps_arena.map_id != selected_map: start_fps_arena(selected_map)
 		revision = int(state.get("revision",0))
 		running = bool(state.get("running",true))

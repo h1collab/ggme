@@ -1,3 +1,11 @@
+# NULRYTH v0.46 / six physical layouts and illustrated interface (protocol 26)
+
+Two new playable maps, SIGNAL COURT and MONO DEPOT, join four existing IDs. Maps 1–3 now have independent ground collision layouts instead of shared buildings with different roof decoration; map 0 retains its established central alley but replaces repeated crate loops with curated placements. Six actual capsule-occupancy masks, spawn reachability and north/south routes are checked independently of names/materials. The archive draws its route diagrams from actual shipped colliders.
+
+Four additional built-in image_gen illustrations are in ui_art/ with full prompts in PROMPTS_v046.json. New lobby key art, collection panorama, six cover/route cards and shared page navigation expand the black/white anime interface. UI art imports have a 1024-pixel size limit. Source art remains intact. S1 keeps 45 levels, FREE claims and PAID preview locks. Collection lists actual saved rewards.
+
+Android 0.46.0 / code46, protocol26. Clients and room workers must use matching protocol26 because physical movement layouts changed. Repository changes do not deploy the public matchmaking service. Native desktop screenshots/video and headless/ENet verification do not establish Android device frame pacing or stutter improvements.
+
 # NULRYTH v0.45 / illustrated S1 and real-map reveal (protocol25)
 
 Built-in image_gen supplies four monochrome anime illustrations in ui_art/; PROMPTS.json preserves the complete prompts. The S1 key art becomes the manual's portrait sidebar; token/badge/title drawings continue to represent actual cosmetic rewards. FREE claims, XP, local saves, PAID preview locks and the45-level cap are unchanged.

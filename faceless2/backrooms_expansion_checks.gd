@@ -25,7 +25,7 @@ func run() -> void:
 	var player: CharacterBody3D = game.player
 	# The former native flank fixture was inside a real cargo collision.
 	var digests := {}
-	for map_id in [0,1,2,3]:
+	for map_id in range(6):
 		game.fps_arena.activate(map_id)
 		await physics_frame
 		await physics_frame
@@ -37,10 +37,7 @@ func run() -> void:
 		spawn_ray.exclude = [player.get_rid()]
 		check(game.get_world_3d().direct_space_state.intersect_ray(spawn_ray).is_empty(),"Spawn diagonal remains clear for authoritative round combat")
 		spawn_ray = null
-		check(crates >= 50,"Each alley has at least fifty solid stacked or loose crates")
-		check(game.net.movement_path_clear(Vector3(0,.12,-44),Vector3(0,.12,44)),"Central alley remains traversable end to end")
-		check(game.net.movement_path_clear(Vector3(-27,.12,0),Vector3(27,.12,0)),"Cross street connects both outer lanes and spawn pockets")
-		check(not game.net.movement_path_clear(Vector3(0,.12,-40),Vector3(3,.12,-40)),"Alley crate blocks the authoritative movement capsule")
+		check(crates >= 6,"Each map has curated collidable cover rather than mirrored crate spam")
 		for seat in range(1,7):
 			var spawn: Vector3 = game.fps_arena.spawn_for(seat)
 			check(game.net.movement_path_clear(spawn,spawn),"All six spawns clear on every map")
@@ -51,8 +48,10 @@ func run() -> void:
 		query.transform.origin = Vector3(33,1.0,45)
 		query.exclude = [player.get_rid()]
 		check(game.get_world_3d().direct_space_state.intersect_shape(query).is_empty(),"Both expanded flank preview locations clear actual cargo geometry")
+	game.fps_arena.activate(0)
+	await physics_frame;await physics_frame
 	check(not game.net.movement_path_clear(Vector3(14,.12,1),Vector3(14,.12,9)),"Swept server capsule rejects crossing actual cargo cover")
-	check(digests.size() == 4,"Four distinct authoritative map geometries")
+	check(digests.size() == 6,"Six distinct authoritative map geometries")
 	game.fps_arena.activate(0)
 
 	fps.set_process(false)

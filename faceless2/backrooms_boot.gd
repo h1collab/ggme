@@ -30,7 +30,7 @@ func _ready() -> void:
 	for file in ["story_font.otf","huuxloc_backroom.glb","crew.glb","first_person_arms.glb","first_person_legs.glb","iphone17_pro.glb","wakeup_wall.glb","wakeup_floor_panel.glb","wakeup_door_single_closed.glb","flashlight_cc0.glb"]:
 		var path: String = "res://assets/vendor/"+file
 		if ResourceLoader.exists(path): resources.append(path)
-	for art in ["s1_keyart","static_passage","fracture_row","error_crossing"]:
+	for art in ["s1_keyart","static_passage","fracture_row","error_crossing","signal_court","mono_depot","season_echo","relic_banner"]:
 		var path: String = "res://ui/art/"+art+".webp"
 		if not ResourceLoader.exists(path):path = "res://faceless2/ui_art/"+art+".webp"
 		if ResourceLoader.exists(path):resources.append(path)

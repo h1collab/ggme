@@ -19,8 +19,8 @@ func run() -> void:
 	var layouts: Array[String] = []
 	var seen: Dictionary = {}
 	for i in range(128): seen[game.fps_arena.random_map()] = true
-	check(seen.size() == 4 and seen.has(0) and seen.has(1) and seen.has(2) and seen.has(3),"Random picker can produce all four map IDs")
-	for selected in [0,1,2,3]:
+	check(seen.size() == 6 and seen.has(0) and seen.has(5),"Random picker can produce all six map IDs")
+	for selected in range(6):
 		game.fps_arena.activate(selected)
 		await physics_frame
 		await physics_frame
@@ -37,7 +37,7 @@ func run() -> void:
 					var extent: Vector3 = collision.shape.size
 					var proxy: AABB = collision.global_transform*AABB(-extent*.5,extent)
 					check(bounds.position.distance_to(proxy.position) < .002 and bounds.end.distance_to(proxy.end) < .002,"Actual GLB bounds match collision: "+str(body.name))
-		for index in range(4):
+		for index in range(6):
 			check(game.fps_arena.map_roots[index].visible == (index == selected),"Exactly the selected map is visible")
 			for body in game.fps_arena.map_roots[index].find_children("*","StaticBody3D",true,false):
 				check(body.collision_layer == (1 if index == selected else 0),"Inactive map collisions never obstruct the current map")
@@ -51,12 +51,16 @@ func run() -> void:
 			query.transform.origin = spawn+Vector3(0,.85,0)
 			query.exclude = [game.player.get_rid()]
 			check(game.player.get_world_3d().direct_space_state.intersect_shape(query).is_empty(),"All six actual spawn capsules clear authored map geometry")
-		var ray := PhysicsRayQueryParameters3D.create(Vector3(0,.7,-40),Vector3(3.6,.7,-40),1)
+		var cover: StaticBody3D = game.fps_arena.map_roots[selected].get_node("CuratedCrate_00")
+		var center: Vector3 = cover.global_position+Vector3(0,.55,0)
+		var toward: Vector3 = Vector3(-center.x,0,-center.z).normalized()
+		var ray := PhysicsRayQueryParameters3D.create(center+toward*3,center,1)
+		ray.exclude = [game.player.get_rid()]
 		var hit: Dictionary = game.player.get_world_3d().direct_space_state.intersect_ray(ray)
-		check(not hit.is_empty() and str(hit.collider.name).begins_with("AlleyCrate_"),"Real map cover blocks shooting LOS")
-	check(layouts[0] != layouts[1],"Two maps have genuinely different collision layouts")
+		check(not hit.is_empty() and hit.collider == cover,"Actual curated cover blocks shooting LOS")
+	check(layouts.size() == 6 and layouts[0] != layouts[1],"Six authoritative collision layouts are selectable")
 	game.start_fps_arena(0)
-	print("FPS_FOUR_MAP_PHYSICS_PASS four layouts, 24 spawn capsules, cover LOS, inactive geometry and random picker")
+	print("FPS_SIX_MAP_PHYSICS_PASS six layouts, 36 spawn capsules, cover LOS, inactive geometry and random picker")
 	var physical_capsule := StaticBody3D.new()
 	physical_capsule.collision_layer = 8
 	physical_capsule.position = Vector3(0,.12,-5)

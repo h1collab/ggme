@@ -14,7 +14,7 @@ func run() -> void:
 	var slots := int(options.get("slots",6))
 	var map_id := int(options.get("map",-1))
 	var key := OS.read_string_from_stdin().strip_edges()
-	if port < 1024 or port > 65535 or slots < 2 or slots > 6 or map_id < 0 or map_id > 3 or key.length() != 24:
+	if port < 1024 or port > 65535 or slots < 2 or slots > 6 or map_id < 0 or map_id >= 6 or key.length() != 24:
 		quit(2); return
 	game = load("res://main.tscn").instantiate()
 	root.add_child(game)

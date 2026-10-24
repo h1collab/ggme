@@ -22,7 +22,7 @@ var status_label: Label
 var action: Button
 var visited: Array[int] = []
 func configure(owner_ui: Control) -> void:
-	for id in range(4):Catalog.texture(id)
+	for id in range(Catalog.COUNT):Catalog.texture(id)
 	ui = owner_ui;name = "MapRoulette";size = Vector2(1600,900);z_index = 100
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var backdrop := ColorRect.new();backdrop.color = Color(.015,.015,.015,1);backdrop.size = size;backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE;add_child(backdrop)
@@ -36,7 +36,7 @@ func configure(owner_ui: Control) -> void:
 	ui._card(self,Rect2(364,234,872,430),Color(.1,.1,.1))
 	center_image = Catalog.image(self,0,Rect2(370,240,860,418))
 	title_label = ui._label(self,"",Vector2(270,684),1060,37);title_label.size.y = 58;title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ui._label(self,"01  /  02  /  03  /  04",Vector2(650,745),320,18,ui.MUTED).size.y = 28
+	ui._label(self,"01 / 02 / 03 / 04 / 05 / 06",Vector2(600,745),480,18,ui.MUTED).size.y = 28
 	action = ui._button(self,"",Rect2(650,799,300,58),_action)
 	visible = false
 func begin(training: bool = false) -> void:
@@ -48,19 +48,19 @@ func begin(training: bool = false) -> void:
 	_select(0)
 	status_label.text = ui.localized("SEARCHING / WAITING FOR ROOM MAP","正在搜索 / 等待房间地图")
 func resolve(id: int) -> void:
-	if not visible or id not in [0,1,2,3]:return
+	if not visible or id not in [0,1,2,3,4,5]:return
 	if target == id and state in ["settling","locked"]:return
 	target = id;clock = 0;step = 0
-	total_steps = 14+posmod(target-(current+14),4)
+	total_steps = Catalog.COUNT*2+2+posmod(target-(current+Catalog.COUNT*2+2),Catalog.COUNT)
 	next_tick = .08;state = "settling"
 	status_label.text = ui.localized("DESTINATION RECEIVED / LOCKING","已收到实际地图 / 正在锁定")
 	action.text = ui.localized("SKIP ANIMATION","跳过动画")
 	if not ui.game.interface_motion:_lock()
 func _select(id: int) -> void:
-	current = posmod(id,4)
+	current = posmod(id,Catalog.COUNT)
 	if not visited.has(current):visited.append(current)
 	center_image.texture = Catalog.texture(current)
-	left_image.texture = Catalog.texture(posmod(current-1,4));right_image.texture = Catalog.texture(posmod(current+1,4))
+	left_image.texture = Catalog.texture(posmod(current-1,Catalog.COUNT));right_image.texture = Catalog.texture(posmod(current+1,Catalog.COUNT))
 	title_label.text = Catalog.title(current,ui.game.language == "zh")
 func _lock() -> void:
 	_select(target);state = "locked";clock = 0
@@ -87,7 +87,7 @@ func advance(delta: float) -> void:
 	elif state == "locked" and clock >= (.75 if ui.game.interface_motion else .2):
 		_complete()
 func _complete() -> void:
-	if target not in [0,1,2,3]:return
+	if target not in [0,1,2,3,4,5]:return
 	last_committed = target
 	var training := local_training
 	visible = false;state = "idle"

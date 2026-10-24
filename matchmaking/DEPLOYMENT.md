@@ -1,4 +1,4 @@
-# Public managed FACELESS 2 rooms (protocol 25)
+# Public managed FACELESS 2 rooms (protocol 26)
 
 Use a Linux VM with a public IPv4/IPv6 address, Node 22+, Godot 4.7.2 and the
 built `app/` project from the **same SHA** as the APK. The project must include
@@ -23,7 +23,7 @@ behind a trusted proxy that overwrites forwarded IP headers. Put the HTTPS URL
 in the game's room-service field. Players on separate networks then connect to
 the public server, so their own routers need no incoming port mapping.
 
-`GET /health` must return `protocol:24, managed:true`. `POST /v1/matches` takes
+`GET /health` must return `protocol:26, managed:true`. `POST /v1/matches` takes
 `{max_players:6,map_id:0,public:true}`. Maps are 0–3. The returned code resolves
 through the normal room-code endpoint; no player IP needs typing. One player
 waits; a second starts; at most six play. Public creation prefers available
@@ -35,3 +35,5 @@ provides authoritative rules, **not capture prevention**. Add your provider's
 firewall, traffic/connection limits, resource isolation and monitoring before a
 public launch. The committed tests use loopback and real processes; they do not
 prove a deployment, carrier-network reachability, Android FPS or DDoS resistance.
+
+Protocol 26 requires matching clients and room workers. Map IDs are 0–5; old protocol 25 services must be upgraded before v0.46 public room creation. Changing repository code does not deploy the public service.

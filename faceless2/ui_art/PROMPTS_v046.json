@@ -1,0 +1,22 @@
+{
+  "generator": "Built-in image_gen",
+  "date": "2026-10-24",
+  "prompts": [
+    {
+      "key": "signal_court",
+      "prompt": "Use case: stylized-concept. Asset type: 16:9 game map cover for SIGNAL COURT in NULRYTH. Strict monochrome anime ink environment illustration, crisp cel shading and fine halftone shadows, no photorealism. A broad open rectangular civic courtyard, a low circular white signal monument near one side, asymmetrical colonnades and separated square pavilions around the edges. Clear open ground in the middle, low scattered geometric cover at the perimeter, no long narrow alley. Black sky, white buildings, charcoal ground and a few fine digital error seams. Strong wide courtyard silhouette distinct from an alley or warehouse. Upper central architectural composition, dark lower quarter for a map label added by code. No people, no words, no text, no UI, no logos, no watermark."
+    },
+    {
+      "key": "mono_depot",
+      "prompt": "Use case: stylized-concept. Asset type: 16:9 game map cover for MONO DEPOT in NULRYTH. Strict black-white-gray anime ink illustration, cel shaded geometry and restrained halftone, not photorealistic. A long industrial freight hall with a very high dark truss roof, distinct parallel cargo-container lanes along the sides, an open central loading floor and large white rectangular doorways at opposite ends. Asymmetric stacks of a few shipping boxes, overhead linear light strips, bold dark industrial beams. Indoor warehouse atmosphere, different from urban alley architecture. Wide perspective, clear center with freight cover in side lanes; lower quarter dark for a separately rendered map name. No characters, no text, no UI, no logos, no watermark."
+    },
+    {
+      "key": "season_echo",
+      "prompt": "Use case: stylized-concept. Asset type: premium wide 16:9 main-menu season illustration for the monochrome anime game NULRYTH. An original void guardian with black face, two small luminous white eyes, angular pale-gray hood/helmet and a flowing ink-black jacket stands on the right in a three-quarter pose, looking toward an abstract white fractured gateway. Character is stylized anime, clean ink linework, expressive but quiet, no photorealistic materials. Minimal graphic black architecture, pale geometric fragments, fine halftone gradients; sophisticated black-white-gray palette with no colors. Right-side character and gateway occupy two thirds, left third is dark breathing space for native UI typography. No weapon aimed at viewer, no letters, no words, no UI, no logo, no watermark. High-end editorial game key art."
+    },
+    {
+      "key": "relic_banner",
+      "prompt": "Use case: stylized-concept. Asset type: wide 16:9 season collection illustration for NULRYTH, black-white anime game UI. A carefully composed still life of an angular pale crown, two abstract hexagonal signal tokens and a faceted diamond insignia floating above dark plinths in an ink-black chamber. White rim light, gray cel shadows, very subtle halftone, thin broken signal lines, refined high-contrast graphic illustration. Main objects clustered on the right and center; left third largely dark for native UI text. These are abstract season emblems, not realistic gold jewelry. No colors, no photorealism, no text, no numbers, no UI panels, no brand logos, no watermark."
+    }
+  ]
+}

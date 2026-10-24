@@ -31,16 +31,16 @@ try:
  # First real game client uses normal room creation, including capability
  # discovery and JS allocation. It must become a client, never a fake host.
  h=(out/'managed-m0.log').open('w');handles.append(h)
- peers.append(subprocess.Popen([a.godot,'--headless','--path',a.project,'--script','scripts/backrooms_fps_session_checks.gd','--','--role=host','--label=m0','--slots=6','--map=3',f'--directory={url}',f'--output={work}'],stdout=h,stderr=subprocess.STDOUT))
+ peers.append(subprocess.Popen([a.godot,'--headless','--path',a.project,'--script','scripts/backrooms_fps_session_checks.gd','--','--role=host','--label=m0','--slots=6','--map=5',f'--directory={url}',f'--output={work}'],stdout=h,stderr=subprocess.STDOUT))
  first=wait('m0',lambda x:x.get('active') and len(x.get('hp',{}))==1)
  assert first['mode']=='client' and not first['can_fire']
  room=api('/v1/rooms/'+first['room'])
- assert room['managed'] and room['max_players']==6 and room['map_id']==3
+ assert room['managed'] and room['max_players']==6 and room['map_id']==5
  for i in range(1,6):
   label=f'm{i}';h=(out/f'managed-{label}.log').open('w');handles.append(h)
   peers.append(subprocess.Popen([a.godot,'--headless','--path',a.project,'--script','scripts/backrooms_fps_session_checks.gd','--','--role=client',f'--label={label}',f'--directory={url}',f'--room={room["code"]}',f'--output={work}'],stdout=h,stderr=subprocess.STDOUT))
   v=wait(label,lambda x:x.get('active') and len(x.get('hp',{}))==i+1)
-  assert v['map']==3
+  assert v['map']==5
   if i==0:assert not v['can_fire'],'A dedicated server is never player 2'
   if i>=1:assert v['can_fire']
  for i in range(6):

@@ -1,5 +1,5 @@
 extends Node3D
-# Four independent authored-GLB FPS maps, selected once by the authoritative host.
+# Six independent collision layouts, selected once by the authoritative host.
 const Assets = preload("backrooms_assets.gd")
 const AnimeFinish = preload("backrooms_anime_finish.gd")
 const StaticBatch = preload("backrooms_static_batch.gd")
@@ -27,13 +27,16 @@ var palette_map := 0
 var architecture_mesh: BoxMesh
 
 func _ready() -> void:
-	name = "FourStandalone_FPS_Maps_NoNarrativeLevels"
+	name = "SixStandalone_FPS_Maps_NoNarrativeLevels"
 	visible = false
 	set_process(false)
 
 func random_map() -> int:
-	# Four equiprobable outcomes: no modulo bias, never seeded by a joining client.
-	return int(Crypto.new().generate_random_bytes(1)[0]) % 4
+	# Rejection sampling avoids modulo bias for a non-power-of-two map count.
+	var value := 255
+	var ceiling: int = 256-256%MAP_NAMES.size()
+	while value >= ceiling:value = int(Crypto.new().generate_random_bytes(1)[0])
+	return value%MAP_NAMES.size()
 
 func map_title(chinese: bool = false) -> String:
 	return MAP_NAMES_ZH[map_id] if chinese else MAP_NAMES[map_id]
@@ -116,11 +119,14 @@ func _roof(parent: Node3D, label: String, at: Vector3, extent: Vector3, finish: 
 func _build_map(index: int) -> void:
 	palette_map = index
 	var layout := Node3D.new()
-	layout.name = ["NullAlley","StaticPassage","FractureRow","ErrorCrossing"][index]
+	layout.name = MAP_NAMES[index].replace(" ","")
 	add_child(layout)
 	map_roots.append(layout)
 	var wall := _anime_material("alley_plaster",Color(.9,.9,.9),.3)
 	var ink := _anime_material("ink_metal",Color(.2,.2,.2),.7,1.0)
+	if index > 0:
+		_build_distinct(layout,index,wall,ink)
+		return
 	# Solid building blocks define a narrow central alley and two outer lanes.
 	# Cross streets at z=0 and +/-24 connect all six original spawn pockets.
 	for side in [-1.0,1.0]:
@@ -136,16 +142,6 @@ func _build_map(index: int) -> void:
 				_panel(layout,"BlackWindow_%s_%s_%d" % [side,sector,block],Vector3(side*3.92,3.5+block*.8,z+bay),Vector3(.12,1.1,1.7+index*.2),ink,true)
 				if (index+block)%2 == 0:
 					_prop(layout,"DrainPipe_%s_%s_%d" % [side,sector,block],"wakeup_pipe.glb",Vector3(side*3.6,0,z-2.1),3.5,0,ink)
-		# More real collidable boxes, tucked against walls rather than across lanes.
-		for n in range(8):
-			var z: float = -40.0+n*11.0
-			if absf(z) < 10.0: z = -12.0 if z < 0 else 12.0
-			var x: float = side*(2.9 if n%2 == 0 else 3.2)
-			_prop(layout,"AlleyCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(x,0,z),1.1,0,null,Vector2(1.5,1.5))
-			_prop(layout,"CrateStack_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(x,1.1,z),.75,0,null,Vector2(1.1,1.1))
-			_prop(layout,"SideLaneCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(side*30.5,0,z),1.1,0,null,Vector2(1.5,1.5))
-			if n%2 == index%2:
-				_prop(layout,"LooseCrate_%s_%d" % [side,n],"scan_cardboard_box_01.glb",Vector3(side*2.6,0,z+1.8),.7,0,null,Vector2(1.0,1.0))
 		for end in [-1.0 if side < 0 else 1.0]:
 			var sign := Label3D.new()
 			sign.text = ["404 / NULL","SIGNAL LOST","/// FRACTURE","ERROR_00"][index]
@@ -165,24 +161,66 @@ func _build_map(index: int) -> void:
 			_panel(layout,"OverheadBridge_%s" % end,Vector3(0,7.0,end*19),Vector3(24,.4,2.5),ink)
 		_prop(layout,"EndSupply_%s" % end,"scan_cardboard_box_01.glb",Vector3(4,0,end*43),1.1,0,null,Vector2(1.5,1.5))
 
-	# Distinct high silhouettes use the shared cube/material batches. These
-	# render-only landmarks keep existing floor collisions and six spawn lanes.
-	if index == 1:
-		for side in [-1.0,1.0]:
-			_landmark(layout,"StaticCable%s" % side,Vector3(side*1.6,6.5,0),Vector3(.055,.055,76),ink)
-			_landmark(layout,"StaticCanopy%s" % side,Vector3(0,7.9,side*19),Vector3(8,.25,1.0),wall)
-	elif index == 2:
-		_landmark(layout,"SplitLeft",Vector3(-3,9,0),Vector3(3.8,.35,3),wall)
-		_landmark(layout,"SplitRight",Vector3(3,10,0),Vector3(3.8,.35,3),wall)
-		for shard in range(4):
-			var piece: MeshInstance3D = _landmark(layout,"RiftShard%d" % shard,Vector3(-.8+shard*.55,10+shard*.7,0),Vector3(.075,1.5,.1),wall)
-			piece.rotation.z = -.2
-	elif index == 3:
-		_landmark(layout,"CrossGatewayX",Vector3(0,8.5,0),Vector3(25,.45,2),ink)
-		_landmark(layout,"CrossGatewayZ",Vector3(0,9.3,0),Vector3(2,.45,25),ink)
-		for side in [-1.0,1.0]:
-			for end in [-1.0,1.0]:
-				_landmark(layout,"CrossUpright%s%s" % [side,end],Vector3(side*3.9,4,end*9),Vector3(.18,8,.3),ink)
+	_add_curated_crates(layout,0)
+
+func _add_curated_crates(layout: Node3D, id: int) -> void:
+	var entries: Array = preload("backrooms_map_layouts.gd").CRATES[id]
+	for n in range(entries.size()):
+		var point: Array = entries[n]
+		_prop(layout,"CuratedCrate_%02d" % n,"scan_cardboard_box_01.glb",Vector3(float(point[0]),0,float(point[1])),1.1,0,null,Vector2(1.5,1.5))
+	if id == 0:
+		_prop(layout,"SingleStack_Crate","scan_cardboard_box_01.glb",Vector3(-3,1.1,-40),.75,0,null,Vector2(1.1,1.1))
+
+func _build_distinct(layout: Node3D, id: int, wall: Material, ink: Material) -> void:
+	var boundary_height := 4.5 if id == 4 else 8.0
+	for side in [-1.0,1.0]:
+		_panel(layout,"BoundaryX_%s" % side,Vector3(side*36,boundary_height*.5,0),Vector3(.3,boundary_height,96),ink)
+		_panel(layout,"BoundaryZ_%s" % side,Vector3(0,boundary_height*.5,side*48),Vector3(72,boundary_height,.3),wall)
+	var blocks: Array = preload("backrooms_map_layouts.gd").BLOCKS[id]
+	for n in range(blocks.size()):
+		var row: Array = blocks[n]
+		var extent := Vector3(float(row[2]),float(row[4]),float(row[3]))
+		var body: StaticBody3D = _panel(layout,"RouteBlock_%02d" % n,Vector3.ZERO,extent,ink if id == 5 else wall)
+		body.position = Vector3(float(row[0]),extent.y*.5,float(row[1]))
+		if row.size() > 5:body.rotation.y = deg_to_rad(float(row[5]))
+	_add_curated_crates(layout,id)
+	if id == 1:
+		for z in [-18.0,24.0]:
+			_panel(layout,"PassageBridge%s" % z,Vector3(0,7,z),Vector3(34,.4,3),ink)
+		for x in [-4.0,4.0]:_landmark(layout,"Cable%s" % x,Vector3(x,6.5,0),Vector3(.06,.06,82),ink)
+	elif id == 2:
+		_landmark(layout,"FractureLeft",Vector3(-4,9,0),Vector3(5,.4,3),wall)
+		_landmark(layout,"FractureRight",Vector3(4,11,0),Vector3(4,.4,3),wall)
+		for n in range(5):
+			var shard: MeshInstance3D = _landmark(layout,"Rift%d" % n,Vector3(-1+n*.55,10+n*.6,0),Vector3(.09,2,.15),wall)
+			shard.rotation.z = -.2
+	elif id == 3:
+		_panel(layout,"CrossArchX",Vector3(0,8,0),Vector3(30,.4,2),ink)
+		_panel(layout,"CrossArchZ",Vector3(0,9,0),Vector3(2,.4,36),ink)
+	elif id == 4:
+		for x in [-30.0,30.0]:
+			for z in [-16.0,16.0]:
+				_panel(layout,"CourtColumn%s_%s" % [x,z],Vector3(x,3.5,z),Vector3(1.2,7,1.2),wall)
+		_panel(layout,"SignalPylon",Vector3(18,5,0),Vector3(.8,6,.8),wall)
+		for n in range(8):
+			var angle: float = n*TAU/8
+			var ring: MeshInstance3D = _landmark(layout,"SignalRing%d" % n,Vector3(18+cos(angle)*2.4,8+sin(angle)*2.4,0),Vector3(1.95,.16,.3),wall)
+			ring.rotation.z = angle+PI*.5
+	elif id == 5:
+		_panel(layout,"DepotRoof",Vector3(0,12,0),Vector3(70,.3,92),ink)
+		for z in [-36.0,-12.0,12.0,36.0]:
+			_panel(layout,"DepotTruss%s" % z,Vector3(0,11.5,z),Vector3(66,.35,.35),wall)
+		for x in [-9.0,9.0]:_landmark(layout,"DepotLight%s" % x,Vector3(x,11.2,0),Vector3(.15,.08,80),wall)
+
+func ground_plan(id: int) -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	for body in map_roots[id].find_children("*","StaticBody3D",true,false):
+		for node in body.get_children():
+			if node is CollisionShape3D and node.shape is BoxShape3D:
+				var bounds: AABB = node.global_transform*AABB(-node.shape.size*.5,node.shape.size)
+				if bounds.position.y < 2.5:
+					result.append(Rect2(Vector2(bounds.position.x,bounds.position.z),Vector2(bounds.size.x,bounds.size.z)))
+	return result
 
 func _landmark(parent: Node3D, label: String, at: Vector3, extent: Vector3, material: Material) -> MeshInstance3D:
 	var mesh := MeshInstance3D.new();mesh.name = label;mesh.mesh = architecture_mesh

@@ -65,7 +65,7 @@ func run() -> void:
 				var finish := mesh.get_active_material(surface) as ShaderMaterial
 				check(finish != null and finish.shader == game.fps_arena.AnimeFinish.Surface,"All FPS scenery uses the texture-free anime palette")
 	var sky_id: int = game.environment.environment.sky.get_instance_id()
-	for map_id in [1,2,3,0]:
+	for map_id in [1,2,3,4,5,0]:
 		game.fps_arena.activate(map_id)
 		check(game.environment.environment.sky.get_instance_id() == sky_id,"Map changes reuse the anime gradient sky")
 	var budget := preload("backrooms_render_budget.gd").new()

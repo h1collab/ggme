@@ -96,13 +96,13 @@ def main():
         for _ in range(100):
             try:
                 with urlopen(url+'/health', timeout=.5) as response:
-                    assert json.load(response)['protocol'] == 25
+                    assert json.load(response)['protocol'] == 26
                 break
             except OSError:
                 time.sleep(.05)
         else:
             raise AssertionError('Node directory did not start')
-        for slots, map_id in ((2,0),(2,1),(3,0),(3,1),(4,0),(4,1),(6,0),(6,1),(6,2),(6,3)):
+        for slots, map_id in ((2,0),(2,1),(3,0),(3,1),(4,0),(4,1),(6,0),(6,1),(6,2),(6,3),(6,4),(6,5)):
             with tempfile.TemporaryDirectory(prefix=f'fps-{slots}-map{map_id}-', dir=output) as folder:
                 work = Path(folder)
                 processes, handles = {}, []
@@ -449,7 +449,7 @@ def main():
                         handle.close()
         (output/'fps-session-results.json').write_text(json.dumps(results, indent=2)+'\n')
         test_lan(args,output,project,script)
-        print('FPS_REAL_MULTIPROCESS_UDP_PASS four maps, capacities 2/3/4/6, four weapons, sniper damage, deaths, finite inventories, late join, invalid RPC, disconnect and reconnect')
+        print('FPS_REAL_MULTIPROCESS_UDP_PASS six maps, capacities 2/3/4/6, four weapons, sniper damage, deaths, finite inventories, late join, invalid RPC, disconnect and reconnect')
     finally:
         service.terminate()
         service.wait(timeout=4)

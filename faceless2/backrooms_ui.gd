@@ -343,6 +343,10 @@ func _page(title: String, kind: String) -> void:
 	_signal_art()
 	_label(panels, "NULRYTH", Vector2(72, 47), 230, 22, ACCENT)
 	preload("backrooms_developer_brand.gd").badge(panels,Vector2(330,43),34)
+	for item in [["S1","season",open_season], [localized("MAPS","地图"),"maps",open_maps], [localized("COLLECTION","收藏"),"collection",open_collection]]:
+		var index: int = ["season","maps","collection"].find(str(item[1]))
+		var tab: Button = _button(panels,str(item[0]),Rect2(780+index*176,49,160,46),item[2])
+		tab.add_theme_font_size_override("font_size",16);tab.size = Vector2(160,46);tab.set_selection(kind == item[1])
 	_label(panels, title, Vector2(72, 108), 1240, 40)
 	_button(panels, "BACK", Rect2(1320, 45, 204, 70), func(): close_panels() if game.running else menu())
 
@@ -549,10 +553,10 @@ func open_about() -> void:
 	preload("backrooms_developer_brand.gd").logo(panels,Rect2(105,248,357,357))
 	_label(panels, "ZOrix", Vector2(580, 244), 840, 45)
 	_label(panels, "Developed by ZOrix", Vector2(584, 335), 850, 27, ACCENT)
-	_label(panels, "NULRYTH / S1\nFour monochrome alleys, anime characters and weapons.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
+	_label(panels, "NULRYTH / S1\nSix distinct monochrome arenas, anime characters and weapons.\nENet 2–6 player matches; host-authoritative combat.", Vector2(584, 414), 875, 26)
 	_button(panels, "OFFICIAL WEBSITE / zorix.it", Rect2(584, 592, 825, 70), func(): OS.shell_open("https://zorix.it"))
 	_button(panels, "ASSET CREDITS / LICENSES", Rect2(584, 693, 825, 70), open_credits)
-	_label(panels, "BUILD 0.45.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
+	_label(panels, "BUILD 0.46.0 / ANDROID", Vector2(584, 797), 820, 18, MUTED)
 
 func open_credits() -> void:
 	_page(localized("ASSET CREDITS", "授权素材 / CREDITS"), "credits")
@@ -615,8 +619,8 @@ func open_lobby() -> void:
 	_button(panels, localized("CREATE ROOM", "创建房间"), Rect2(95, 563, 609, 62), _create_room)
 	_label(panels,localized("HOST MAP","房主地图"),Vector2(96,473),190,17,MUTED)
 	map_choice = OptionButton.new();map_choice.position = Vector2(280,471);map_choice.size = Vector2(424,56)
-	map_choice.add_item(localized("RANDOM / FOUR MAPS","随机 / 四张地图"),4)
-	for id in range(4):map_choice.add_item(preload("backrooms_map_catalog.gd").title(id,game.language == "zh"),id)
+	map_choice.add_item(localized("RANDOM / SIX MAPS","随机 / 六张地图"),6)
+	for id in range(6):map_choice.add_item(preload("backrooms_map_catalog.gd").title(id,game.language == "zh"),id)
 	panels.add_child(map_choice)
 	room_code_label = _label(panels, localized("Share your room code to invite friends.", "房间号在创建后显示，复制给朋友即可加入。"), Vector2(99, 638), 630, 22, ACCENT)
 	_label(panels, localized("Online: HTTPS directory + managed UDP server. Direct rooms need host mapping.", "跨网络：HTTPS 服务 + 独立 UDP 服务器。直连房间仍需房主映射端口。"), Vector2(97, 680), 628, 19, MUTED)
@@ -676,7 +680,7 @@ func _create_room() -> void:
 	if map_reveal.visible:return
 	game.rooms.cancel_match()
 	map_reveal.begin(false)
-	game.rooms.create_room(room_visibility.selected == 0, int(slot_limit.value), room_name_field.text,map_choice.get_selected_id() if map_choice.get_selected_id() < 4 else -1)
+	game.rooms.create_room(room_visibility.selected == 0, int(slot_limit.value), room_name_field.text,map_choice.get_selected_id() if map_choice.get_selected_id() < 6 else -1)
 	if is_instance_valid(room_status): room_status.text = localized("Creating room...", "正在创建房间……")
 
 func _join_by_code() -> void:
@@ -711,7 +715,7 @@ func _render_rooms(list: Array) -> void:
 		var join := SignalButton.new()
 		join.custom_minimum_size = Vector2(600, 59)
 		var map_id: int = int(entry.get("map_id",0))
-		var map_name: String = game.fps_arena.MAP_NAMES_ZH[clampi(map_id,0,3)] if game.language == "zh" else game.fps_arena.MAP_NAMES[clampi(map_id,0,3)]
+		var map_name: String = game.fps_arena.MAP_NAMES_ZH[clampi(map_id,0,5)] if game.language == "zh" else game.fps_arena.MAP_NAMES[clampi(map_id,0,5)]
 		join.text = "%s  ·  %d/%d  ·  %s" % [map_name,players,limit,code]
 		join.add_theme_font_size_override("font_size", 21)
 		join.disabled = players >= limit
@@ -905,10 +909,7 @@ func claim_season(tier: int, paid: bool) -> void:
 			season_notice.size.y = 32
 		else: season_notice.text = note
 func open_collection() -> void:
-	_page(localized("S1 / COLLECTION","S1 / 收藏"),"collection")
-	_label(panels,localized("SIGNAL TOKENS  %d","信号徽记  %d") % game.season.tokens,Vector2(80,226),1200,30)
-	var entries: String = "\n".join(game.season.collection)
-	_label(panels,entries if not entries.is_empty() else localized("Claim badges and titles in the S1 manual.","在 S1 手册领取徽章与称号。"),Vector2(80,320),1300,25)
+	preload("backrooms_collection_ui.gd").build(self)
 
 func settle_avatar(viewport: SubViewport) -> void:
 	_avatar_frame(viewport,2)

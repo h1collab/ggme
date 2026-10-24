@@ -1,5 +1,5 @@
 extends SceneTree
-# User-authorized native screenshots of four arenas, illustrated S1 and map reveal.
+# User-authorized native screenshots of six arenas, illustrated S1 and map reveal.
 var game: Node3D
 var output_dir := ""
 var issues: Array[String] = []
@@ -37,6 +37,25 @@ func interface_shot(label: String) -> void:
 	var image: Image = root.get_texture().get_image()
 	if image.save_png(output_dir.path_join("interface_"+label+".png")) != OK: issues.append(label)
 	else: print("GODOT_SIGNAL_INTERFACE_CAPTURE ",label)
+func ground_shot(map_id: int) -> void:
+	# Inspect the real shipped geometry, hiding only the warehouse roof/trusses
+	# so its actual floor plan remains visible in the review image.
+	var camera: Camera3D = game.player.camera
+	var saved: Transform3D = camera.global_transform
+	var projection := camera.projection;var extent := camera.size
+	var hidden: Array[Node3D] = []
+	for node in game.fps_arena.map_roots[map_id].get_children():
+		if str(node.name).begins_with("DepotRoof") or str(node.name).begins_with("DepotTruss"):
+			hidden.append(node);node.visible = false
+	game.ui.visible = false;game.fps.weapon_pivot.visible = false
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL;camera.size = 108
+	camera.global_position = Vector3(0,85,0);camera.look_at(Vector3.ZERO,Vector3.FORWARD)
+	for i in range(3):await process_frame
+	await RenderingServer.frame_post_draw
+	if root.get_texture().get_image().save_png(output_dir.path_join("map%d_ground_actual.png" % map_id)) != OK:issues.append("ground_plan")
+	for node in hidden:node.visible = true
+	camera.projection = projection;camera.size = extent;camera.global_transform = saved
+	game.ui.visible = true;game.fps.weapon_pivot.visible = true
 func run() -> void:
 	output_dir = OS.get_environment("FACELESS_PREVIEW_DIR")
 	if output_dir.is_empty(): output_dir = OS.get_user_data_dir().path_join("preview_frames")
@@ -106,10 +125,11 @@ func run() -> void:
 	game.ui.open_collection()
 	await interface_shot("s1_collection")
 	game.language = "en"
-	for map_id in [0,1,2,3]:
+	for map_id in range(6):
 		game.ui.touch_preview = false
 		game.start_fps_arena(map_id)
 		game.player.set_physics_process(false)
+		await ground_shot(map_id)
 		var prefix := "map%d_" % map_id
 		await shot(prefix+"00_overview",Vector3(-2.5,.12,7),Vector3(1,1.6,-18))
 		await shot(prefix+"01_hip",Vector3(0,.12,0),Vector3(0,1.6,-18))

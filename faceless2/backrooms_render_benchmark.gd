@@ -25,7 +25,7 @@ func run() -> void:
 	game.set_process(false)
 	game.ui.visible = false
 	var rows: Array[Dictionary] = []
-	for map_id in range(4):
+	for map_id in range(game.fps_arena.MAP_NAMES.size()):
 		game.start_fps_arena(map_id)
 		game.player.set_physics_process(false)
 		game.fps.set_process(false)

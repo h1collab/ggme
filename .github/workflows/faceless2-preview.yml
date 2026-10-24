@@ -18,6 +18,7 @@ on:
       - "faceless2/backrooms_player.gd"
       - "faceless2/backrooms_boot.gd"
       - "faceless2/backrooms_map*.gd"
+      - "faceless2/backrooms_collection_ui.gd"
       - "faceless2/backrooms_reward_art.gd"
       - "faceless2/ui_art/**"
       - "faceless2/backrooms_developer_brand.gd"
@@ -172,6 +173,12 @@ jobs:
           sudo chmod +x /usr/local/bin/godot
           godot --headless --path app --import
           godot --headless --path app --script scripts/backrooms_bake_rifle.gd
+          # Limit imported UI textures without changing the authored source art.
+          python - <<'TEXTURES'
+          from pathlib import Path
+          for p in Path('app/ui/art').glob('*.webp.import'):
+              p.write_text(p.read_text().replace('process/size_limit=0','process/size_limit=1024'))
+          TEXTURES
           godot --headless --path app --import
       - name: Compare native rendering against v0.38 on the same Linux runner
         shell: bash
@@ -196,7 +203,7 @@ jobs:
           from PIL import Image
           folder=Path("preview_frames/performance/optimized")
           rows=[]
-          for map_id in range(4):
+          for map_id in range(6):
               a=np.asarray(Image.open(folder/f"map{map_id}.png").convert("RGB"),dtype=float)/255
               b=np.asarray(Image.open(folder/f"map{map_id}-unbatched.png").convert("RGB"),dtype=float)/255
               diff=np.abs(a-b)
@@ -255,11 +262,11 @@ jobs:
           timeout --kill-after=15s 1200 xvfb-run -a -s "-screen 0 1600x900x24 -ac" godot --audio-driver Dummy --fixed-fps 20 --path app --rendering-driver opengl3 --rendering-method gl_compatibility --script scripts/backrooms_real_movie_capture.gd > preview_frames/video.log 2>&1 || { tail -80 preview_frames/video.log; exit 1; }
           grep -F GODOT_CONTINUOUS_VIDEO_FRAMES_PASS preview_frames/video.log
           if grep -E "ERROR:|FAIL:" preview_frames/video.log; then exit 1; fi
-          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/nulryth-v045-real-gameplay.mp4
+          ffmpeg -y -hide_banner -loglevel error -framerate 20 -i preview_frames/movie_frames/%05d.png -c:v libx264 -pix_fmt yuv420p -preset veryfast -crf 24 -movflags +faststart preview_frames/nulryth-v046-real-gameplay.mp4
           python - <<'VERIFY'
           from pathlib import Path
           import json,subprocess
-          p=Path("preview_frames/nulryth-v045-real-gameplay.mp4")
+          p=Path("preview_frames/nulryth-v046-real-gameplay.mp4")
           assert p.stat().st_size>120000,"MP4 missing or tiny"
           d=json.loads(subprocess.check_output(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=codec_name,nb_frames,width,height","-of","json",str(p)]))
           stream=d["streams"][0]

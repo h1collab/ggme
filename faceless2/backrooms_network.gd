@@ -2,7 +2,7 @@ extends Node
 
 # Android-native ENet direct peer hosting. No account, matchmaking or paid API.
 # Host owns the clock and all consequential actions; clients submit intentions.
-const PROTOCOL := 25
+const PROTOCOL := 26
 const MAX_CREW := 6
 const PEER_IDLE_LIMIT_MSEC := 15000
 var game: Node
@@ -432,7 +432,7 @@ func _fps_state(hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Di
 @rpc("authority","call_remote","reliable",0)
 func _fps_join(spawn: Vector3, selected_map: int, hp: Dictionary, ammo: Dictionary, points: Dictionary, combat: Dictionary) -> void:
 	if mode != "client": return
-	if selected_map not in [0,1,2,3]: return
+	if selected_map not in [0,1,2,3,4,5]: return
 	game.start_fps_arena(selected_map)
 	# Actual authoritative peer spawn (ENet peer IDs are not seat numbers).
 	game.player.reset_to(spawn)

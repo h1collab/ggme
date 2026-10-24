@@ -50,12 +50,18 @@ static func lobby(ui: Control) -> void:
 	ui._button(ui.panels,ui.localized("MAP ARCHIVE","地图档案"),Rect2(62,470,300,66),ui.open_maps)
 	ui._button(ui.panels,ui.localized("CONTROLS","操作指南"),Rect2(62,554,300,66),ui.open_guide)
 	ui._button(ui.panels,ui.localized("SETTINGS","设置"),Rect2(62,638,300,66),ui.open_settings)
-	avatar(ui,Rect2(436,142,640,560))
+	var hero: Panel = ui._card(ui.panels,Rect2(410,136,676,574),Color(.04,.04,.04))
+	var illustration: TextureRect = preload("backrooms_map_catalog.gd").illustration(hero,"season_echo",Rect2(1,1,674,572))
+	var crop := AtlasTexture.new();crop.atlas = illustration.texture
+	var extent: Vector2 = illustration.texture.get_size()
+	crop.region = Rect2(extent.x*.38,0,extent.x*.62,extent.y);illustration.texture = crop
+	ui._card(hero,Rect2(1,494,674,79),Color(.02,.02,.02,.94))
+	ui._label(hero,"FIRST SIGNAL",Vector2(22,512),630,30).size.y = 48
 	var featured: Panel = ui._card(ui.panels,Rect2(1120,214,390,258),Color(.07,.07,.07))
 	preload("backrooms_map_catalog.gd").image(featured,ui.training_map,Rect2(8,8,374,190))
 	ui._label(featured,preload("backrooms_map_catalog.gd").title(ui.training_map,ui.game.language == "zh"),Vector2(16,211),358,23).size.y = 36
-	ui._button(ui.panels,ui.localized("4 MAPS / EXPLORE   →","4 张地图 / 探索   →"),Rect2(1120,494,390,72),ui.open_maps)
-	ui._label(ui.panels,ui.localized("BLACK / WHITE / VOID","黑 / 白 / 虚无"),Vector2(590,688),560,20,ui.MUTED)
+	ui._button(ui.panels,ui.localized("6 MAPS / EXPLORE   →","6 张地图 / 探索   →"),Rect2(1120,494,390,72),ui.open_maps)
+	ui._label(ui.panels,ui.localized("BLACK / WHITE / VOID","黑 / 白 / 虚无"),Vector2(590,716),560,20,ui.MUTED)
 	ui._button(ui.panels,ui.localized("LOCAL TRAINING","本地训练"),Rect2(62,758,350,90),ui.begin_training_map)
 	ui._button(ui.panels,ui.localized("ROOMS","房间"),Rect2(432,758,300,90),ui.open_lobby)
 	var play: Button = ui._button(ui.panels,ui.localized("FIND A MATCH   →","开始匹配   →"),Rect2(1060,748,450,100),func(): ui.open_lobby(); ui._quick_match())
@@ -65,7 +71,7 @@ static func manual(ui: Control, page: int) -> void:
 	ui._page(ui.localized("S1 / SEASON MANUAL","S1 / 赛季手册"),"season")
 	var poster: Panel = ui._card(ui.panels,Rect2(72,222,350,588),Color(.04,.04,.04))
 	poster.name = "SeasonKeyArt"
-	preload("backrooms_map_catalog.gd").image(poster,0,Rect2(1,1,348,586),true)
+	preload("backrooms_map_catalog.gd").illustration(poster,"s1_keyart" if page < 4 else "season_echo",Rect2(1,1,348,586),true)
 	var caption: Panel = ui._card(poster,Rect2(1,460,348,127),Color(.025,.025,.025,.94))
 	ui._label(caption,"FIRST SIGNAL",Vector2(16,17),316,30).size.y = 48
 	ui._label(caption,ui.localized("45 LEVELS / TWO TRACKS","45 级 / 双轨奖励"),Vector2(17,78),312,16,ui.MUTED).size.y = 28
