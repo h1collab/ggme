@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource path="res://faceless2/backrooms_boot.gd" type="Script" id="1"]
+
+[node name="NULRYTHBoot" type="CanvasLayer"]
+script = ExtResource("1")

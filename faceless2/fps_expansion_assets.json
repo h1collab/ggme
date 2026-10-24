@@ -1,0 +1,76 @@
+{
+  "revision": "77343cac874f06b73d16ad0063339df7c9ca254c",
+  "root": "https://raw.githubusercontent.com/Papyszoo/CC0-Public-Domain-Models/77343cac874f06b73d16ad0063339df7c9ca254c/",
+  "assets": [
+    {
+      "file": "fps_pistol.glb",
+      "path": "packs/quaternius-toonshootergamekit/models/pistol/pistol.glb",
+      "size": 43200,
+      "git_blob": "2c972f6318e7e276b567d4f84d1d297784e298a8",
+      "sha256": "e2e04925cd7da2a2277dcc2cc786462bf4181990af9d19b169a87fc32c734f3b",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/toonshootergamekit.html"
+    },
+    {
+      "file": "fps_sniper.glb",
+      "path": "packs/quaternius-toonshootergamekit/models/sniper/sniper.glb",
+      "size": 86056,
+      "git_blob": "c2f7b16ea97fd17c008601f59ce2eb4a644b261b",
+      "sha256": "a4515fd68ece765d4995fe4ec21d2bc19ffb86490cfb96b5a34036b318e8ea11",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/toonshootergamekit.html"
+    },
+    {
+      "file": "fps_knife.glb",
+      "path": "packs/quaternius-toonshootergamekit/models/knife_1/knife_1.glb",
+      "size": 25600,
+      "git_blob": "5165f88031503caf681e76384f2932e9f50547c5",
+      "sha256": "caccc1bab73bfa2825e8011e6498a45c1cc411a9ea938800d5c805bfc043ac27",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/toonshootergamekit.html"
+    },
+    {
+      "file": "fps_character_1.glb",
+      "path": "packs/quaternius-ultimatedanimatedcharacter/models/soldier_male/soldier_male.glb",
+      "size": 1094616,
+      "git_blob": "08a6194c43a2b1c9c07f60e58a3d9045b3ca4d39",
+      "sha256": "8cac948b84679ad73917d026708a55ebbdfacc9a195a392556019cdd05cc2c8c",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/ultimatedanimatedcharacter.html"
+    },
+    {
+      "file": "fps_character_2.glb",
+      "path": "packs/quaternius-ultimatedanimatedcharacter/models/blue_soldier_female/blue_soldier_female.glb",
+      "size": 1302704,
+      "git_blob": "3f7a5a238ea43df29082314e28b3b16b410e87ec",
+      "sha256": "2f2340c049c1f3070ceb0f32dd164c9f724b504adeca9122a9186f1cc3f7627a",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/ultimatedanimatedcharacter.html"
+    },
+    {
+      "file": "fps_character_3.glb",
+      "path": "packs/quaternius-ultimatedanimatedcharacter/models/ninja_male/ninja_male.glb",
+      "size": 1079144,
+      "git_blob": "173af51c2ca03aa759f16e93c47eb2dfaea7cdb5",
+      "sha256": "1771452716515ef03d4760f45500ab68a705cbee8fec074a63b3c33fddf93920",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/ultimatedanimatedcharacter.html"
+    },
+    {
+      "file": "fps_character_4.glb",
+      "path": "packs/quaternius-ultimatedanimatedcharacter/models/ninja_sand_female/ninja_sand_female.glb",
+      "size": 1313224,
+      "git_blob": "0c714b663b22f345b621e5671516828fbf6d2a5b",
+      "sha256": "23366e9df98b34d404cde1468b895ed71a577aed1ad042c279157b7515ac4058",
+      "author": "Quaternius",
+      "license": "CC0-1.0",
+      "source": "https://quaternius.com/packs/ultimatedanimatedcharacter.html"
+    }
+  ]
+}
