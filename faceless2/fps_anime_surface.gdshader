@@ -5,10 +5,16 @@ uniform vec4 ink_color : source_color = vec4(0.65, 0.75, 0.95, 1.0);
 uniform bool viewmodel = false;
 uniform float grid_strength = 0.0;
 uniform float fracture_strength = 0.0;
+uniform int facade_pattern = 0;
+uniform float facade_variant = 0.0;
+varying vec3 box_position;
+varying vec3 box_normal;
 varying vec3 world_position;
 varying vec3 world_normal;
 
 void vertex() {
+    box_position = VERTEX;
+    box_normal = NORMAL;
     world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
     world_normal = normalize(MODEL_NORMAL_MATRIX * NORMAL);
 }
@@ -28,6 +34,20 @@ void fragment() {
     float mask = crack * segment * fracture_strength;
     vec3 inverse_ink = vec3(step(0.35, 0.5 - dot(ink_color.rgb,vec3(0.333333))));
     ALBEDO = mix(ALBEDO, inverse_ink, mask);
+    if (facade_pattern > 0 && abs(box_normal.y) < 0.6) {
+        vec2 uv = vec2(abs(box_normal.z) > 0.6 ? box_position.x : box_position.z, box_position.y);
+        float roof = step(0.47, uv.y);
+        if (facade_pattern == 2) {
+            float band = (1.0 - step(0.018, abs(uv.y + 0.24))) * (1.0 - step(0.43, abs(uv.x)));
+            float code = (1.0 - step(0.035, abs(uv.x - 0.27))) * (1.0 - step(0.08, abs(uv.y - 0.18)));
+            ALBEDO = mix(ALBEDO, vec3(0.78), max(roof, max(band, code)));
+        } else {
+            float window = (1.0 - step(0.19 + facade_variant * 0.025, abs(uv.x - (facade_variant - 1.0) * 0.08))) * (1.0 - step(0.075, abs(uv.y - 0.12)));
+            float seam = (1.0 - step(0.004, abs(uv.x + 0.34))) * (1.0 - step(0.43, abs(uv.y)));
+            float broken = facade_pattern == 3 ? (1.0 - step(0.006, abs(uv.x - 0.27 + uv.y * 0.24))) : 0.0;
+            ALBEDO = mix(ALBEDO, vec3(0.035), max(roof, max(window, max(seam, broken))));
+        }
+    }
     ROUGHNESS = 1.0;
     METALLIC = 0.0;
     EMISSION = ink_color.rgb * (0.10);

@@ -180,7 +180,7 @@ func _build_distinct(layout: Node3D, id: int, wall: Material, ink: Material) -> 
 	for n in range(blocks.size()):
 		var row: Array = blocks[n]
 		var extent := Vector3(float(row[2]),float(row[4]),float(row[3]))
-		var body: StaticBody3D = _panel(layout,"RouteBlock_%02d" % n,Vector3.ZERO,extent,ink if id == 5 else wall)
+		var body: StaticBody3D = _panel(layout,"RouteBlock_%02d" % n,Vector3.ZERO,extent,_block_finish(id,n))
 		body.position = Vector3(float(row[0]),extent.y*.5,float(row[1]))
 		if row.size() > 5:body.rotation.y = deg_to_rad(float(row[5]))
 	_add_curated_crates(layout,id)
@@ -211,6 +211,15 @@ func _build_distinct(layout: Node3D, id: int, wall: Material, ink: Material) -> 
 		for z in [-36.0,-12.0,12.0,36.0]:
 			_panel(layout,"DepotTruss%s" % z,Vector3(0,11.5,z),Vector3(66,.35,.35),wall)
 		for x in [-9.0,9.0]:_landmark(layout,"DepotLight%s" % x,Vector3(x,11.2,0),Vector3(.15,.08,80),wall)
+
+func _block_finish(id: int, index: int) -> ShaderMaterial:
+	# Ink facades are shader markings on the exact physical box surface: no
+	# protruding collision mismatch, transparent decals or extra draw geometry.
+	var color := Color(.32,.32,.32) if id == 5 else Color(.83,.83,.83)
+	var finish: ShaderMaterial = AnimeFinish.material(color,false,false,0.0,.65).duplicate()
+	finish.set_shader_parameter("facade_pattern",2 if id == 5 else (3 if id == 2 else 1))
+	finish.set_shader_parameter("facade_variant",float(index%3))
+	return finish
 
 func ground_plan(id: int) -> Array[Rect2]:
 	var result: Array[Rect2] = []
