@@ -512,6 +512,15 @@ func trigger_recoil() -> void:
     muzzle_flash_time = .075 if selected_weapon != 3 else 0.0
     if is_instance_valid(muzzle_light): muzzle_light.visible = selected_weapon != 3
 
+func _exit_tree() -> void:
+    # Explicitly release active weapon playback when leaving a game/fixture.
+    # Rapid weapon switching can otherwise keep fps_switch.wav on the mixer
+    # while the owning scene is already being destroyed.
+    for sound in [shot_audio,reload_audio,impact_audio,switch_audio,result_audio,damage_audio]+remote_shots:
+        if is_instance_valid(sound):
+            sound.stop()
+            sound.stream = null
+
 # Posing fingers uses authored WRAD skeleton bones only. No full-arm
 # shoulder/elbow IK, which visibly bent the source upper arms across the gun.
 func _curl_hand_fingers(skel: Skeleton3D, side: String) -> void:

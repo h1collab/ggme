@@ -217,6 +217,9 @@ func run() -> void:
 	check(fps.shot_sounds.size() == 4 and fps.shot_sounds.all(func(sound): return sound != null),"All four offline weapon sounds packaged")
 	game.net.leave()
 	game.queue_free()
+	game = null
 	for i in range(12): await process_frame
+	# Headless frames can finish before one audio mixer cycle has drained.
+	await create_timer(.3).timeout
 	if not failed: print("FPS_EXPANSION_PASS four weapons, finite inventories, monotonic reload/cadence, real melee occlusion, shoulder camera, four source rigs, HUD and offline sounds")
 	quit(1 if failed else 0)
