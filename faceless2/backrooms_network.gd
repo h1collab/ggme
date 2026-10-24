@@ -125,7 +125,7 @@ func _map_router(token: int, selected_port: int) -> void:
 	var public_ip := ""
 	var mapped := false
 	if result == UPNP.UPNP_RESULT_SUCCESS and gateway.get_gateway() != null:
-		mapped = gateway.add_port_mapping(selected_port, selected_port, "Faceless 2", "UDP", 3600) == UPNP.UPNP_RESULT_SUCCESS
+		mapped = gateway.add_port_mapping(selected_port, selected_port, "Strinova", "UDP", 3600) == UPNP.UPNP_RESULT_SUCCESS
 		if mapped: public_ip = gateway.query_external_address()
 	_mapping_complete.call_deferred(token, selected_port, gateway, mapped, public_ip)
 
@@ -206,7 +206,7 @@ func _hello(version: int, key: String) -> void:
 func _welcome(state: Dictionary, spawn: Vector3) -> void:
 	if mode != "client": return
 	members[1] = true
-	status = "Connected / Faceless 2 co-op"
+	status = "Connected / Strinova co-op"
 	game.revision = -1
 	game.receive_state(state)
 	game.player.reset_to(spawn)

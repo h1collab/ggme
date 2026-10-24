@@ -20,7 +20,7 @@ var room_code := ""
 var owner_token := ""
 var room_key := ""
 var room_public := true
-var room_name := "Faceless 2"
+var room_name := "Strinova"
 var max_players := 6
 var state := "idle"
 var operation := ""
@@ -76,7 +76,7 @@ func create_room(public_room: bool, slots: int, title: String = "", requested_ma
 	if epoch != match_epoch: return
 	room_public = public_room
 	max_players = clampi(slots, 2, 6)
-	room_name = title.strip_edges().substr(0, 40) if not title.strip_edges().is_empty() else "Faceless 2 / Random Maps"
+	room_name = title.strip_edges().substr(0, 40) if not title.strip_edges().is_empty() else "Strinova / Random Maps"
 	room_code = ""
 	owner_token = ""
 	room_key = ""
@@ -179,7 +179,7 @@ func quick_match() -> void:
 		game.net.leave()
 	if ticket != match_epoch: return
 	match_message = game.ui.localized("Opening a room · waiting for player 2","正在建房 · 等待第 2 人")
-	await create_room(true,6,"Faceless 2 / Random Maps")
+	await create_room(true,6,"Strinova / Random Maps")
 	# Keep the single-flight lock until actual directory creation completes.
 	while ticket == match_epoch and operation in ["create","managed"]: await get_tree().create_timer(.1).timeout
 	if ticket == match_epoch:

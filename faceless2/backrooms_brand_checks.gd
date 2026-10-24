@@ -34,6 +34,19 @@ func run() -> void:
 				for child in panel.get_children():
 					if child is Control:check(Rect2(Vector2.ZERO,panel.size).encloses(child.get_rect()),"Reward labels and actions stay within their card")
 			check(cards == 10,"Manual pages 1 and 45 retain both five-level tracks")
+	check(game.rooms.room_name == "Strinova","Default public room branding uses the new title")
+	var original_profile = game.season
+	game.season = preload("backrooms_season.gd").new()
+	game.season.profile_path = "user://strinova_claim_check.cfg"
+	game.ui.season_page = 0;game.ui.open_season();await process_frame
+	var claim: Button = game.ui.panels.get_node("Tier01Free/Claim")
+	var at: Vector2 = claim.get_global_transform_with_canvas()*(claim.size*.5)
+	for pressed in [true,false]:
+		var touch := InputEventScreenTouch.new();touch.index = 0;touch.position = at;touch.pressed = pressed;root.push_input(touch,true)
+	await process_frame
+	check(game.season.tokens == 55 and game.season.claimed.has(1),"Real viewport touch claims the available FREE reward")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(game.season.profile_path))
+	game.season = original_profile
 	game.interface_motion = false;game.ui.menu()
 	var art: Control = game.ui.panels.get_node("SignalAtlas")
 	var before: float = art.phase
