@@ -155,10 +155,12 @@ func run() -> void:
 	game.player.reset_to(Vector3(0,.12,0))
 	game.player.pitch = -.13
 	game.player.set_third_person(true)
+	game.fps_arena.set_process(false)
 	for pose in ["run","rise","fall"]:
 		game.fps_arena.local_shadow.update_combat(6.2,pose != "run",0,0,.016,0,5.0 if pose == "rise" else -4.0)
 		if pose == "run": game.fps_arena.local_shadow.animation.advance(.18)
 		await interface_shot("s1_motion_"+pose)
+	game.fps_arena.set_process(true)
 	game.player.set_third_person(false)
 	game.player.reset_to(Vector3(0,.12,0))
 	game.player.pitch = -1.2

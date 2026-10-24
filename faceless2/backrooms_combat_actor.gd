@@ -60,7 +60,8 @@ func set_weapon(index: int) -> void:
 	_update_hand_weapon()
 	if not is_instance_valid(attachment): push_error("Combat actor lacks original right-hand bone")
 func _update_hand_weapon() -> void:
-	if not is_instance_valid(held) or not is_instance_valid(skeleton) or hand_bone < 0: return
+	if not is_inside_tree() or not is_instance_valid(held) or not is_instance_valid(skeleton) or hand_bone < 0: return
+	if not held.is_inside_tree() or not skeleton.is_inside_tree(): return
 	var socket: Transform3D = skeleton.global_transform*skeleton.get_bone_global_pose(hand_bone)
 	var orientation := global_basis.orthonormalized()*Basis(Vector3.RIGHT,aim_pitch)
 	if current_weapon in [1,2]: orientation *= Basis(Vector3.UP,-PI*.5)

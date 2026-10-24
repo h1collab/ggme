@@ -46,6 +46,7 @@ var room_code_label: Label
 var intro_timer: Timer
 var panel_kind := ""
 var season_page := 0
+var season_notice: Label
 var cinematic_fade: ColorRect
 var call_title: Label
 var call_button: Button
@@ -865,13 +866,15 @@ func _brand_file(filename: String) -> String:
 	return packaged if ResourceLoader.exists(packaged) else "res://faceless2/branding/" + filename
 
 func open_season() -> void:
+	season_notice = null
 	preload("backrooms_season_ui.gd").manual(self,season_page)
 func claim_season(tier: int, paid: bool) -> void:
 	var result: String = game.season.claim(tier,paid)
 	if result == "CLAIMED": open_season()
 	else:
 		var note := localized("PAID PURCHASE NOT OPEN","付费手册暂未开放购买") if paid else localized("REACH THE REQUIRED LEVEL FIRST","先提升到对应等级")
-		_label(panels,note,Vector2(290,710),1100,20)
+		if not is_instance_valid(season_notice): season_notice = _label(panels,note,Vector2(290,710),1100,20)
+		else: season_notice.text = note
 func open_collection() -> void:
 	_page(localized("S1 / COLLECTION","S1 / 收藏"),"collection")
 	_label(panels,localized("SIGNAL TOKENS  %d","信号徽记  %d") % game.season.tokens,Vector2(80,226),1200,30)
